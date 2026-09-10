@@ -18,6 +18,11 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export const ehSupabaseStorageAtivo = Boolean(supabaseUrl && supabaseServiceKey)
 
+function obterDiretorioUploads(subpasta: string): string {
+  const base = process.env.UPLOAD_DIR ?? (process.env.VERCEL ? '/tmp/uploads' : './uploads')
+  return path.resolve(base, subpasta)
+}
+
 /**
  * Salva a foto de um dispositivo.
  *
@@ -55,8 +60,8 @@ export async function salvarFotoDispositivo(
     return `${supabaseUrl}/storage/v1/object/public/${BUCKET_FOTOS}/${nomeArquivo}`
   }
 
-  // Fallback para disco local
-  const dir = path.resolve(process.env.UPLOAD_DIR ?? './uploads', 'fotos')
+  // Fallback para disco local (ou /tmp se em serverless/Vercel)
+  const dir = obterDiretorioUploads('fotos')
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, nomeArquivo), buffer)
   return `/uploads/fotos/${nomeArquivo}`
@@ -95,8 +100,8 @@ export async function salvarCertificadoPdf(
     return `${supabaseUrl}/storage/v1/object/public/${BUCKET_CERTIFICADOS}/${nomeArquivo}`
   }
 
-  // Fallback para disco local
-  const dir = path.resolve(process.env.UPLOAD_DIR ?? './uploads', 'certificados')
+  // Fallback para disco local (ou /tmp se em serverless/Vercel)
+  const dir = obterDiretorioUploads('certificados')
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, nomeArquivo), buffer)
   return `/uploads/certificados/${nomeArquivo}`
@@ -124,24 +129,31 @@ export async function salvarAnexo(
   const nomeArquivo = `${sanitize}-${randomUUID().slice(0, 8)}${extensao}`
 
   if (ehSupabaseStorageAtivo) {
-    const endpoint = `${supabaseUrl}/storage/v1/object/${BUCKET_ANEXOS}/${nomeArquivo}`
-    const resposta = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${supabaseServiceKey}`,
-        'Content-Type': mime,
-        'x-upsert': 'true',
-      },
-      body: new Uint8Array(buffer),
-    })
+    try {
+      const endpoint = `${supabaseUrl}/storage/v1/object/${BUCKET_ANEXOS}/${nomeArquivo}`
+      const resposta = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          'Content-Type': mime,
+          'x-upsert': 'true',
+        },
+        body: new Uint8Array(buffer),
+      })
 
-    if (resposta.ok) {
-      return `${supabaseUrl}/storage/v1/object/public/${BUCKET_ANEXOS}/${nomeArquivo}`
+      if (resposta.ok) {
+        return `${supabaseUrl}/storage/v1/object/public/${BUCKET_ANEXOS}/${nomeArquivo}`
+      }
+
+      const erroTexto = await resposta.text().catch(() => '')
+      console.warn(`[storage] Supabase Storage anexo (${resposta.status}): ${erroTexto}`)
+    } catch (err) {
+      console.warn('[storage] Falha ao comunicar com Supabase Storage:', err)
     }
   }
 
-  // Fallback para disco local
-  const dir = path.resolve(process.env.UPLOAD_DIR ?? './uploads', 'anexos')
+  // Fallback para disco local (ou /tmp se em serverless/Vercel)
+  const dir = obterDiretorioUploads('anexos')
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, nomeArquivo), buffer)
   return `/uploads/anexos/${nomeArquivo}`

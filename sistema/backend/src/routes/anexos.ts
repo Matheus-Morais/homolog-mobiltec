@@ -61,12 +61,20 @@ const anexosRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(413).send({ erro: 'Arquivo muito grande. O limite máximo é de 50 MB.' })
       }
 
-      const url = await salvarAnexo(
-        extensao,
-        buffer,
-        arquivo.mimetype,
-        nomeOriginal,
-      )
+      let url: string
+      try {
+        url = await salvarAnexo(
+          extensao,
+          buffer,
+          arquivo.mimetype,
+          nomeOriginal,
+        )
+      } catch (err) {
+        request.log.error({ err }, 'Falha ao salvar anexo')
+        return reply.status(500).send({
+          erro: 'Não foi possível salvar o arquivo anexado no armazenamento.',
+        })
+      }
 
       const tipoFormatado = arquivo.mimetype.startsWith('image/') || ['.png', '.jpg', '.jpeg', '.webp'].includes(extensao)
         ? 'imagem'
