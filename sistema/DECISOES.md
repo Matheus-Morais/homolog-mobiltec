@@ -872,4 +872,13 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | D427 | Atualização de segurança do ecossistema Fastify 5 e JWT | Atualização coordenada de `fastify` (5.12.3), `@fastify/jwt` (10.2.2), `@fastify/static` (10.1.3), `@fastify/cors` (11.3.0), `@fastify/multipart` (10.1.1) e `fastify-plugin` (6.0.0) para sanar vulnerabilidades críticas de bypass de autenticação JWT e path traversal (GHSA-gmvf-9v4p-v8jc, GHSA-8pvw-jcv7-9cmj, GHSA-jx2c-rxcm-jvmq), com preservação de 100% dos tipos e roteiros de verificação mecânica |
 | D428 | Blindagem de RBAC para perfil LEITOR e restrição de rotas sensíveis de catálogo, dispositivos e vitrine | Garante que usuários com perfil LEITOR não possam criar ou alterar homologações, itens de catálogo ou transicionar status, restringe operações estruturais (DELETE/POST dispositivos, tipos e baterias) a ADMIN/HOMOLOGADOR, reabertura a ADMIN, e isola homologações em andamento na vitrine por empresa de parceiro |
 
+---
+
+## Etapa 60 — Simplificação e Compactação Visual dos Cards de Parceiros (D429)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D429 | Simplificação e compactação visual dos cards de parceiros na tela de gestão | Remove campos secundários da visualização em lista (nome do contato e chips de homologações permitidas) e padroniza os cards em layout horizontal compacto contendo estritamente Empresa, badge de status, e-mail e botões diretos de ação ("Editar" e "Inativar/Reativar"). Preserva todos os dados e permissões acessíveis e editáveis no modal |
+
+
 

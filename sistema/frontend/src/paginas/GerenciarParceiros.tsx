@@ -175,102 +175,75 @@ export function GerenciarParceiros() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {parceiros.map((p) => (
             <div
               key={p.id}
-              className="rounded-xl border p-4 flex flex-col justify-between transition-all hover:shadow-xs"
+              className="rounded-xl border px-3.5 py-3 flex items-center justify-between gap-3 transition-all hover:shadow-xs"
               style={{
                 borderColor: 'var(--color-border)',
                 background: 'var(--color-card)',
                 opacity: p.ativo ? 1 : 0.65,
               }}
             >
-              <div>
-                <div className="flex items-start justify-between gap-2.5 mb-1.5">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--color-foreground)' }}>
-                        {p.empresa}
-                      </h3>
-                      <span
-                        className="text-xs font-semibold select-none"
-                        style={{
-                          color: p.ativo ? '#16805A' : 'var(--color-muted-foreground)',
-                        }}
-                      >
-                        {p.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </div>
-                    <p className="text-xs truncate mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-                      {p.nome}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => abrirModalEditar(p)}
-                      className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:bg-black/5"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
-                    >
-                      Editar acessos
-                    </button>
-                    {p.ativo ? (
-                      <button
-                        type="button"
-                        onClick={() => inativarParceiro.mutate(p.id)}
-                        className="px-2 py-1 text-xs font-medium rounded border transition-colors hover:bg-red-50 text-red-600 border-red-200"
-                      >
-                        Inativar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => atualizarParceiro.mutate({ id: p.id, ativo: true })}
-                        className="px-2 py-1 text-xs font-medium rounded border transition-colors hover:bg-green-50 text-green-700 border-green-200"
-                      >
-                        Reativar
-                      </button>
-                    )}
-                  </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--color-foreground)' }}>
+                    {p.empresa}
+                  </h3>
+                  <span
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full select-none"
+                    style={{
+                      color: p.ativo ? 'var(--color-success-fg)' : 'var(--color-muted-foreground)',
+                      background: p.ativo ? 'var(--color-success-soft)' : 'var(--color-muted)',
+                      border: `1px solid ${p.ativo ? 'rgba(22, 163, 74, 0.25)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    {p.ativo ? 'Ativo' : 'Inativo'}
+                  </span>
                 </div>
-
-                <div className="mt-2 pt-2 border-t text-xs space-y-1.5" style={{ borderColor: 'var(--color-border)' }}>
-                  <div className="flex items-center gap-2 truncate text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-                    <Icone nome="email" className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{p.email}</span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    <span className="text-[11px] font-medium" style={{ color: 'var(--color-muted-foreground)' }}>
-                      Homologações:
-                    </span>
-                    {p.categoriasPermitidas && p.categoriasPermitidas.length > 0 ? (
-                      p.categoriasPermitidas.map((slug) => {
-                        const cat = categorias.find((c) => c.slug === slug)
-                        return (
-                          <span
-                            key={slug}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium"
-                            style={{
-                              background: 'var(--color-muted)',
-                              color: 'var(--color-foreground)',
-                              border: '1px solid var(--color-border)',
-                            }}
-                          >
-                            <Icone nome={iconeDaCategoria(cat?.icone ?? 'smartphone')} className="h-3 w-3" />
-                            {cat?.nome ?? slug}
-                          </span>
-                        )
-                      })
-                    ) : (
-                      <span className="text-[11px] italic" style={{ color: 'var(--color-muted-foreground)' }}>
-                        Nenhuma liberada
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center gap-1.5 mt-1 text-xs truncate" style={{ color: 'var(--color-muted-foreground)' }}>
+                  <Icone nome="email" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{p.email}</span>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => abrirModalEditar(p)}
+                  className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:bg-black/5"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
+                >
+                  Editar
+                </button>
+                {p.ativo ? (
+                  <button
+                    type="button"
+                    onClick={() => inativarParceiro.mutate(p.id)}
+                    className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:opacity-90"
+                    style={{
+                      borderColor: 'rgba(220, 38, 38, 0.25)',
+                      color: 'var(--color-destructive-fg)',
+                      background: 'var(--color-destructive-soft)',
+                    }}
+                  >
+                    Inativar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => atualizarParceiro.mutate({ id: p.id, ativo: true })}
+                    className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:opacity-90"
+                    style={{
+                      borderColor: 'rgba(22, 163, 74, 0.25)',
+                      color: 'var(--color-success-fg)',
+                      background: 'var(--color-success-soft)',
+                    }}
+                  >
+                    Reativar
+                  </button>
+                )}
               </div>
             </div>
           ))}

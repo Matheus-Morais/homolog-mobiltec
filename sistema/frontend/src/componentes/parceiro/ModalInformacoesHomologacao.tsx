@@ -104,6 +104,16 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
     return resultados
   }, [resultados, filtroItens])
 
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, typeof resultadosFiltrados>()
+    for (const res of resultadosFiltrados) {
+      const g = res.item?.grupo ?? 'OUTROS'
+      if (!mapa.has(g)) mapa.set(g, [])
+      mapa.get(g)!.push(res)
+    }
+    return Array.from(mapa.entries())
+  }, [resultadosFiltrados])
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -116,8 +126,14 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
         className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
       >
-        {/* Topo do Modal */}
-        <div className="p-5 border-b flex items-start justify-between gap-4 shrink-0 bg-slate-50/50">
+        {/* Topo do Modal com roxo sutil de fundo */}
+        <div
+          className="p-5 border-b flex items-start justify-between gap-4 shrink-0"
+          style={{
+            background: 'rgba(126, 32, 101, 0.04)',
+            borderColor: 'rgba(126, 32, 101, 0.12)',
+          }}
+        >
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -286,42 +302,59 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                     Nenhum item encontrado com o filtro selecionado.
                   </p>
                 ) : (
-                  <div className="divide-y border rounded-xl overflow-hidden bg-white shadow-2xs">
-                    {resultadosFiltrados.map((res: any) => (
-                      <div key={res.id} className="p-3 text-xs flex flex-col gap-1.5 hover:bg-slate-50/50">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className="text-[10px] font-bold uppercase tracking-wider shrink-0 px-2 py-0.5 rounded text-white shadow-2xs"
-                              style={{ background: 'var(--gradient-brand-purple)' }}
-                            >
-                              {res.item?.grupo ?? 'ITEM'}
-                            </span>
-                            <span className="font-semibold text-slate-900 truncate">
-                              {res.item?.nome ?? 'Item de teste'}
-                            </span>
-                          </div>
-                          <BadgeStatusItem status={res.status} />
+                  <div className="space-y-3">
+                    {grupos.map(([nomeGrupo, itensDoGrupo]) => (
+                      <div
+                        key={nomeGrupo}
+                        className="flex flex-col sm:flex-row border rounded-xl overflow-hidden bg-white shadow-2xs"
+                      >
+                        {/* Coluna da Categoria / Grupo (card com fundo branco e texto roxo) */}
+                        <div className="w-full sm:w-44 shrink-0 p-3.5 bg-slate-50/70 border-b sm:border-b-0 sm:border-r border-slate-100 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start gap-2">
+                          <span
+                            className="px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-wider bg-white border border-[rgba(126,32,101,0.25)] text-[var(--color-primary)] shadow-2xs"
+                          >
+                            {nomeGrupo}
+                          </span>
+                          <span className="text-[10.5px] text-slate-400 font-medium">
+                            {itensDoGrupo.length} {itensDoGrupo.length === 1 ? 'item' : 'itens'}
+                          </span>
                         </div>
 
-                        {/* Justificativa anexada */}
-                        {(res.justificativa || res.justificativaTexto) && (
-                          <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-200 text-[11px] text-amber-900 space-y-0.5 mt-0.5">
-                            <span className="font-bold block">
-                              Justificativa: {res.justificativa?.titulo ?? 'Nota do técnico'}
-                            </span>
-                            <p className="text-amber-800/90 whitespace-pre-wrap">
-                              {res.justificativa?.texto ?? res.justificativaTexto}
-                            </p>
-                          </div>
-                        )}
+                        {/* Coluna dos Testes Compactados e Uniformes */}
+                        <div className="flex-1 min-w-0 divide-y divide-slate-100">
+                          {itensDoGrupo.map((res: any) => (
+                            <div
+                              key={res.id}
+                              className="px-3.5 py-2 text-xs flex flex-col gap-1 hover:bg-slate-50/60 transition-colors"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-semibold text-slate-800 truncate" title={res.item?.nome}>
+                                  {res.item?.nome ?? 'Item de teste'}
+                                </span>
+                                <BadgeStatusItem status={res.status} />
+                              </div>
 
-                        {/* Observação técnica adicional */}
-                        {res.observacao && (
-                          <p className="text-[11px] text-slate-500 italic pl-2 border-l-2 border-slate-200">
-                            Obs: {res.observacao}
-                          </p>
-                        )}
+                              {/* Justificativa anexada */}
+                              {(res.justificativa || res.justificativaTexto) && (
+                                <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-200 text-[11px] text-amber-900 space-y-0.5 mt-0.5">
+                                  <span className="font-bold block">
+                                    Justificativa: {res.justificativa?.titulo ?? 'Nota do técnico'}
+                                  </span>
+                                  <p className="text-amber-800/90 whitespace-pre-wrap">
+                                    {res.justificativa?.texto ?? res.justificativaTexto}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Observação técnica adicional */}
+                              {res.observacao && (
+                                <p className="text-[11px] text-slate-500 italic pl-2 border-l-2 border-slate-200">
+                                  Obs: {res.observacao}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>

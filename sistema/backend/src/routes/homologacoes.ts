@@ -463,11 +463,12 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
       if (assinaturaApoio && String(assinaturaApoio).trim()) {
         const u = await fastify.prisma.usuario.findUnique({
           where: { id: request.user.id },
-          select: { nome: true },
+          select: { nome: true, empresa: true },
         })
         const nomeEsperado = u?.nome?.trim() ?? ''
-        // Normaliza automaticamente para o formato oficial do parceiro: "Nome — Parceiro"
-        assinaturaApoioFinal = `${nomeEsperado} — Parceiro`
+        const empresaEsperada = u?.empresa?.trim() || 'Parceiro'
+        // Normaliza automaticamente para o formato oficial do parceiro: "Nome — Empresa" (ex: "Matheus — TNS")
+        assinaturaApoioFinal = `${nomeEsperado} — ${empresaEsperada}`
       } else {
         assinaturaApoioFinal = null
       }
