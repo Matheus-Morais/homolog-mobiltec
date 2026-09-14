@@ -114,6 +114,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
 
     return fastify.prisma.homologacao.findMany({
       where: {
+        dispositivo: { ativo: true },
         ...(dispositivoId ? { dispositivoId } : {}),
         ...(whereStatus ? { status: whereStatus } : {}),
         ...(responsavelId ? { responsavelId } : {}),
