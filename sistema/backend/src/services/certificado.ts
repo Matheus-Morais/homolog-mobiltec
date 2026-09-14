@@ -565,7 +565,32 @@ export function gerarCertificadoHtml(
   // inclusive títulos que não correspondem a grupo nenhum. Blocos seguidos com
   // o mesmo título não repetem o cabeçalho, para a seção continuar lendo como
   // a automática.
-  const manuais = lerBlocosAnalise(h.analiseDivergencias)
+  const manuaisBrutos = lerBlocosAnalise(h.analiseDivergencias)
+  let manuais = manuaisBrutos
+  if (manuaisBrutos && divergencias.length > 0) {
+    // Sobreposição automática de justificativas atualizadas durante a homologação
+    const atualizados = [...manuaisBrutos]
+    for (const d of divergencias) {
+      for (const x of d.divergencias) {
+        const nomes = x.itens.join(' - ')
+        const idx = atualizados.findIndex(
+          (b) => b.subtitulo === nomes || x.itens.some((item) => b.subtitulo.includes(item)),
+        )
+        if (idx >= 0) {
+          atualizados[idx] = { ...atualizados[idx], texto: x.texto }
+        } else {
+          atualizados.push({
+            id: `div-${Date.now()}-${x.itemIds[0]}`,
+            titulo: CABECALHO_GRUPO[d.grupo].titulo,
+            subtitulo: nomes,
+            texto: x.texto,
+          })
+        }
+      }
+    }
+    manuais = atualizados
+  }
+
   const blocosManuais = manuais
     ?.map((b, i, todos) => {
       const repeteTitulo = i > 0 && todos[i - 1].titulo === b.titulo
@@ -621,14 +646,14 @@ export function gerarCertificadoHtml(
   const nomeGerente = h.assinaturaGerente?.trim() || h.gerente?.nome || ''
   const nomeApoio = h.assinaturaApoio?.trim() || h.apoio?.nome || ''
 
-  const paginaFinal = `<section class="pagina" style="background:#FFF url('${fundo}') center/100% 100% no-repeat"><div class="interna">
-    <div class="conteudo">
+  const paginaFinal = `<section class="pagina pagina-final" style="background:#FFF url('${fundo}') center/100% 100% no-repeat"><div class="interna interna-final">
+    <div class="conteudo conteudo-final">
       <h1 class="titulo-analise">Análise das Divergências</h1>
       <p class="subtitulo-analise">Os itens abaixo apresentam as divergências identificadas durante os testes de homologação e suas respectivas justificativas.</p>
       <hr class="regua">
       ${blocosDivergencia}
     </div>
-    <div class="rodape">
+    <div class="rodape rodape-final">
       ${fontesHtml}
       <div class="assinaturas">
         <div class="assinatura"><span class="valor">${esc(nomeResponsavel)}</span>${lapis('assinaturaResponsavel', '')}<br><span class="cargo">Responsável Técnico</span></div>
@@ -702,6 +727,18 @@ table.matriz td { padding:0; line-height:0.2in; }
 .sem-divergencia { text-align:center; font-size:11pt; font-style:italic; margin-top:0.6in; }
 
 .rodape { position:absolute; left:var(--margem); right:var(--margem); bottom:0.72in; }
+.pagina-final { min-height:297mm; height:auto; overflow:visible; }
+.interna-final {
+  position:relative; width:7.5in; min-height:10.8333in; height:auto;
+  transform:scale(1.1024, 1.0793); transform-origin:top left;
+  display:flex; flex-direction:column; justify-content:space-between;
+  padding:0.83in var(--margem) 0.72in var(--margem); box-sizing:border-box;
+}
+.conteudo-final { position:relative; top:0; left:0; right:0; flex:1 0 auto; margin-bottom:0.4in; }
+.rodape-final {
+  position:relative; bottom:0; left:0; right:0; margin-top:auto; flex-shrink:0;
+  break-inside:avoid; page-break-inside:avoid;
+}
 .fontes-titulo { text-align:center; font-weight:bold; font-size:10pt; }
 .fontes-lista { text-align:center; font-size:9.5pt; margin-top:0.04in; color:var(--roxo); }
 .fontes-lista a { color:inherit; text-decoration:underline; }
@@ -722,6 +759,7 @@ table.matriz td { padding:0; line-height:0.2in; }
 @media print {
   body { background:none; padding:0; }
   .pagina { margin:0; box-shadow:none; }
+  .pagina-final { overflow:visible; height:auto; min-height:297mm; }
   .editar { display:none !important; }
 }
 </style>

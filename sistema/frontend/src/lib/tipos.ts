@@ -191,6 +191,7 @@ export interface ItemObservacaoGeral {
   autorId?: string
   autorNome: string
   autorPapel?: string
+  autorEmail?: string
   criadoEm: string
   anexos: AnexoObservacao[]
 }
@@ -436,6 +437,7 @@ export interface Resultado {
   observacao: string | null
   justificativaId: string | null
   justificativaTexto: string | null
+  autorEmail?: string | null
   atualizadoEm: string
   item: ItemTeste
   justificativa: Justificativa | null
@@ -513,6 +515,8 @@ export interface ResultadoMatriz {
   observacao: string | null
   justificativaId: string | null
   justificativaTexto: string | null
+  autorEmail?: string | null
+  atualizadoEm?: string
   justificativa: { id: string; titulo: string; texto: string } | null
 }
 

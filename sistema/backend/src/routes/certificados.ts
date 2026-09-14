@@ -176,31 +176,29 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
     const manual = lerAnaliseManual(h.analiseDivergencias)
     const automaticos = analiseComoBlocos(h.resultados)
 
-    // O que a planilha ganhou depois que a seção foi assumida: justificativa
-    // que ainda não passou por aqui. Parágrafo reescrito ou apagado de
-    // propósito não volta — o texto original dele está em `vistos`.
-    const jaTratados = new Set([
-      ...(manual?.vistos ?? []),
-      ...(manual?.blocos ?? []).map((b) => b.texto),
-    ])
-    const novas = manual ? automaticos.filter((a) => a.texto && !jaTratados.has(a.texto)) : []
-
-    // Justificativa marcada como tratada que não virou bloco nenhum. Ou foi
-    // apagada de propósito, ou se perdeu — e o "Reconferir" do painel existe
-    // para o técnico decidir qual dos dois, sem que o sistema adivinhe.
-    const noBloco = new Set((manual?.blocos ?? []).map((b) => b.texto))
-    const foraDoDocumento = manual
-      ? automaticos.filter((a) => a.texto && !noBloco.has(a.texto)).length
-      : 0
+    let blocosFinais = manual?.blocos ?? automaticos
+    if (manual && h.status !== 'APROVADO' && h.status !== 'PUBLICADO') {
+      const atualizados = [...manual.blocos]
+      for (const auto of automaticos) {
+        if (!auto.texto) continue
+        const idx = atualizados.findIndex(
+          (b) => b.subtitulo === auto.subtitulo || b.id === auto.id || (auto.subtitulo && b.subtitulo?.includes(auto.subtitulo)),
+        )
+        if (idx >= 0) {
+          atualizados[idx] = { ...atualizados[idx], texto: auto.texto }
+        } else {
+          atualizados.push(auto)
+        }
+      }
+      blocosFinais = atualizados
+    }
 
     return {
       manual: manual !== null,
-      // Sem versão manual, devolve a automática: é o ponto de partida da
-      // edição, e o painel mostra o mesmo que o documento já traz
-      blocos: manual?.blocos ?? automaticos,
+      blocos: blocosFinais,
       vistos: manual?.vistos ?? [],
-      novas,
-      foraDoDocumento,
+      novas: [],
+      foraDoDocumento: 0,
       somenteLeitura: h.status === 'APROVADO' || h.status === 'PUBLICADO',
     }
   })

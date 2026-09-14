@@ -322,7 +322,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     // Verificar se a homologação está em estado editável
     const homologacao = await fastify.prisma.homologacao.findUnique({
       where: { id },
-      select: { status: true, responsavelId: true, apoioId: true },
+      select: { status: true, responsavelId: true, apoioId: true, analiseDivergencias: true },
     })
     if (!homologacao) return reply.status(404).send({ erro: 'Homologação não encontrada' })
     if (homologacao.status === StatusHomologacao.APROVADO || homologacao.status === StatusHomologacao.PUBLICADO) {
@@ -362,6 +362,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         observacao: body.observacao,
         justificativaId: body.justificativaId,
         justificativaTexto: body.justificativaTexto,
+        autorEmail: request.user?.email ?? null,
       },
       create: {
         homologacaoId: id,
@@ -370,6 +371,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         observacao: body.observacao,
         justificativaId: body.justificativaId,
         justificativaTexto: body.justificativaTexto,
+        autorEmail: request.user?.email ?? null,
       },
       include: { item: true, justificativa: true },
     })
@@ -380,6 +382,51 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id: body.justificativaId },
         data: { usoCount: { increment: 1 } },
       })
+    }
+
+    // Se a homologação tem análise manual de divergências e o item recebeu justificativa nova/alterada,
+    // sobrepõe imediatamente a funcionalidade correspondente no certificado sem exigir ação manual
+    if (homologacao.analiseDivergencias && typeof homologacao.analiseDivergencias === 'object') {
+      try {
+        const analise = homologacao.analiseDivergencias as {
+          blocos?: Array<{ id: string; titulo: string; subtitulo: string; texto: string }>
+          vistos?: string[]
+        }
+        if (Array.isArray(analise.blocos)) {
+          const textoJustificativa = body.justificativaTexto || (body.justificativaId ? resultado.justificativa?.texto : null)
+          const nomeItem = resultado.item?.nome
+          if (textoJustificativa && nomeItem) {
+            let blocoEncontrado = false
+            const blocosAtualizados = analise.blocos.map((b) => {
+              if (b.subtitulo?.includes(nomeItem) || b.id?.includes(itemId)) {
+                blocoEncontrado = true
+                return { ...b, texto: textoJustificativa }
+              }
+              return b
+            })
+            if (!blocoEncontrado) {
+              blocosAtualizados.push({
+                id: `item-${itemId}`,
+                titulo: resultado.item?.grupo ? `Grupo ${resultado.item.grupo}` : 'Análise Técnica',
+                subtitulo: nomeItem,
+                texto: textoJustificativa,
+              })
+            }
+            await fastify.prisma.homologacao.update({
+              where: { id },
+              data: {
+                analiseDivergencias: {
+                  ...analise,
+                  blocos: blocosAtualizados,
+                  vistos: [...new Set([...(analise.vistos ?? []), textoJustificativa])],
+                },
+              },
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar justificativa na análise do certificado:', err)
+      }
     }
 
     return resultado

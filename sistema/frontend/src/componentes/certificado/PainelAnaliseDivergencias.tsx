@@ -121,25 +121,7 @@ export function PainelAnaliseDivergencias({ homologacaoId }: { homologacaoId: st
    *
    * O que já está no rascunho sai da lista: trazida a justificativa, o aviso
    * some antes mesmo de salvar.
-   */
-  const novasJustificativas = data.novas.filter(
-    (a) =>
-      !rascunho.some((b) => b.texto.trim() === a.texto.trim()) &&
-      !(vistos ?? []).includes(a.texto),
-  )
 
-  function trazerNovas() {
-    setRascunho((v) => [
-      ...v!,
-      ...novasJustificativas.map((a, i) => ({ ...a, id: `vinda-${Date.now()}-${i}` })),
-    ])
-    setVistos((v) => [...new Set([...(v ?? []), ...novasJustificativas.map((a) => a.texto)])])
-  }
-
-  /** Recusa explícita: o parágrafo não entra e não volta a ser oferecido */
-  function dispensarNovas() {
-    setVistos((v) => [...new Set([...(v ?? []), ...novasJustificativas.map((a) => a.texto)])])
-  }
 
   /**
    * Devolve à lista tudo que hoje não está em bloco nenhum.
@@ -224,49 +206,6 @@ export function PainelAnaliseDivergencias({ homologacaoId }: { homologacaoId: st
         </button>
       ) : (
         <>
-          {novasJustificativas.length > 0 && (
-            <div
-              data-novas-justificativas
-              className="mb-3 rounded-md border px-3 py-2.5 text-xs"
-              style={{
-                borderColor: 'var(--color-primary)',
-                background: 'var(--color-muted)',
-              }}
-            >
-              <p className="font-semibold">
-                {novasJustificativas.length === 1
-                  ? 'Uma justificativa nova na planilha'
-                  : `${novasJustificativas.length} justificativas novas na planilha`}
-              </p>
-              <p className="mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-                {novasJustificativas.map((b) => b.subtitulo || b.titulo).join(', ')} — como esta
-                seção está escrita à mão,{' '}
-                {novasJustificativas.length === 1 ? 'ela não entra sozinha' : 'elas não entram sozinhas'}.
-              </p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  data-trazer-novas
-                  onClick={trazerNovas}
-                  className="flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold text-white"
-                  style={{ background: 'var(--gradient-brand-purple)' }}
-                >
-                  Trazer para a análise
-                </button>
-                <button
-                  type="button"
-                  data-dispensar-novas
-                  onClick={dispensarNovas}
-                  title="Não incluir no documento e não perguntar de novo"
-                  className="rounded-md border px-2.5 py-1.5 text-xs"
-                  style={{ color: 'var(--color-muted-foreground)' }}
-                >
-                  Dispensar
-                </button>
-              </div>
-            </div>
-          )}
-
           <div className="space-y-2" data-blocos-analise>
             {rascunho.map((b, i) => (
               <div
@@ -340,7 +279,7 @@ export function PainelAnaliseDivergencias({ homologacaoId }: { homologacaoId: st
           {/* Conferência contra a planilha: útil depois de muita edição, e é
               o caminho de volta para justificativa que a versão anterior
               deste painel marcou como tratada sem pôr no documento. */}
-          {novasJustificativas.length === 0 && data.foraDoDocumento > 0 && (
+          {data.foraDoDocumento > 0 && (
             <button
               type="button"
               data-reconferir

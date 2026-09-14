@@ -11,6 +11,8 @@ export function ModalObservacao({
   itemNome,
   modeloNome,
   textoAtual,
+  autorEmail,
+  atualizadoEm,
   salvando,
   aoSalvar,
   aoFechar,
@@ -18,6 +20,8 @@ export function ModalObservacao({
   itemNome: string
   modeloNome: string
   textoAtual: string
+  autorEmail?: string | null
+  atualizadoEm?: string | null
   salvando: boolean
   aoSalvar: (texto: string) => void
   aoFechar: () => void
@@ -156,6 +160,18 @@ export function ModalObservacao({
             </span>
           </div>
         </div>
+
+        {autorEmail && (
+          <div className="px-5 py-2 bg-muted/40 text-[11px] text-muted-foreground flex items-center justify-between border-t border-dashed" style={{ borderColor: 'var(--color-border)' }}>
+            <span>Último registro por <strong className="font-semibold text-foreground">{autorEmail}</strong></span>
+            {atualizadoEm && (
+              <span>
+                {new Date(atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
+                {new Date(atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="p-5 border-t flex items-center justify-between gap-3">
           <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>

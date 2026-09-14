@@ -103,6 +103,8 @@ export function ModalObservacoesHomologacao({
       item: item.nome,
       status: r!.status,
       texto: r!.observacao!.trim(),
+      autorEmail: (r as any)?.autorEmail ?? null,
+      atualizadoEm: (r as any)?.atualizadoEm ?? null,
     }))
 
   async function processarArquivo(arquivo: File) {
@@ -172,6 +174,7 @@ export function ModalObservacoesHomologacao({
       autorId: usuario?.id,
       autorNome: usuario?.nome ?? 'Usuário',
       autorPapel: usuario?.papel,
+      autorEmail: usuario?.email,
       criadoEm: new Date().toISOString(),
       anexos: anexosPendentes,
     }
@@ -474,6 +477,13 @@ export function ModalObservacoesHomologacao({
                         </div>
                       </div>
                     )}
+                    {/* Registro sutil de autoria e horário */}
+                    <div className="pt-2 border-t mt-2 text-[11px] text-muted-foreground flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
+                      <span>
+                        Registrado por <strong className="font-semibold text-foreground">{obs.autorEmail || obs.autorNome}</strong>
+                      </span>
+                      <span>{formatarDataHora(obs.criadoEm)}</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -514,6 +524,12 @@ export function ModalObservacoesHomologacao({
                     <p className="mt-1 leading-relaxed text-muted-foreground whitespace-pre-wrap">
                       {a.texto}
                     </p>
+                    <div className="pt-2 border-t mt-2 text-[11px] text-muted-foreground flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
+                      <span>
+                        Registrado por <strong className="font-semibold text-foreground">{a.autorEmail || 'técnico'}</strong>
+                      </span>
+                      {a.atualizadoEm && <span>{formatarDataHora(a.atualizadoEm)}</span>}
+                    </div>
                   </li>
                 ))}
               </ul>

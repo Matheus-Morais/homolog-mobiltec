@@ -940,6 +940,12 @@ export function Matriz() {
           textoAtual={
             observacao.coluna.homologacao.resultadosPorItem[observacao.item.id]?.observacao ?? ''
           }
+          autorEmail={
+            observacao.coluna.homologacao.resultadosPorItem[observacao.item.id]?.autorEmail ?? null
+          }
+          atualizadoEm={
+            observacao.coluna.homologacao.resultadosPorItem[observacao.item.id]?.atualizadoEm ?? null
+          }
           salvando={salvarCelula.isPending}
           aoFechar={() => setObservacao(null)}
           aoSalvar={(texto) => {

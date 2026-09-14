@@ -880,5 +880,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D429 | Simplificação e compactação visual dos cards de parceiros na tela de gestão | Remove campos secundários da visualização em lista (nome do contato e chips de homologações permitidas) e padroniza os cards em layout horizontal compacto contendo estritamente Empresa, badge de status, e-mail e botões diretos de ação ("Editar" e "Inativar/Reativar"). Preserva todos os dados e permissões acessíveis e editáveis no modal |
 
+---
+
+## Etapa 61 — Sincronização Dinâmica do Certificado e Rastreamento de Autoria (D430)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D430 | Sobreposição direta de justificativas no certificado, rodapé flexível sem quebras e rastreamento de autoria por e-mail e horário | Elimina banner manual de confirmação de justificativas no certificado; sobrepõe alterações diretamente nos blocos técnicos durante a homologação; implementa rodapé elástico em flexbox (`.pagina-final`, `.interna-final`, `.rodape-final`) para impedir colisões em certificados com muitas divergências; e adiciona `autorEmail` no modelo `Resultado` e `ItemObservacaoGeral` para exibir registro sutil de quem comentou e horário abaixo dos cards |
+
+
 
 

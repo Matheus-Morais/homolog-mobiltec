@@ -249,6 +249,7 @@ model Resultado {
   observacao          String?
   justificativaId     String?         @map("justificativa_id")
   justificativaTexto  String?         @map("justificativa_texto")
+  autorEmail          String?         @map("autor_email")
   atualizadoEm        DateTime        @updatedAt @map("atualizado_em")
   homologacao         Homologacao     @relation(fields: [homologacaoId], references: [id])
   item                ItemTeste       @relation(fields: [itemId], references: [id])

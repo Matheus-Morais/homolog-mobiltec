@@ -11,6 +11,7 @@ interface ItemObservacaoProcessada {
   titulo: string
   texto: string
   autorNome?: string
+  autorEmail?: string
   data?: string
   criadoEm?: string
   anexos?: any[]
@@ -26,6 +27,7 @@ export function parseObservacoes(raw?: string | null): ItemObservacaoProcessada[
         titulo: item.titulo || item.assunto || 'Observação',
         texto: item.texto || item.mensagem || item.descricao || '',
         autorNome: item.autorNome || item.autor || '',
+        autorEmail: item.autorEmail || item.email || '',
         data: item.data || item.criadoEm,
         anexos: item.anexos || [],
       }))
@@ -37,6 +39,7 @@ export function parseObservacoes(raw?: string | null): ItemObservacaoProcessada[
           titulo: parsed.titulo || 'Observação',
           texto: parsed.texto || parsed.mensagem || '',
           autorNome: parsed.autorNome,
+          autorEmail: parsed.autorEmail || parsed.email || '',
           data: parsed.data || parsed.criadoEm,
           anexos: parsed.anexos || [],
         },
@@ -221,11 +224,11 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-bold text-slate-900">{obs.titulo}</span>
-                          {obs.autorNome && (
+                          {(obs.autorEmail || obs.autorNome) && (
                             <span className="text-[10.5px] text-slate-500 font-medium">
-                              Registrado por <strong>{obs.autorNome}</strong>
+                              Registrado por <strong>{obs.autorEmail || obs.autorNome}</strong>
                               {obs.data || obs.criadoEm
-                                ? ` em ${new Date(obs.data || obs.criadoEm!).toLocaleDateString('pt-BR')}`
+                                ? ` em ${new Date(obs.data || obs.criadoEm!).toLocaleDateString('pt-BR')} às ${new Date(obs.data || obs.criadoEm!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
                                 : ''}
                             </span>
                           )}
@@ -343,14 +346,39 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                                   <p className="text-amber-800/90 whitespace-pre-wrap">
                                     {res.justificativa?.texto ?? res.justificativaTexto}
                                   </p>
+                                  {/* Registro sutil de autoria e horário */}
+                                  <div className="text-[10px] text-amber-700/80 pt-1 border-t border-amber-200/60 mt-1 flex items-center justify-between">
+                                    <span>
+                                      Registrado por <strong>{res.autorEmail || 'técnico'}</strong>
+                                    </span>
+                                    {res.atualizadoEm && (
+                                      <span>
+                                        {new Date(res.atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
+                                        {new Date(res.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               )}
 
                               {/* Observação técnica adicional */}
                               {res.observacao && (
-                                <p className="text-[11px] text-slate-500 italic pl-2 border-l-2 border-slate-200">
-                                  Obs: {res.observacao}
-                                </p>
+                                <div className="pl-2 border-l-2 border-slate-200 mt-1 space-y-0.5">
+                                  <p className="text-[11px] text-slate-500 italic">
+                                    Obs: {res.observacao}
+                                  </p>
+                                  <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                                    <span>
+                                      Registrado por <strong>{res.autorEmail || 'técnico'}</strong>
+                                    </span>
+                                    {res.atualizadoEm && (
+                                      <span>
+                                        {new Date(res.atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
+                                        {new Date(res.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           ))}
