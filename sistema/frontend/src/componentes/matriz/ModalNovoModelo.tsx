@@ -18,6 +18,7 @@ interface Props {
   aoFechar: () => void
   aoCriar: () => void
   aoPedirReteste?: (coluna: ColunaMatriz) => void
+  aoPedirRemover?: (coluna: ColunaMatriz) => void
 }
 
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -40,6 +41,7 @@ export function ModalNovoModelo({
   aoFechar,
   aoCriar,
   aoPedirReteste,
+  aoPedirRemover,
 }: Props) {
   const cadastrar = useCadastrarModelo()
   const salvarFicha = useSalvarFicha(categoriaSlug)
@@ -248,7 +250,7 @@ export function ModalNovoModelo({
         </div>
 
         <div className="p-5 border-t flex items-center justify-between gap-2 shrink-0">
-          <div>
+          <div className="flex items-center gap-2">
             {editando && aoPedirReteste && coluna && (
               <button
                 type="button"
@@ -257,6 +259,16 @@ export function ModalNovoModelo({
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
               >
                 Solicitar Reteste
+              </button>
+            )}
+            {editando && aoPedirRemover && coluna && (
+              <button
+                type="button"
+                onClick={() => aoPedirRemover(coluna)}
+                className="px-3 py-2 rounded-md text-sm font-medium border transition-colors hover:bg-red-500/10"
+                style={{ borderColor: 'var(--color-destructive)', color: 'var(--color-destructive)' }}
+              >
+                Remover da planilha
               </button>
             )}
           </div>

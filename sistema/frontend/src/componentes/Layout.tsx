@@ -733,12 +733,12 @@ export function Layout() {
    * onde saem os itens acima dele, não mais um deles. Não é tela: abre as duas
    * opções que configuram a lista e os tipos de dispositivo.
    */
-  const registro = { para: '/registro', rotulo: 'Configurar dispositivo', icone: 'registro' as NomeIcone }
-  const opcoesRegistro: ItemMenuDados[] = [
-    { para: '/registro', rotulo: 'Registrar dispositivo', icone: 'registro', fim: true },
+  const homologacaoConfig = { para: '/registro', rotulo: 'Configurar Homologação', icone: 'registro' as NomeIcone }
+  const opcoesHomologacaoConfig: ItemMenuDados[] = [
+    { para: '/registro', rotulo: 'Registrar homologação', icone: 'registro', fim: true },
     // `fim: false`: editar um tipo é `/registro/tipos/:id`, e a opção continua
     // sendo esta. O item acima é `fim: true` para não engolir esta rota.
-    { para: '/registro/tipos', rotulo: 'Editar / remover dispositivo', icone: 'registro', fim: false },
+    { para: '/registro/tipos', rotulo: 'Editar / remover homologação', icone: 'registro', fim: false },
   ]
 
   const parceiros = { para: '/parceiros', rotulo: 'Parceiros', icone: 'parceiros' as NomeIcone }
@@ -754,7 +754,7 @@ export function Layout() {
   /**
    * Seção atual, para a trilha da barra superior.
    *
-   * Em menus que possuem mais de uma opção (como Configurar dispositivo e Parceiros),
+   * Em menus que possuem mais de uma opção (como Configurar Homologação e Parceiros),
    * a barra do topo mantém sempre o nome do grupo principal, enquanto a página
    * exibe no título principal o nome da tela/submenu.
    */
@@ -770,8 +770,11 @@ export function Layout() {
       const p = todosParceiros.find((x) => x.id === idOuEmpresa || x.empresa.toLowerCase() === idOuEmpresa.toLowerCase())
       return { rotulo: `Painel · ${p?.empresa || idOuEmpresa}`, icone: 'painel' as NomeIcone }
     }
-    if (opcoesRegistro.some((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))) {
-      return registro
+    if (pathname.startsWith('/configurar-dispositivos') || pathname.startsWith('/dispositivos/gerenciar')) {
+      return { rotulo: 'Configurar Dispositivos', icone: 'smartphone' as NomeIcone }
+    }
+    if (opcoesHomologacaoConfig.some((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))) {
+      return homologacaoConfig
     }
     if (opcoesParceiros.some((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))) {
       return parceiros
@@ -844,7 +847,33 @@ export function Layout() {
                 existem; abaixo, quem cria e mantém a lista deles. */}
             {!ehParceiro && (
               <div className="!mt-2 pt-2 space-y-1" style={{ borderTop: '1px solid var(--color-border)' }}>
-                <GrupoMenu item={registro} filhos={opcoesRegistro} aberto={aberto} />
+                <GrupoMenu item={homologacaoConfig} filhos={opcoesHomologacaoConfig} aberto={aberto} />
+                {ehAdmin && (
+                  <NavLink
+                    to="/configurar-dispositivos"
+                    title={aberto ? undefined : 'Configurar dispositivos'}
+                    data-item-menu="Configurar dispositivos"
+                    className={({ isActive }) =>
+                      `btn-menu-lateral relative flex items-center select-none outline-none focus:outline-none focus-visible:outline-none ${
+                        aberto
+                          ? 'w-full gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium leading-tight'
+                          : 'mx-auto h-9 w-9 items-center justify-center rounded-lg'
+                      } ${
+                        isActive
+                          ? 'btn-menu-ativo text-white'
+                          : 'text-[var(--color-muted-foreground)] hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
+                      }`
+                    }
+                    style={({ isActive }) => ({
+                      background: isActive ? 'var(--gradient-brand-purple)' : undefined,
+                      boxShadow: isActive ? '0 2px 6px -1px rgba(126, 32, 101, 0.35)' : undefined,
+                      justifyContent: aberto ? 'flex-start' : 'center',
+                    })}
+                  >
+                    <Icone nome="smartphone" className="h-[18px] w-[18px] shrink-0" />
+                    {aberto && <span className="flex-1 truncate text-left">Configurar dispositivos</span>}
+                  </NavLink>
+                )}
                 {ehAdmin && (
                   <GrupoMenu
                     item={parceiros}

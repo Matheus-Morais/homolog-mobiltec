@@ -18,6 +18,7 @@ import { ModalObservacao } from '@/componentes/matriz/ModalObservacao'
 import { ModalObservacoesHomologacao } from '@/componentes/matriz/ModalObservacoesHomologacao'
 import { MenuColuna, type AcaoColuna } from '@/componentes/matriz/MenuColuna'
 import { ModalReabrir } from '@/componentes/matriz/ModalReabrir'
+import { useRemoverHomologacao } from '@/hooks/useHomologacao'
 import { SeletorFiltro } from '@/componentes/matriz/SeletorFiltro'
 import { PainelJustificativa } from '@/componentes/matriz/PainelJustificativa'
 import { LoadingTela } from '@/componentes/LoadingTela'
@@ -154,6 +155,9 @@ export function Matriz() {
   const [observacoes, setObservacoes] = useState<ColunaMatriz | null>(null)
   /** Configuração: o formulário do cadastro, agora editando o que já existe */
   const [configurar, setConfigurar] = useState<ColunaMatriz | null>(null)
+  const [remover, setRemover] = useState<ColunaMatriz | null>(null)
+  const [erroRemover, setErroRemover] = useState<string | null>(null)
+  const removerHomologacao = useRemoverHomologacao()
 
   const { data: baterias } = useQuery({
     queryKey: ['baterias', data?.categoria.id],
@@ -725,35 +729,58 @@ export function Matriz() {
                       </div>
 
                       <div className="absolute right-0 top-0">
-                      <MenuColuna
-                        modelo={c.homologacao.dispositivo.nomeComercial}
-                        acoes={[
-                          // Configuração disponível para parceiro durante o processo e para Mobiltec
-                          !ehLeitor && (!ehSomenteLeitura(c.homologacao.status, usuario?.papel) || !ehParceiro) && {
-                            rotulo: 'Configuração',
-                            aoClicar: () => setConfigurar(c),
-                          },
-                          (!ehParceiro || c.homologacao.status === 'APROVADO' || c.homologacao.status === 'PUBLICADO') && {
-                            rotulo: 'Certificado',
-                            aoClicar: () =>
-                              navegar(`/homologacoes/${c.homologacao.id}/certificado`),
-                          },
-                          // Reteste disponível para parceiro e Mobiltec, inclusive após enviar para validação
-                          !ehLeitor && { rotulo: 'Reteste', aoClicar: () => setReteste(c) },
-                          {
-                            rotulo: 'Observação',
-                            aoClicar: () => setObservacoes(c),
-                            marcado: !!c.homologacao.observacoes?.trim(),
-                          },
-                          ehSomenteLeitura(c.homologacao.status, usuario?.papel)
-                            ? (usuario?.papel === 'ADMIN' ? { rotulo: 'Reabrir', aoClicar: () => setReabrir(c), destaque: true } : null)
-                            : (!ehLeitor ? {
-                                rotulo: ehParceiro ? 'Enviar para Validação' : 'Finalizar',
-                                aoClicar: () => setFinalizar(c),
-                                destaque: true,
-                              } : null),
-                        ].filter(Boolean) as AcaoColuna[]}
-                      />
+                      {(() => {
+                        const ehFinalizada =
+                          c.homologacao.status === 'APROVADO' ||
+                          c.homologacao.status === 'PUBLICADO' ||
+                          c.homologacao.status === 'REPROVADO'
+                        const podeRemover =
+                          !ehLeitor &&
+                          (usuario?.papel === 'ADMIN' ||
+                            (!ehFinalizada &&
+                              (usuario?.papel === 'HOMOLOGADOR' ||
+                                (ehParceiro && c.homologacao.responsavelId === usuario?.id))))
+
+                        return (
+                          <MenuColuna
+                            modelo={c.homologacao.dispositivo.nomeComercial}
+                            acoes={[
+                              // Configuração disponível para parceiro durante o processo e para Mobiltec
+                              !ehLeitor && (!ehSomenteLeitura(c.homologacao.status, usuario?.papel) || !ehParceiro) && {
+                                rotulo: 'Configuração',
+                                aoClicar: () => setConfigurar(c),
+                              },
+                              (!ehParceiro || c.homologacao.status === 'APROVADO' || c.homologacao.status === 'PUBLICADO') && {
+                                rotulo: 'Certificado',
+                                aoClicar: () =>
+                                  navegar(`/homologacoes/${c.homologacao.id}/certificado`),
+                              },
+                              // Reteste disponível para parceiro e Mobiltec, inclusive após enviar para validação
+                              !ehLeitor && { rotulo: 'Reteste', aoClicar: () => setReteste(c) },
+                              {
+                                rotulo: 'Observação',
+                                aoClicar: () => setObservacoes(c),
+                                marcado: !!c.homologacao.observacoes?.trim(),
+                              },
+                              ehSomenteLeitura(c.homologacao.status, usuario?.papel)
+                                ? (usuario?.papel === 'ADMIN' ? { rotulo: 'Reabrir', aoClicar: () => setReabrir(c), destaque: true } : null)
+                                : (!ehLeitor ? {
+                                    rotulo: ehParceiro ? 'Enviar para Validação' : 'Finalizar',
+                                    aoClicar: () => setFinalizar(c),
+                                    destaque: true,
+                                  } : null),
+                              podeRemover && {
+                                rotulo: 'Remover da planilha',
+                                aoClicar: () => {
+                                  setErroRemover(null)
+                                  setRemover(c)
+                                },
+                                destrutivo: true,
+                              },
+                            ].filter(Boolean) as AcaoColuna[]}
+                          />
+                        )
+                      })()}
                       </div>
                     </div>
 
@@ -906,7 +933,102 @@ export function Matriz() {
             setConfigurar(null)
             setReteste(col)
           }}
+          aoPedirRemover={
+            (!ehLeitor &&
+              (usuario?.papel === 'ADMIN' ||
+                (!(
+                  configurar.homologacao.status === 'APROVADO' ||
+                  configurar.homologacao.status === 'PUBLICADO' ||
+                  configurar.homologacao.status === 'REPROVADO'
+                ) &&
+                  (usuario?.papel === 'HOMOLOGADOR' ||
+                    (ehParceiro && configurar.homologacao.responsavelId === usuario?.id)))))
+              ? (col) => {
+                  setConfigurar(null)
+                  setErroRemover(null)
+                  setRemover(col)
+                }
+              : undefined
+          }
         />
+      )}
+
+      {remover && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15,15,18,.45)' }}
+          onClick={() => setRemover(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Remover homologação da planilha"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.key === 'Escape' && setRemover(null)}
+            className="w-full max-w-md rounded-xl border shadow-xl p-5 space-y-4"
+            style={{ background: 'var(--color-popover)', color: 'var(--color-foreground)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                style={{ background: 'var(--color-destructive-soft)', color: 'var(--color-destructive)' }}
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold">Remover da planilha</h3>
+                <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                  {remover.homologacao.dispositivo.nomeComercial} · agente {remover.homologacao.versaoAgente}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
+              Tem certeza que deseja remover esta homologação da planilha? Todos os resultados de testes e anotações deste item serão excluídos.
+            </p>
+
+            {erroRemover && (
+              <div
+                role="alert"
+                className="px-3 py-2 rounded-md text-xs"
+                style={{ background: 'var(--color-destructive-soft)', color: 'var(--color-destructive-fg)' }}
+              >
+                {erroRemover}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <button
+                type="button"
+                onClick={() => setRemover(null)}
+                disabled={removerHomologacao.isPending}
+                className="px-3 py-1.5 rounded-md text-xs font-medium"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={removerHomologacao.isPending}
+                onClick={async () => {
+                  try {
+                    setErroRemover(null)
+                    await removerHomologacao.mutateAsync(remover.homologacao.id)
+                    setRemover(null)
+                  } catch (err) {
+                    setErroRemover(err instanceof ErroApi ? err.message : 'Não foi possível remover da planilha.')
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-50 transition-opacity"
+                style={{ background: 'var(--color-destructive)' }}
+              >
+                {removerHomologacao.isPending ? 'Removendo…' : 'Remover da planilha'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {reteste && (

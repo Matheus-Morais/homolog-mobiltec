@@ -12,16 +12,26 @@ import type { ColunaMatriz } from '@/lib/tipos'
  */
 export function ModalReabrir({
   coluna,
+  homologacao,
   aoFechar,
   aoReabrir,
 }: {
-  coluna: ColunaMatriz
+  coluna?: ColunaMatriz
+  homologacao?: {
+    id: string
+    dispositivo: { nomeComercial: string }
+    versaoAgente: string
+    _count?: { certificados?: number }
+  }
   aoFechar: () => void
   aoReabrir: () => void
 }) {
-  const reabrir = useReabrir(coluna.homologacao.id)
+  const h = coluna?.homologacao || homologacao
+  const reabrir = useReabrir(h?.id)
   const [motivo, setMotivo] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+
+  if (!h) return null
 
   const curto = motivo.trim().length < 10
 
@@ -54,8 +64,7 @@ export function ModalReabrir({
         <div className="p-5 border-b">
           <h2 className="text-lg font-semibold">Reabrir homologação</h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-            {coluna.homologacao.dispositivo.nomeComercial} · agente{' '}
-            {coluna.homologacao.versaoAgente}
+            {h.dispositivo.nomeComercial} · agente {h.versaoAgente}
           </p>
         </div>
 
@@ -66,8 +75,8 @@ export function ModalReabrir({
           >
             Volta para rascunho e libera a edição. A reabertura fica registrada em log, com
             autor e motivo.
-            {coluna.homologacao._count?.certificados
-              ? ` Já existem ${coluna.homologacao._count.certificados} certificado(s) emitido(s) desta homologação — eles continuam válidos como estão.`
+            {h._count?.certificados
+              ? ` Já existem ${h._count.certificados} certificado(s) emitido(s) desta homologação — eles continuam válidos como estão.`
               : ''}
           </div>
 

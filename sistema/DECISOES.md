@@ -888,6 +888,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D430 | Sobreposição direta de justificativas no certificado, rodapé flexível sem quebras e rastreamento de autoria por e-mail e horário | Elimina banner manual de confirmação de justificativas no certificado; sobrepõe alterações diretamente nos blocos técnicos durante a homologação; implementa rodapé elástico em flexbox (`.pagina-final`, `.interna-final`, `.rodape-final`) para impedir colisões em certificados com muitas divergências; e adiciona `autorEmail` no modelo `Resultado` e `ItemObservacaoGeral` para exibir registro sutil de quem comentou e horário abaixo dos cards |
 
+---
+
+## Etapa 62 — Remoção de Homologações em Planilha e Gestão de Dispositivos Finalizados (D431)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D431 | Remoção de homologações com RBAC em planilha e painel consultivo de dispositivos finalizados com reabertura e exclusão sincronizada | Adiciona `DELETE /homologacoes/:id` com regras estritas de permissão: ADMIN/HOMOLOGADOR podem remover qualquer homologação de suas planilhas; membros de empresas parceiras visualizam itens de sua equipe mas apenas o criador/responsável (`responsavelId === usuario.id`) pode remover da planilha; exclusão atômica de dependentes e do dispositivo quando não houver outros testes vinculados. Reestrutura o menu lateral para "Configurar Homologação" (com subitens de registro e edição de tipos) e adiciona para Administrador o botão "Configurar dispositivos" com acesso ao painel consultivo unificado de dispositivos finalizados (`/configurar-dispositivos`), permitindo reabrir com justificativa ou excluir permanentemente da base refletindo dinamicamente nos painéis Mobiltec e Parceiro |
+
 
 
 
