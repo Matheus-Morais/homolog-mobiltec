@@ -502,8 +502,8 @@ function MenuPaineis({
                 <span className="truncate">Mobiltec</span>
               </NavLink>
 
-              {/* Se for PARCEIRO: mostra diretamente o nome da própria empresa */}
-              {ehParceiro && (
+              {/* Se for PARCEIRO: mostra diretamente o nome da própria empresa (se não for a Mobiltec) */}
+              {ehParceiro && usuario?.empresa && usuario.empresa.trim().toLowerCase() !== 'mobiltec' && (
                 <NavLink
                   to="/paineis/meu-painel"
                   className={({ isActive }) =>
@@ -514,7 +514,7 @@ function MenuPaineis({
                     }`
                   }
                 >
-                  <span className="truncate">{usuario?.empresa || 'Meu Painel'}</span>
+                  <span className="truncate">{usuario.empresa}</span>
                 </NavLink>
               )}
 
@@ -618,7 +618,7 @@ function MenuPaineis({
             Mobiltec
           </NavLink>
 
-          {ehParceiro && (
+          {ehParceiro && usuario?.empresa && usuario.empresa.trim().toLowerCase() !== 'mobiltec' && (
             <NavLink
               to="/paineis/meu-painel"
               role="menuitem"
@@ -630,7 +630,7 @@ function MenuPaineis({
                 fontWeight: isActive ? 600 : 400,
               })}
             >
-              {usuario?.empresa || 'Meu Painel'}
+              {usuario.empresa}
             </NavLink>
           )}
 

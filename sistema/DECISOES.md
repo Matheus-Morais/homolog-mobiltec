@@ -936,6 +936,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D436 | Alerta de diálogo de impressão do certificado em roxo suave de marca | Substitui a tonalidade vermelha/destrutiva (que sugeria incorretamente falha/erro ao usuário) por um banner estilizado nos tokens roxos oficiais da Mobiltec (`--color-brand-purple-soft: #fbf4fa`, `--color-brand-purple-fg: #6e226b`, `--color-brand-purple-border: #f0d5eb`) acompanhado do ícone animado de impressora em `DetalheDispositivo.tsx` e `Certificado.tsx`, preservando a estilização destrutiva exclusivamente para falhas reais de API/geração. |
 
+---
+
+## Etapa 68 — Visibilidade Unificada no Painel Principal e Seletor Fixo com Criação Dinâmica de Parceiros (D437)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D437 | Visibilidade unificada no Painel Geral Mobiltec e seletor estrito com criação rápida de parceiros | Ajusta `GET /vitrine` para que o painel principal (`/`) forneça visão geral das homologações em andamento no ambiente Mobiltec para todos os usuários (incluindo parceiros), preservando os painéis exclusivos de cada parceiro (`/paineis/meu-painel`) para acompanhamento restrito de sua própria empresa; remove a duplicação do botão "Mobiltec" no menu lateral para usuários internos; e em `GerenciarParceiros.tsx`, substitui o campo livre por seletor com nomes fixos pré-registrados (`Mobiltec`, `TNS` e existentes) acompanhado de botão de criação inline `+ Criar Novo Parceiro`, garantindo vinculação estrita de cada usuário ao ambiente da sua empresa. |
+
 
 
 

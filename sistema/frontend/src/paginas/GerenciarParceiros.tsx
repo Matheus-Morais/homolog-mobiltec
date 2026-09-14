@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParceiros, useCriarParceiro, useAtualizarParceiro, useInativarParceiro } from '@/hooks/useParceiros'
 import { useCategorias } from '@/hooks/useVitrine'
 import { Icone, iconeDaCategoria } from '@/componentes/Icone'
@@ -25,12 +25,62 @@ export function GerenciarParceiros() {
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
 
+  // Gestão de empresas cadastradas
+  const [empresasExtras, setEmpresasExtras] = useState<string[]>([])
+  const [criandoEmpresa, setCriandoEmpresa] = useState(false)
+  const [novaEmpresaNome, setNovaEmpresaNome] = useState('')
+  const [erroNovaEmpresa, setErroNovaEmpresa] = useState<string | null>(null)
+
+  const empresasDisponiveis = useMemo(() => {
+    const mapa = new Map<string, string>()
+    // Nomes fixos principais
+    mapa.set('mobiltec', 'Mobiltec')
+    mapa.set('tns', 'TNS')
+
+    for (const p of parceiros) {
+      if (p.empresa?.trim()) {
+        const chave = p.empresa.trim().toLowerCase()
+        if (!mapa.has(chave)) {
+          mapa.set(chave, p.empresa.trim())
+        }
+      }
+    }
+    for (const e of empresasExtras) {
+      if (e.trim()) {
+        const chave = e.trim().toLowerCase()
+        if (!mapa.has(chave)) {
+          mapa.set(chave, e.trim())
+        }
+      }
+    }
+    return Array.from(mapa.values())
+  }, [parceiros, empresasExtras])
+
+  function salvarNovaEmpresa() {
+    const nomeLimpo = novaEmpresaNome.trim()
+    if (!nomeLimpo) {
+      setErroNovaEmpresa('Informe o nome da empresa parceira.')
+      return
+    }
+    const chave = nomeLimpo.toLowerCase()
+    if (!empresasDisponiveis.some((e) => e.toLowerCase() === chave)) {
+      setEmpresasExtras((prev) => [...prev, nomeLimpo])
+    }
+    setEmpresa(nomeLimpo)
+    setCriandoEmpresa(false)
+    setNovaEmpresaNome('')
+    setErroNovaEmpresa(null)
+  }
+
   function abrirModalCriar() {
     setParceiroEdicao(null)
     setEmpresa('')
     setNome('')
     setEmail('')
     setSenha('Mobiltec@2026')
+    setCriandoEmpresa(false)
+    setNovaEmpresaNome('')
+    setErroNovaEmpresa(null)
     // Por padrão marca 'pos' ou a primeira categoria se existir
     setCategoriasPermitidas(categorias.length > 0 ? [categorias[0].slug] : ['pos'])
     setErro(null)
@@ -44,6 +94,9 @@ export function GerenciarParceiros() {
     setNome(p.nome)
     setEmail(p.email)
     setSenha('')
+    setCriandoEmpresa(false)
+    setNovaEmpresaNome('')
+    setErroNovaEmpresa(null)
     setCategoriasPermitidas(p.categoriasPermitidas ?? [])
     setErro(null)
     setSucesso(null)
@@ -289,22 +342,116 @@ export function GerenciarParceiros() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
-                  Parceiro (Empresa) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Sunmi, Gertec, Ingenico..."
-                  value={empresa}
-                  onChange={(e) => setEmpresa(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-all"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    background: 'var(--color-background)',
-                    color: 'var(--color-foreground)',
-                  }}
-                />
+                {!criandoEmpresa ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label
+                        className="block text-xs font-semibold"
+                        style={{ color: 'var(--color-foreground)' }}
+                      >
+                        Parceiro (Empresa) <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCriandoEmpresa(true)
+                          setNovaEmpresaNome('')
+                          setErroNovaEmpresa(null)
+                        }}
+                        className="text-xs font-semibold hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                        style={{ color: 'var(--color-primary)' }}
+                      >
+                        + Criar Novo Parceiro
+                      </button>
+                    </div>
+                    <select
+                      required
+                      value={empresa}
+                      onChange={(e) => setEmpresa(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-all cursor-pointer"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        background: 'var(--color-background)',
+                        color: 'var(--color-foreground)',
+                      }}
+                    >
+                      <option value="" disabled>
+                        Selecione uma empresa parceira...
+                      </option>
+                      {empresasDisponiveis.map((emp) => (
+                        <option key={emp} value={emp}>
+                          {emp}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div
+                    className="p-3 rounded-lg border"
+                    style={{
+                      borderColor: 'var(--color-brand-purple-border, #f0d5eb)',
+                      background: 'var(--color-brand-purple-soft, #fbf4fa)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <label
+                        className="block text-xs font-bold"
+                        style={{ color: 'var(--color-brand-purple-fg, #6e226b)' }}
+                      >
+                        Nome do Novo Parceiro / Empresa
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCriandoEmpresa(false)
+                          setNovaEmpresaNome('')
+                          setErroNovaEmpresa(null)
+                        }}
+                        className="text-xs hover:underline cursor-pointer"
+                        style={{ color: 'var(--color-muted-foreground)' }}
+                      >
+                        Voltar para seleção
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Ex: Sunmi, Gertec, Ingenico..."
+                        value={novaEmpresaNome}
+                        onChange={(e) => {
+                          setNovaEmpresaNome(e.target.value)
+                          setErroNovaEmpresa(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            salvarNovaEmpresa()
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border focus:outline-none"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          background: 'var(--color-background)',
+                          color: 'var(--color-foreground)',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={salvarNovaEmpresa}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer"
+                        style={{ background: 'var(--gradient-brand-purple)' }}
+                      >
+                        Salvar
+                      </button>
+                    </div>
+                    {erroNovaEmpresa && (
+                      <p className="mt-1 text-xs text-red-600 font-medium">
+                        {erroNovaEmpresa}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

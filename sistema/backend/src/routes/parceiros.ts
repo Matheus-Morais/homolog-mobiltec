@@ -287,13 +287,6 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
         ...(empresa ? [{ fabricante: { equals: empresa, mode: 'insensitive' } }] : []),
         { homologacoes: { some: { responsavelId: parceiro.id } } },
         ...(empresa ? [{ homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } }] : []),
-        ...(ehTNS
-          ? [
-              {
-                categoria: { slug: 'pos' },
-              },
-            ]
-          : []),
       ],
     },
     include: {
