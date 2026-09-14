@@ -15,6 +15,9 @@
   /* Variante profunda: rails laterais e gradientes, onde o roxo padrão
      não dá contraste suficiente contra texto branco pequeno. */
   --color-brand-purple-deep: #4a1240;
+  --color-brand-purple-soft: #fbf4fa;
+  --color-brand-purple-fg: #6e226b;
+  --color-brand-purple-border: #f0d5eb;
   --color-brand-orange: #f37804;
   --color-brand-red: #ca3546;
   --color-hero-accent: #d987c1;
@@ -132,6 +135,9 @@
    ser uma escolha na aplicação, não herdada do sistema operacional. */
 :root {
   color-scheme: light;
+  --color-brand-purple-soft: #fbf4fa;
+  --color-brand-purple-fg: #6e226b;
+  --color-brand-purple-border: #f0d5eb;
   --gradient-brand-purple: linear-gradient(90deg, var(--color-brand-purple) 0%, var(--color-primary) 45%, var(--color-brand-purple-deep) 100%);
   --gradient-brand-purple-v: linear-gradient(180deg, var(--color-brand-purple) 0%, var(--color-primary) 45%, var(--color-brand-purple-deep) 100%);
 }

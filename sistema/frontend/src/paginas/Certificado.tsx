@@ -17,6 +17,7 @@ import {
 } from '@/componentes/certificado/ModalEditarTexto'
 import { ROTULO_STATUS_HOMOLOGACAO, ehSomenteLeitura } from '@/lib/tipos'
 import { LoadingTela } from '@/componentes/LoadingTela'
+import { Icone } from '@/componentes/Icone'
 
 interface CertificadoEmitido {
   id: string
@@ -217,10 +218,27 @@ export function Certificado() {
       {aviso && (
         <div
           role="alert"
-          className="mx-6 mt-3 px-4 py-2.5 rounded-md text-sm shrink-0"
-          style={{ background: 'var(--color-info-soft)', color: 'var(--color-info-fg)' }}
+          className="mx-6 mt-3 px-4 py-2.5 rounded-md text-sm shrink-0 border transition-all"
+          style={
+            aviso.toLowerCase().includes('abrindo')
+              ? {
+                  background: 'var(--color-brand-purple-soft)',
+                  color: 'var(--color-brand-purple-fg)',
+                  borderColor: 'var(--color-brand-purple-border)',
+                }
+              : {
+                  background: 'var(--color-info-soft)',
+                  color: 'var(--color-info-fg)',
+                  borderColor: 'transparent',
+                }
+          }
         >
-          {aviso}
+          <div className="flex items-center gap-2">
+            {aviso.toLowerCase().includes('abrindo') && (
+              <Icone nome="printer" className="h-4 w-4 shrink-0 animate-pulse text-[var(--color-primary)]" />
+            )}
+            <span>{aviso}</span>
+          </div>
         </div>
       )}
 

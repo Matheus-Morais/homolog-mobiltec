@@ -928,6 +928,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D435 | Busca digitável em tempo real nos dropdowns de filtro da matriz | Integra campo de pesquisa fixo no topo (`sticky top-0`) com foco automático em `SeletorFiltro.tsx`, permitindo ao usuário filtrar fabricantes, modelos, versões e status digitando diretamente pelo teclado (com filtragem em tempo real, normalização case/acento, atalho Enter para seleção rápida do primeiro resultado e botão de limpeza ✕), dispensando a rolagem manual exaustiva em listas longas sem quebrar a interação tradicional por clique. |
 
+---
+
+## Etapa 67 — Estilização em Tom Roxo de Marca para Alerta de Diálogo de Impressão (D436)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D436 | Alerta de diálogo de impressão do certificado em roxo suave de marca | Substitui a tonalidade vermelha/destrutiva (que sugeria incorretamente falha/erro ao usuário) por um banner estilizado nos tokens roxos oficiais da Mobiltec (`--color-brand-purple-soft: #fbf4fa`, `--color-brand-purple-fg: #6e226b`, `--color-brand-purple-border: #f0d5eb`) acompanhado do ícone animado de impressora em `DetalheDispositivo.tsx` e `Certificado.tsx`, preservando a estilização destrutiva exclusivamente para falhas reais de API/geração. |
+
 
 
 
