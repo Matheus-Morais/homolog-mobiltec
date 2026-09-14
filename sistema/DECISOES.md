@@ -904,6 +904,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D432 | Restauração resiliente da imagem de fundo oficial do certificado e layout A4 com paginação dinâmica de divergências | Corrige a resolução do asset de fundo (`fundo-certificado.png`) através de busca multi-caminho e fallback incondicional Data URI (`fundoBase64.ts`), eliminando a falha silenciosa que gerava certificados com fundo branco. Padroniza todas as páginas na proporção A4 exata (210mm x 297mm) com `background-size: 100% 100%` sem distorção. Implementa paginação dinâmica de divergências (`paginarDivergencias`), distribuindo justificativas extensas entre páginas A4 com cabeçalho de continuação e flexbox elástico (`.interna-final`, `.conteudo-final`, `.rodape-final`), assegurando que o rodapé com assinaturas acompanhe o volume de texto sem nunca sobrepor nem estourar a folha |
 
+---
+
+## Etapa 64 — Autoria por E-mail e Horário & Confirmação em Tela da Justificativa (D433)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D433 | Autoria estrita por e-mail e horário em observações e confirmação in-place no painel de justificativa | Elimina duplicação de informações nos cards de observação geral (removendo rodapé redundante e mantendo apenas uma indicação logo abaixo do título); padroniza a identificação autoral para exibir exclusivamente o e-mail da conta do responsável e o horário (sem nomes pessoais ou papéis); ajusta `GET /matriz/:categoriaSlug` para selecionar `autorEmail` e `atualizadoEm`; e no painel de justificativa (`PainelJustificativa.tsx`), impede o fechamento abrupto ao clicar em "Aplicar", mantendo o usuário na mesma tela com aviso visual explícito ("Justificativa registrada com sucesso") e exibindo a última atualização com e-mail e horário no card. |
+
+
 
 
 

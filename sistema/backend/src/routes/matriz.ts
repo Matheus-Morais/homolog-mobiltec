@@ -104,6 +104,8 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
             observacao: true,
             justificativaId: true,
             justificativaTexto: true,
+            autorEmail: true,
+            atualizadoEm: true,
             justificativa: { select: { id: true, titulo: true, texto: true } },
           },
         },

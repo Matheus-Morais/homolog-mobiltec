@@ -306,7 +306,7 @@ export function Matriz() {
       .filter((g) => g.itens.length > 0)
   }, [data, filtroLinhas, colunasVisiveis])
 
-  function aplicarStatus(
+  async function aplicarStatus(
     coluna: ColunaMatriz,
     item: ItemTeste,
     status: StatusResultado,
@@ -335,20 +335,19 @@ export function Matriz() {
           ? (atual?.justificativaTexto ?? null)
           : null
 
-    salvarCelula.mutate(
-      {
+    try {
+      await salvarCelula.mutateAsync({
         homologacaoId: coluna.homologacao.id,
         itemId: item.id,
         status,
         observacao: atual?.observacao ?? null,
         justificativaId: justId,
         justificativaTexto: justTexto,
-      },
-      {
-        onError: (err) =>
-          setAviso(err instanceof ErroApi ? err.message : 'Não foi possível salvar a célula.'),
-      },
-    )
+      })
+    } catch (err) {
+      setAviso(err instanceof ErroApi ? err.message : 'Não foi possível salvar a célula.')
+      throw err
+    }
   }
 
   if (isLoading) {
@@ -1127,6 +1126,12 @@ export function Matriz() {
           justificativaTextoAtual={
             painel.coluna.homologacao.resultadosPorItem[painel.item.id]?.justificativaTexto ?? null
           }
+          autorEmailAtual={
+            painel.coluna.homologacao.resultadosPorItem[painel.item.id]?.autorEmail ?? null
+          }
+          atualizadoEmAtual={
+            painel.coluna.homologacao.resultadosPorItem[painel.item.id]?.atualizadoEm ?? null
+          }
           statusPretendido={painel.status}
           gerenciamento={painel.coluna.homologacao.gerenciamento}
           androidMin={versaoAndroidNumero(painel.coluna.homologacao.versaoSo)}
@@ -1134,9 +1139,8 @@ export function Matriz() {
             .map((r) => r.justificativaTexto)
             .filter((t): t is string => !!t)}
           aoCancelar={() => setPainel(null)}
-          aoConfirmar={(escolha) => {
-            aplicarStatus(painel.coluna, painel.item, painel.status, escolha)
-            setPainel(null)
+          aoConfirmar={async (escolha) => {
+            await aplicarStatus(painel.coluna, painel.item, painel.status, escolha)
           }}
         />
       )}

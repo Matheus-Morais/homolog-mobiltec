@@ -399,7 +399,7 @@ export function ModalObservacoesHomologacao({
                       <div>
                         <h4 className="font-semibold text-sm text-foreground">{obs.titulo}</h4>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {obs.autorNome} {obs.autorPapel ? `(${obs.autorPapel})` : ''} · {formatarDataHora(obs.criadoEm)}
+                          {obs.autorEmail || obs.autorNome} · {formatarDataHora(obs.criadoEm)}
                         </p>
                       </div>
 
@@ -477,13 +477,6 @@ export function ModalObservacoesHomologacao({
                         </div>
                       </div>
                     )}
-                    {/* Registro sutil de autoria e horário */}
-                    <div className="pt-2 border-t mt-2 text-[11px] text-muted-foreground flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
-                      <span>
-                        Registrado por <strong className="font-semibold text-foreground">{obs.autorEmail || obs.autorNome}</strong>
-                      </span>
-                      <span>{formatarDataHora(obs.criadoEm)}</span>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -526,7 +519,7 @@ export function ModalObservacoesHomologacao({
                     </p>
                     <div className="pt-2 border-t mt-2 text-[11px] text-muted-foreground flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
                       <span>
-                        Registrado por <strong className="font-semibold text-foreground">{a.autorEmail || 'técnico'}</strong>
+                        Última atualização: <strong className="font-semibold text-foreground">{a.autorEmail || 'responsável'}</strong>
                       </span>
                       {a.atualizadoEm && <span>{formatarDataHora(a.atualizadoEm)}</span>}
                     </div>

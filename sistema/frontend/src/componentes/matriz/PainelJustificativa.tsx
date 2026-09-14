@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '@/contextos/AuthContext'
 import { useJustificativasSugeridas, useSalvarNaBiblioteca } from '@/hooks/useHomologacao'
 import { META_STATUS } from '@/lib/tipos'
 import type { StatusResultado, TipoGerenciamento } from '@/lib/tipos'
@@ -6,6 +7,22 @@ import type { StatusResultado, TipoGerenciamento } from '@/lib/tipos'
 export interface EscolhaJustificativa {
   justificativaId: string | null
   justificativaTexto: string | null
+}
+
+function formatarDataHora(iso: string | Date): string {
+  try {
+    const d = typeof iso === 'string' ? new Date(iso) : iso
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return ''
+  }
 }
 
 /**
@@ -17,12 +34,14 @@ interface Props {
   itemNome: string
   justificativaIdAtual: string | null
   justificativaTextoAtual: string | null
+  autorEmailAtual?: string | null
+  atualizadoEmAtual?: string | null
   statusPretendido: StatusResultado
   gerenciamento: TipoGerenciamento
   androidMin: number | null
   /** Textos livres já usados nesta homologação — base para sugerir salvar na biblioteca */
   textosLivresUsados: string[]
-  aoConfirmar: (escolha: EscolhaJustificativa) => void
+  aoConfirmar: (escolha: EscolhaJustificativa) => Promise<void> | void
   aoCancelar: () => void
 }
 
@@ -38,6 +57,8 @@ export function PainelJustificativa({
   itemNome,
   justificativaIdAtual,
   justificativaTextoAtual,
+  autorEmailAtual,
+  atualizadoEmAtual,
   statusPretendido,
   gerenciamento,
   androidMin,
@@ -46,6 +67,7 @@ export function PainelJustificativa({
   aoCancelar,
 }: Props) {
   const meta = META_STATUS[statusPretendido]
+  const { usuario } = useAuth()
   const { data: sugeridas, isLoading } = useJustificativasSugeridas(
     itemId,
     gerenciamento,
@@ -58,6 +80,12 @@ export function PainelJustificativa({
   const [modoTextoLivre, setModoTextoLivre] = useState(justificativaTextoAtual !== null)
   const [tituloBiblioteca, setTituloBiblioteca] = useState('')
   const [mostrarSalvar, setMostrarSalvar] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const [avisoSucesso, setAvisoSucesso] = useState(false)
+  const [registroInfo, setRegistroInfo] = useState<{ email: string | null; dataHora: string | null }>({
+    email: autorEmailAtual ?? null,
+    dataHora: atualizadoEmAtual ?? null,
+  })
 
   const refDialogo = useRef<HTMLDivElement>(null)
 
@@ -74,27 +102,48 @@ export function PainelJustificativa({
 
   const podeConfirmar = modoTextoLivre ? textoLivre.trim().length > 0 : selecionada !== null
 
-  function confirmar() {
-    if (!podeConfirmar) return
-    aoConfirmar(
-      modoTextoLivre
+  async function confirmar() {
+    if (!podeConfirmar || salvando) return
+    setSalvando(true)
+    setAvisoSucesso(false)
+    try {
+      const escolha = modoTextoLivre
         ? { justificativaId: null, justificativaTexto: textoLivre.trim() }
-        : { justificativaId: selecionada, justificativaTexto: null },
-    )
+        : { justificativaId: selecionada, justificativaTexto: null }
+      await aoConfirmar(escolha)
+      setAvisoSucesso(true)
+      setRegistroInfo({
+        email: usuario?.email ?? registroInfo.email,
+        dataHora: new Date().toISOString(),
+      })
+    } finally {
+      setSalvando(false)
+    }
   }
 
   async function salvarTextoNaBiblioteca() {
     const titulo = tituloBiblioteca.trim()
-    if (!titulo) return
-    const nova = await salvarNaBiblioteca.mutateAsync({
-      titulo,
-      texto: textoLivre.trim(),
-      itensSugeridos: [itemId],
-      androidMin,
-      gerenciamento,
-    })
-    // Passa a usar a justificativa recém-criada, em vez do texto solto.
-    aoConfirmar({ justificativaId: nova.id, justificativaTexto: null })
+    if (!titulo || salvando) return
+    setSalvando(true)
+    try {
+      const nova = await salvarNaBiblioteca.mutateAsync({
+        titulo,
+        texto: textoLivre.trim(),
+        itensSugeridos: [itemId],
+        androidMin,
+        gerenciamento,
+      })
+      // Passa a usar a justificativa recém-criada, em vez do texto solto.
+      await aoConfirmar({ justificativaId: nova.id, justificativaTexto: null })
+      setAvisoSucesso(true)
+      setRegistroInfo({
+        email: usuario?.email ?? registroInfo.email,
+        dataHora: new Date().toISOString(),
+      })
+      setMostrarSalvar(false)
+    } finally {
+      setSalvando(false)
+    }
   }
 
   return (
@@ -178,7 +227,10 @@ export function PainelJustificativa({
                       name="justificativa"
                       className="mt-1 shrink-0"
                       checked={selecionada === j.id}
-                      onChange={() => setSelecionada(j.id)}
+                      onChange={() => {
+                        setSelecionada(j.id)
+                        if (avisoSucesso) setAvisoSucesso(false)
+                      }}
                     />
                     <div className="min-w-0">
                       <p className="font-medium text-sm">{j.titulo}</p>
@@ -227,7 +279,10 @@ export function PainelJustificativa({
                 autoFocus
                 rows={6}
                 value={textoLivre}
-                onChange={(e) => setTextoLivre(e.target.value)}
+                onChange={(e) => {
+                  setTextoLivre(e.target.value)
+                  if (avisoSucesso) setAvisoSucesso(false)
+                }}
                 placeholder="Explique tecnicamente por que o item não ficou OK. Este texto sai no certificado."
                 className="w-full p-3 rounded-md border bg-transparent text-sm leading-relaxed resize-y"
                 style={{ borderColor: 'var(--color-input)' }}
@@ -283,7 +338,45 @@ export function PainelJustificativa({
               )}
             </>
           )}
+
+          {/* Aviso visual de justificativa registrada */}
+          {avisoSucesso && (
+            <div
+              role="status"
+              className="p-3 rounded-lg text-xs font-semibold flex items-center justify-between gap-2 border transition-all animate-in fade-in"
+              style={{
+                background: 'var(--color-success-soft, rgba(22, 163, 74, 0.1))',
+                color: 'var(--color-success, #16a34a)',
+                borderColor: 'rgba(22, 163, 74, 0.25)',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">✓</span>
+                <span>Justificativa registrada</span>
+              </div>
+              <span className="text-[10.5px] font-medium opacity-80">salva no banco</span>
+            </div>
+          )}
         </div>
+
+        {/* Registro sutil de autoria (e-mail e horário) */}
+        {(registroInfo.email || registroInfo.dataHora) && (
+          <div
+            className="px-5 py-2.5 text-[11px] flex items-center justify-between border-t border-dashed shrink-0"
+            style={{
+              background: 'var(--color-muted)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-muted-foreground)',
+            }}
+          >
+            <span>
+              Última atualização: <strong className="font-semibold text-foreground">{registroInfo.email || 'responsável'}</strong>
+            </span>
+            {registroInfo.dataHora && (
+              <span>{formatarDataHora(registroInfo.dataHora)}</span>
+            )}
+          </div>
+        )}
 
         {/* Rodapé */}
         <div className="p-5 border-t flex items-center justify-between gap-3 shrink-0">
@@ -295,19 +388,19 @@ export function PainelJustificativa({
             <button
               type="button"
               onClick={aoCancelar}
-              className="px-4 py-2 rounded-md text-sm"
+              className="px-4 py-2 rounded-md text-sm cursor-pointer hover:opacity-80 transition-opacity"
               style={{ color: 'var(--color-muted-foreground)' }}
             >
-              Cancelar
+              {avisoSucesso ? 'Fechar' : 'Cancelar'}
             </button>
             <button
               type="button"
               onClick={confirmar}
-              disabled={!podeConfirmar}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
+              disabled={!podeConfirmar || salvando}
+              className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50 cursor-pointer"
               style={{ background: 'var(--gradient-brand-purple)' }}
             >
-              Aplicar {meta.rotulo}
+              {salvando ? 'Salvando…' : avisoSucesso ? 'Salvar alterações' : `Aplicar ${meta.rotulo}`}
             </button>
           </div>
         </div>
