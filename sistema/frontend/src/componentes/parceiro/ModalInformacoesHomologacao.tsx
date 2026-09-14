@@ -121,9 +121,6 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) aoFechar()
-      }}
     >
       <div
         className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
@@ -349,7 +346,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                                   {/* Registro sutil de autoria e horário */}
                                   <div className="text-[10px] text-amber-700/80 pt-1 border-t border-amber-200/60 mt-1 flex items-center justify-between">
                                     <span>
-                                      Registrado por <strong>{res.autorEmail || 'técnico'}</strong>
+                                      Registrado por: <strong>{res.autorEmail || (homologacao?.responsavel as any)?.email || 'contato@mobiltec.com.br'}</strong>
                                     </span>
                                     {res.atualizadoEm && (
                                       <span>
@@ -369,7 +366,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                                   </p>
                                   <div className="text-[10px] text-slate-400 flex items-center justify-between">
                                     <span>
-                                      Registrado por <strong>{res.autorEmail || 'técnico'}</strong>
+                                      Registrado por: <strong>{res.autorEmail || (homologacao?.responsavel as any)?.email || 'contato@mobiltec.com.br'}</strong>
                                     </span>
                                     {res.atualizadoEm && (
                                       <span>

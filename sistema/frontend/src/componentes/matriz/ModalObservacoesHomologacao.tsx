@@ -95,6 +95,9 @@ export function ModalObservacoesHomologacao({
   const [erroUpload, setErroUpload] = useState<string | null>(null)
   const [imagemAmpliada, setImagemAmpliada] = useState<{ url: string; nome: string } | null>(null)
 
+  const emailResponsavel = (coluna.homologacao.responsavel as any)?.email || usuario?.email || 'contato@mobiltec.com.br'
+  const dataPadrao = coluna.homologacao.atualizadoEm || coluna.homologacao.criadoEm
+
   // Anotações célula a célula da homologação
   const anotacoes = itens
     .map((item) => ({ item, r: coluna.homologacao.resultadosPorItem[item.id] }))
@@ -103,8 +106,8 @@ export function ModalObservacoesHomologacao({
       item: item.nome,
       status: r!.status,
       texto: r!.observacao!.trim(),
-      autorEmail: (r as any)?.autorEmail ?? null,
-      atualizadoEm: (r as any)?.atualizadoEm ?? null,
+      autorEmail: (r as any)?.autorEmail || emailResponsavel,
+      atualizadoEm: (r as any)?.atualizadoEm || dataPadrao,
     }))
 
   async function processarArquivo(arquivo: File) {
@@ -201,7 +204,6 @@ export function ModalObservacoesHomologacao({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15,15,18,.5)' }}
-      onClick={aoFechar}
     >
       <div
         role="dialog"
@@ -519,9 +521,9 @@ export function ModalObservacoesHomologacao({
                     </p>
                     <div className="pt-2 border-t mt-2 text-[11px] text-muted-foreground flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
                       <span>
-                        Última atualização: <strong className="font-semibold text-foreground">{a.autorEmail || 'responsável'}</strong>
+                        Registrado por: <strong className="font-semibold text-foreground">{a.autorEmail}</strong>
                       </span>
-                      {a.atualizadoEm && <span>{formatarDataHora(a.atualizadoEm)}</span>}
+                      <span className="font-medium">{formatarDataHora(a.atualizadoEm)}</span>
                     </div>
                   </li>
                 ))}

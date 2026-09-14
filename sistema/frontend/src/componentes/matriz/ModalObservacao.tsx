@@ -93,7 +93,6 @@ export function ModalObservacao({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15,15,18,.45)' }}
-      onClick={aoFechar}
     >
       <div
         role="dialog"
@@ -106,11 +105,21 @@ export function ModalObservacao({
         className="w-full max-w-xl rounded-xl border shadow-xl"
         style={{ background: 'var(--color-popover)' }}
       >
-        <div className="p-5 border-b">
-          <h2 className="text-lg font-semibold">Observação</h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-            {itemNome} · {modeloNome}
-          </p>
+        <div className="p-5 border-b flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Observação</h2>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
+              {itemNome} · {modeloNome}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={aoFechar}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Fechar"
+          >
+            <Icone nome="x" className="h-5 w-5" />
+          </button>
         </div>
 
         <div className="p-5 space-y-3" onPaste={aoColar}>
@@ -163,9 +172,9 @@ export function ModalObservacao({
 
         {autorEmail && (
           <div className="px-5 py-2 bg-muted/40 text-[11px] text-muted-foreground flex items-center justify-between border-t border-dashed" style={{ borderColor: 'var(--color-border)' }}>
-            <span>Último registro por <strong className="font-semibold text-foreground">{autorEmail}</strong></span>
+            <span>Registrado por: <strong className="font-semibold text-foreground">{autorEmail}</strong></span>
             {atualizadoEm && (
-              <span>
+              <span className="font-medium">
                 {new Date(atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
                 {new Date(atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </span>

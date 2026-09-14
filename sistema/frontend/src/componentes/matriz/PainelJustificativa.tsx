@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/contextos/AuthContext'
 import { useJustificativasSugeridas, useSalvarNaBiblioteca } from '@/hooks/useHomologacao'
+import { Icone } from '@/componentes/Icone'
 import { META_STATUS } from '@/lib/tipos'
 import type { StatusResultado, TipoGerenciamento } from '@/lib/tipos'
 
@@ -150,7 +151,6 @@ export function PainelJustificativa({
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
       style={{ background: 'rgba(15,15,18,.45)' }}
-      onClick={aoCancelar}
     >
       <div
         ref={refDialogo}
@@ -173,22 +173,32 @@ export function PainelJustificativa({
         style={{ background: 'var(--color-popover)' }}
       >
         {/* Cabeçalho */}
-        <div className="p-5 border-b shrink-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="px-2 py-0.5 rounded-full text-xs font-semibold"
-              style={{ background: meta.corSoft, color: meta.cor }}
-            >
-              {meta.rotulo}
-            </span>
-            <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-              sai no certificado como {meta.noCertificado}
-            </span>
+        <div className="p-5 border-b shrink-0 flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span
+                className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                style={{ background: meta.corSoft, color: meta.cor }}
+              >
+                {meta.rotulo}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                sai no certificado como {meta.noCertificado}
+              </span>
+            </div>
+            <h2 className="mt-2 text-lg font-semibold">{itemNome}</h2>
+            <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
+              {meta.descricao}
+            </p>
           </div>
-          <h2 className="mt-2 text-lg font-semibold">{itemNome}</h2>
-          <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
-            {meta.descricao}
-          </p>
+          <button
+            type="button"
+            onClick={aoCancelar}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Fechar"
+          >
+            <Icone nome="x" className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Corpo */}

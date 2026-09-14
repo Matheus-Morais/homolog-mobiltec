@@ -912,6 +912,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D433 | Autoria estrita por e-mail e horário em observações e confirmação in-place no painel de justificativa | Elimina duplicação de informações nos cards de observação geral (removendo rodapé redundante e mantendo apenas uma indicação logo abaixo do título); padroniza a identificação autoral para exibir exclusivamente o e-mail da conta do responsável e o horário (sem nomes pessoais ou papéis); ajusta `GET /matriz/:categoriaSlug` para selecionar `autorEmail` e `atualizadoEm`; e no painel de justificativa (`PainelJustificativa.tsx`), impede o fechamento abrupto ao clicar em "Aplicar", mantendo o usuário na mesma tela com aviso visual explícito ("Justificativa registrada com sucesso") e exibindo a última atualização com e-mail e horário no card. |
 
+---
+
+## Etapa 65 — Autoria por E-mail em Anotações e Fechamento Estrito de Popups pelo Botão X (D434)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D434 | Autoria com e-mail e horário nas anotações e eliminação de fechamento acidental por clique no backdrop | Padroniza o rodapé das anotações por funcionalidade para exibir estritamente `Registrado por: [e-mail]` e a data/hora ao lado direito, com fallback garantido para o e-mail e data da homologação/responsável da conta (eliminando a palavra "técnico"); e remove os manipuladores de clique no backdrop (`onClick={aoFechar}` e `onClick={aoCancelar}`) em `ModalObservacoesHomologacao.tsx`, `ModalObservacao.tsx` e `PainelJustificativa.tsx`, garantindo que arrastar o mouse para selecionar ou copiar texto nunca feche o modal acidentalmente, fechando estritamente através do botão de fechar (X). |
+
+
 
 
 
