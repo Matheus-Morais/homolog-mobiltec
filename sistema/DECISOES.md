@@ -920,6 +920,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D434 | Autoria com e-mail e horário nas anotações e eliminação de fechamento acidental por clique no backdrop | Padroniza o rodapé das anotações por funcionalidade para exibir estritamente `Registrado por: [e-mail]` e a data/hora ao lado direito, com fallback garantido para o e-mail e data da homologação/responsável da conta (eliminando a palavra "técnico"); e remove os manipuladores de clique no backdrop (`onClick={aoFechar}` e `onClick={aoCancelar}`) em `ModalObservacoesHomologacao.tsx`, `ModalObservacao.tsx` e `PainelJustificativa.tsx`, garantindo que arrastar o mouse para selecionar ou copiar texto nunca feche o modal acidentalmente, fechando estritamente através do botão de fechar (X). |
 
+---
+
+## Etapa 66 — Campo de Busca Digitável Integrado aos Seletores de Filtro (D435)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D435 | Busca digitável em tempo real nos dropdowns de filtro da matriz | Integra campo de pesquisa fixo no topo (`sticky top-0`) com foco automático em `SeletorFiltro.tsx`, permitindo ao usuário filtrar fabricantes, modelos, versões e status digitando diretamente pelo teclado (com filtragem em tempo real, normalização case/acento, atalho Enter para seleção rápida do primeiro resultado e botão de limpeza ✕), dispensando a rolagem manual exaustiva em listas longas sem quebrar a interação tradicional por clique. |
+
+
 
 
 
