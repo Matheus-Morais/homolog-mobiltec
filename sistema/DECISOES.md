@@ -896,6 +896,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D431 | Remoção de homologações com RBAC em planilha e painel consultivo de dispositivos finalizados com reabertura e exclusão sincronizada | Adiciona `DELETE /homologacoes/:id` com regras estritas de permissão: ADMIN/HOMOLOGADOR podem remover qualquer homologação de suas planilhas; membros de empresas parceiras visualizam itens de sua equipe mas apenas o criador/responsável (`responsavelId === usuario.id`) pode remover da planilha; exclusão atômica de dependentes e do dispositivo quando não houver outros testes vinculados. Reestrutura o menu lateral para "Configurar Homologação" (com subitens de registro e edição de tipos) e adiciona para Administrador o botão "Configurar dispositivos" com acesso ao painel consultivo unificado de dispositivos finalizados (`/configurar-dispositivos`), permitindo reabrir com justificativa ou excluir permanentemente da base refletindo dinamicamente nos painéis Mobiltec e Parceiro |
 
+---
+
+## Etapa 63 — Restauração Resiliente do Fundo do Certificado e Layout A4 Dinâmico (D432)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D432 | Restauração resiliente da imagem de fundo oficial do certificado e layout A4 com paginação dinâmica de divergências | Corrige a resolução do asset de fundo (`fundo-certificado.png`) através de busca multi-caminho e fallback incondicional Data URI (`fundoBase64.ts`), eliminando a falha silenciosa que gerava certificados com fundo branco. Padroniza todas as páginas na proporção A4 exata (210mm x 297mm) com `background-size: 100% 100%` sem distorção. Implementa paginação dinâmica de divergências (`paginarDivergencias`), distribuindo justificativas extensas entre páginas A4 com cabeçalho de continuação e flexbox elástico (`.interna-final`, `.conteudo-final`, `.rodape-final`), assegurando que o rodapé com assinaturas acompanhe o volume de texto sem nunca sobrepor nem estourar a folha |
+
+
 
 
 

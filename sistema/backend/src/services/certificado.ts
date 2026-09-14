@@ -11,28 +11,68 @@
  * certificado — nem na matriz, nem nas divergências. O que não foi avaliado
  * não é atestado.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { GrupoItem, StatusResultado } from '@prisma/client'
+import { FUNDO_CERTIFICADO_DATA_URI } from '../assets/fundoBase64.js'
 
 // ------------------------------------------------------------
-// Fundo: o PNG do template, inlinado como data URI
+// Fundo: o PNG do template, inlinado como data URI com fallback
 // ------------------------------------------------------------
 
-const CAMINHO_FUNDO =
-  process.env.CERT_FUNDO ?? path.resolve(process.cwd(), '..', '..', 'fundo-certificado.png')
+function resolverCaminhoFundo(): string | null {
+  const candidatos = [
+    process.env.CERT_FUNDO,
+    path.resolve(process.cwd(), 'fundo-certificado.png'),
+    path.resolve(process.cwd(), 'sistema', 'backend', 'fundo-certificado.png'),
+    path.resolve(process.cwd(), 'sistema', 'backend', 'src', 'assets', 'fundo-certificado.png'),
+    path.resolve(process.cwd(), '..', 'fundo-certificado.png'),
+    path.resolve(process.cwd(), '..', '..', 'fundo-certificado.png'),
+  ]
+
+  try {
+    const dirAtual =
+      typeof __dirname !== 'undefined'
+        ? __dirname
+        : path.dirname(fileURLToPath(import.meta.url))
+    candidatos.push(
+      path.resolve(dirAtual, 'fundo-certificado.png'),
+      path.resolve(dirAtual, '..', 'fundo-certificado.png'),
+      path.resolve(dirAtual, '..', 'assets', 'fundo-certificado.png'),
+      path.resolve(dirAtual, '..', '..', 'fundo-certificado.png'),
+      path.resolve(dirAtual, '..', '..', '..', 'fundo-certificado.png'),
+      path.resolve(dirAtual, '..', '..', '..', '..', 'fundo-certificado.png'),
+    )
+  } catch {
+    // ignora se import.meta.url / __dirname não disponível
+  }
+
+  for (const c of candidatos) {
+    if (!c) continue
+    try {
+      if (existsSync(c)) return c
+    } catch {
+      // continua procurando
+    }
+  }
+  return null
+}
 
 let fundoCache: string | null = null
 
 function fundoDataUri(): string {
-  if (fundoCache !== null) return fundoCache
-  try {
-    fundoCache = `data:image/png;base64,${readFileSync(CAMINHO_FUNDO).toString('base64')}`
-  } catch {
-    // Sem o fundo o certificado ainda sai, só que em branco — melhor do que
-    // derrubar a emissão inteira por causa de um asset ausente.
-    fundoCache = ''
+  if (fundoCache !== null && fundoCache !== '') return fundoCache
+  const caminho = resolverCaminhoFundo()
+  if (caminho) {
+    try {
+      fundoCache = `data:image/png;base64,${readFileSync(caminho).toString('base64')}`
+      return fundoCache
+    } catch {
+      // cai para o asset embutido
+    }
   }
+  fundoCache = FUNDO_CERTIFICADO_DATA_URI
   return fundoCache
 }
 
@@ -489,7 +529,7 @@ export function gerarCertificadoHtml(
   const fontesManuais = Array.isArray(h.fontes) ? (h.fontes as { label?: string; url?: string }[]) : []
   const fontes = montarFontes(h.resultados, fontesManuais)
 
-  const abrePagina = `<section class="pagina" style="background:#FFF url('${fundo}') center/100% 100% no-repeat"><div class="interna"><div class="conteudo">`
+  const abrePagina = `<section class="pagina" style="background-image:url('${fundo}')"><div class="interna"><div class="conteudo">`
   const fechaPagina = `</div></div></section>`
 
   // --- Ficha do dispositivo (página 1) ---
@@ -591,42 +631,125 @@ export function gerarCertificadoHtml(
     manuais = atualizados
   }
 
-  const blocosManuais = manuais
-    ?.map((b, i, todos) => {
-      const repeteTitulo = i > 0 && todos[i - 1].titulo === b.titulo
-      return `<div class="${repeteTitulo ? 'divergencia' : 'bloco-grupo'}">
-        ${!repeteTitulo && b.titulo ? `<h3 class="titulo-secao">${esc(b.titulo)}</h3>` : ''}
-        <div class="divergencia">
-          ${b.subtitulo ? `<div class="divergencia-itens">${esc(b.subtitulo)}</div>` : ''}
-          ${b.texto ? `<p class="divergencia-texto">${esc(b.texto)}</p>` : ''}
-        </div>
-      </div>`
-    })
-    .join('')
+  interface ItemBlocoDivergencia {
+    titulo: string
+    subtitulo: string
+    texto: string
+    repeteTitulo: boolean
+    lapisHtml: string
+  }
 
-  const blocosDivergencia = manuais
-    ? blocosManuais
-    : divergencias.length
-    ? divergencias
-        .map(
-          (d) => `<div class="bloco-grupo">
-            <h3 class="titulo-secao">${esc(CABECALHO_GRUPO[d.grupo].titulo)}</h3>
-            ${d.divergencias
-              .map(
-                (x) => `<div class="divergencia">
-                  <div class="divergencia-itens">${x.itens.map(esc).join(' - ')}</div>
-                  <p class="divergencia-texto">${esc(x.texto)}${lapis('divergencia', x.itemIds.join(','))}</p>
-                </div>`,
-              )
-              .join('')}
-          </div>`,
-        )
-        .join('')
-    : algumAvaliado
-      // Só afirma "nenhuma divergência" se de fato houve avaliação. Com tudo em
-      // branco, a página fica vazia como no modelo base.
-      ? `<p class="sem-divergencia">Nenhuma divergência técnica foi identificada durante os testes de homologação.</p>`
-      : ''
+  const itensDivergencia: ItemBlocoDivergencia[] = []
+
+  if (manuais && manuais.length > 0) {
+    manuais.forEach((b, i, todos) => {
+      itensDivergencia.push({
+        titulo: b.titulo,
+        subtitulo: b.subtitulo,
+        texto: b.texto,
+        repeteTitulo: i > 0 && todos[i - 1].titulo === b.titulo,
+        lapisHtml: '',
+      })
+    })
+  } else if (divergencias.length > 0) {
+    let ultimoTitulo = ''
+    for (const d of divergencias) {
+      const tituloGrupo = CABECALHO_GRUPO[d.grupo].titulo
+      for (const x of d.divergencias) {
+        itensDivergencia.push({
+          titulo: tituloGrupo,
+          subtitulo: x.itens.join(' - '),
+          texto: x.texto,
+          repeteTitulo: tituloGrupo === ultimoTitulo,
+          lapisHtml: lapis('divergencia', x.itemIds.join(',')),
+        })
+        ultimoTitulo = tituloGrupo
+      }
+    }
+  }
+
+  const renderItemDivergencia = (item: ItemBlocoDivergencia) => {
+    const tituloHtml =
+      !item.repeteTitulo && item.titulo
+        ? `<h3 class="titulo-secao">${esc(item.titulo)}</h3>`
+        : ''
+    return `<div class="${item.repeteTitulo ? 'divergencia' : 'bloco-grupo'}">
+      ${tituloHtml}
+      <div class="divergencia">
+        ${item.subtitulo ? `<div class="divergencia-itens">${esc(item.subtitulo)}</div>` : ''}
+        ${item.texto ? `<p class="divergencia-texto">${esc(item.texto)}${item.lapisHtml}</p>` : ''}
+      </div>
+    </div>`
+  }
+
+  const estimarAlturaItemDivergencia = (item: ItemBlocoDivergencia): number => {
+    let h = 0.15
+    if (!item.repeteTitulo && item.titulo) h += 0.35
+    if (item.subtitulo) h += 0.25
+    if (item.texto) {
+      const linhas = Math.max(1, Math.ceil(item.texto.length / 65))
+      h += linhas * 0.22 + 0.1
+    }
+    return h
+  }
+
+  const ALTURA_UTIL_DIVERGENCIAS = 9.28
+  const ALTURA_TOPO_ANALISE_PRIMEIRA = 1.10
+  const ALTURA_TOPO_ANALISE_CONT = 0.65
+  const ALTURA_RODAPE_FINAL = 2.10
+
+  // Distribui as divergências dinamicamente em páginas A4 com fundo íntegro
+  function paginarDivergencias(
+    itens: ItemBlocoDivergencia[],
+  ): { itens: ItemBlocoDivergencia[]; ehUltima: boolean; ehPrimeira: boolean }[] {
+    if (itens.length === 0) {
+      return [{ itens: [], ehUltima: true, ehPrimeira: true }]
+    }
+
+    const alturaTotal = itens.reduce((acc, it) => acc + estimarAlturaItemDivergencia(it), 0)
+    const limiteUnica = ALTURA_UTIL_DIVERGENCIAS - ALTURA_TOPO_ANALISE_PRIMEIRA - ALTURA_RODAPE_FINAL
+
+    if (alturaTotal <= limiteUnica) {
+      return [{ itens, ehUltima: true, ehPrimeira: true }]
+    }
+
+    const paginas: { itens: ItemBlocoDivergencia[]; ehUltima: boolean; ehPrimeira: boolean }[] = []
+    let restantes = [...itens]
+    let ehPrimeira = true
+
+    while (restantes.length > 0) {
+      const limitePaginaFinal =
+        ALTURA_UTIL_DIVERGENCIAS -
+        (ehPrimeira ? ALTURA_TOPO_ANALISE_PRIMEIRA : ALTURA_TOPO_ANALISE_CONT) -
+        ALTURA_RODAPE_FINAL
+      const sobra = restantes.reduce((acc, it) => acc + estimarAlturaItemDivergencia(it), 0)
+      if (sobra <= limitePaginaFinal) {
+        paginas.push({ itens: restantes, ehUltima: true, ehPrimeira })
+        break
+      }
+
+      const limiteIntermediaria =
+        ALTURA_UTIL_DIVERGENCIAS -
+        (ehPrimeira ? ALTURA_TOPO_ANALISE_PRIMEIRA : ALTURA_TOPO_ANALISE_CONT)
+      let gasto = 0
+      let qtd = 0
+      for (const it of restantes) {
+        const hItem = estimarAlturaItemDivergencia(it)
+        if (qtd > 0 && gasto + hItem > limiteIntermediaria) break
+        gasto += hItem
+        qtd++
+      }
+
+      const fatia = restantes.slice(0, qtd)
+      paginas.push({ itens: fatia, ehUltima: false, ehPrimeira })
+      restantes = restantes.slice(qtd)
+      ehPrimeira = false
+    }
+
+    return paginas
+  }
+
+  const paginasDivergencias = paginarDivergencias(itensDivergencia)
 
   const fontesHtml = fontes.length
     ? `<div class="fontes-bloco">
@@ -640,30 +763,47 @@ export function gerarCertificadoHtml(
     : ''
 
   // Assinatura manual (digitada na tela do certificado) tem prioridade;
-  // sem ela, cai para o nome do Usuario vinculado — hoje é o único caminho
-  // para Gerente e Apoio, já que a matriz não oferece seletor de usuário.
+  // sem ela, cai para o nome do Usuario vinculado
   const nomeResponsavel = h.assinaturaResponsavel?.trim() || h.responsavel?.nome || ''
   const nomeGerente = h.assinaturaGerente?.trim() || h.gerente?.nome || ''
   const nomeApoio = h.assinaturaApoio?.trim() || h.apoio?.nome || ''
 
-  const paginaFinal = `<section class="pagina pagina-final" style="background:#FFF url('${fundo}') center/100% 100% no-repeat"><div class="interna interna-final">
-    <div class="conteudo conteudo-final">
-      <h1 class="titulo-analise">Análise das Divergências</h1>
-      <p class="subtitulo-analise">Os itens abaixo apresentam as divergências identificadas durante os testes de homologação e suas respectivas justificativas.</p>
-      <hr class="regua">
-      ${blocosDivergencia}
+  const rodapeHtml = `<div class="rodape rodape-final">
+    ${fontesHtml}
+    <div class="assinaturas">
+      <div class="assinatura"><span class="valor">${esc(nomeResponsavel)}</span>${lapis('assinaturaResponsavel', '')}<br><span class="cargo">Responsável Técnico</span></div>
+      <div class="assinatura"><span class="valor">${esc(nomeGerente)}</span>${lapis('assinaturaGerente', '')}<br><span class="cargo">Gerente de Validação</span></div>
+      <div class="assinatura"><span class="valor">${esc(nomeApoio)}</span>${lapis('assinaturaApoio', '')}<br><span class="cargo">Apoio Adicional</span></div>
     </div>
-    <div class="rodape rodape-final">
-      ${fontesHtml}
-      <div class="assinaturas">
-        <div class="assinatura"><span class="valor">${esc(nomeResponsavel)}</span>${lapis('assinaturaResponsavel', '')}<br><span class="cargo">Responsável Técnico</span></div>
-        <div class="assinatura"><span class="valor">${esc(nomeGerente)}</span>${lapis('assinaturaGerente', '')}<br><span class="cargo">Gerente de Validação</span></div>
-        <div class="assinatura"><span class="valor">${esc(nomeApoio)}</span>${lapis('assinaturaApoio', '')}<br><span class="cargo">Apoio Adicional</span></div>
-      </div>
-      <div class="emissao">${esc(h.localEmissao)}, ${esc(dataExtenso(h.dataFim ?? new Date()))}</div>
-      <div class="confidencial">DOCUMENTO TÉCNICO CONFIDENCIAL – MOBILTEC</div>
-    </div>
-  </div></section>`
+    <div class="emissao">${esc(h.localEmissao)}, ${esc(dataExtenso(h.dataFim ?? new Date()))}</div>
+    <div class="confidencial">DOCUMENTO TÉCNICO CONFIDENCIAL – MOBILTEC</div>
+  </div>`
+
+  const paginasFinaisHtml = paginasDivergencias
+    .map((pag) => {
+      const cabecalho = pag.ehPrimeira
+        ? `<h1 class="titulo-analise">Análise das Divergências</h1>
+           <p class="subtitulo-analise">Os itens abaixo apresentam as divergências identificadas durante os testes de homologação e suas respectivas justificativas.</p>
+           <hr class="regua">`
+        : `<h1 class="titulo-analise">Análise das Divergências <span class="cont">(continuação)</span></h1>
+           <hr class="regua">`
+
+      const conteudoBlocos =
+        pag.itens.length > 0
+          ? pag.itens.map(renderItemDivergencia).join('')
+          : algumAvaliado
+          ? `<p class="sem-divergencia">Nenhuma divergência técnica foi identificada durante os testes de homologação.</p>`
+          : ''
+
+      return `<section class="pagina pagina-final" style="background-image:url('${fundo}')"><div class="interna interna-final">
+        <div class="conteudo-final">
+          ${cabecalho}
+          ${conteudoBlocos}
+        </div>
+        ${pag.ehUltima ? rodapeHtml : ''}
+      </div></section>`
+    })
+    .join('')
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -683,6 +823,7 @@ body {
   position:relative; width:210mm; height:297mm; overflow:hidden;
   margin:0 auto 0.3in; box-shadow:0 2px 12px rgba(0,0,0,.18);
   page-break-after:always; break-after:page;
+  background-color:#FFF; background-repeat:no-repeat; background-position:center top; background-size:100% 100%;
 }
 .pagina:last-child { page-break-after:auto; break-after:auto; margin-bottom:0; }
 /* Mantém as medidas do PPT (7.5 x 10.8333in) e escala para o A4 */
@@ -727,14 +868,17 @@ table.matriz td { padding:0; line-height:0.2in; }
 .sem-divergencia { text-align:center; font-size:11pt; font-style:italic; margin-top:0.6in; }
 
 .rodape { position:absolute; left:var(--margem); right:var(--margem); bottom:0.72in; }
-.pagina-final { min-height:297mm; height:auto; overflow:visible; }
+.pagina-final { width:210mm; height:297mm; overflow:hidden; }
 .interna-final {
-  position:relative; width:7.5in; min-height:10.8333in; height:auto;
+  position:absolute; top:0; left:0; width:7.5in; height:10.8333in;
   transform:scale(1.1024, 1.0793); transform-origin:top left;
   display:flex; flex-direction:column; justify-content:space-between;
   padding:0.83in var(--margem) 0.72in var(--margem); box-sizing:border-box;
 }
-.conteudo-final { position:relative; top:0; left:0; right:0; flex:1 0 auto; margin-bottom:0.4in; }
+.conteudo-final {
+  position:relative; top:0; left:0; right:0; flex:1 1 auto;
+  margin-bottom:0.18in;
+}
 .rodape-final {
   position:relative; bottom:0; left:0; right:0; margin-top:auto; flex-shrink:0;
   break-inside:avoid; page-break-inside:avoid;
@@ -758,15 +902,15 @@ table.matriz td { padding:0; line-height:0.2in; }
 
 @media print {
   body { background:none; padding:0; }
-  .pagina { margin:0; box-shadow:none; }
-  .pagina-final { overflow:visible; height:auto; min-height:297mm; }
+  .pagina { margin:0; box-shadow:none; width:210mm; height:297mm; page-break-after:always; break-after:page; }
+  .pagina:last-child { page-break-after:auto; break-after:auto; }
   .editar { display:none !important; }
 }
 </style>
 </head>
 <body>
 ${paginasHtml}
-${paginaFinal}
+${paginasFinaisHtml}
 ${
   editavel
     ? `<script>
