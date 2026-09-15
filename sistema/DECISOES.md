@@ -1014,6 +1014,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D446 | Remoção do campo e coluna de Categorias Permitidas no registro de parceiro, lupa de busca roxa e badge do parceiro exibindo unicamente o nome da empresa | Em `GerenciarParceiros.tsx`, remove a coluna 'Categorias Permitidas' da tabela administrativa e a seção correspondente do modal de cadastro/edição de parceiros, liberando o escopo completo de categorias por padrão sem necessidade de seleção manual; altera a cor do ícone de lupa na barra de pesquisa para a cor primária da marca (`var(--color-primary)`); e no cabeçalho superior (`Layout.tsx`), altera o badge de perfil do usuário logado no ambiente do parceiro para renderizar unicamente o nome da sua empresa (ex: `Teste` ou `TNS`), eliminando o prefixo redundante `Parceiro (...)`. |
 
+---
+
+## Etapa 78 — Preservação de Ordem e Status ao Renomear Funcionalidade na Bateria de Testes (D447)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D447 | Atualização in-place de nome e descrição de funcionalidades em Configurar Homologação sem alteração de ordem nem reinício de status | Em `FormularioTipo.tsx`, mantém o ID dos itens editados do catálogo na lista `itensExistentesFinais` e despacha os dados renomeados via `itensEditados` (em vez de tratá-los como `itensNovosConvertidos`), evitando que o backend remova o item da bateria e o recrie com novo ID ao final da lista; e em `tipos-dispositivo.ts` (`PATCH` e `POST /tipos-dispositivo`), adiciona suporte ao array `itensEditados` para atualizar `itemTeste.nome` e `itemTeste.descricaoAcao` diretamente no banco sem modificar a tabela pivot `bateriaItem` nem recriar os registros da tabela `resultado` das homologações abertas, garantindo que o status avaliado e a ordem na planilha de testes permaneçam 100% preservados. |
+
+
 
 
 

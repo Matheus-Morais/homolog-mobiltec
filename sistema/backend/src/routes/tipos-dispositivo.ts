@@ -86,6 +86,15 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
           }),
         )
         .default([]),
+      itensEditados: z
+        .array(
+          z.object({
+            id: z.string().uuid(),
+            nome: z.string().trim().min(1).max(200),
+            descricaoAcao: z.string().trim().min(1).max(500).optional(),
+          }),
+        )
+        .default([]),
     })
 
     const body = schema.parse(request.body)
@@ -139,6 +148,16 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
           camposFicha: body.camposFicha,
         },
       })
+
+      for (const editado of body.itensEditados) {
+        await tx.itemTeste.update({
+          where: { id: editado.id },
+          data: {
+            nome: editado.nome,
+            ...(editado.descricaoAcao !== undefined ? { descricaoAcao: editado.descricaoAcao } : {}),
+          },
+        })
+      }
 
       const idsNovos: string[] = []
       for (const novo of body.itensNovos) {
@@ -202,6 +221,15 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
           }),
         )
         .default([]),
+      itensEditados: z
+        .array(
+          z.object({
+            id: z.string().uuid(),
+            nome: z.string().trim().min(1).max(200),
+            descricaoAcao: z.string().trim().min(1).max(500).optional(),
+          }),
+        )
+        .default([]),
     })
     const body = schema.parse(request.body)
 
@@ -245,6 +273,16 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
           ...(body.ativo !== undefined ? { ativo: body.ativo } : {}),
         },
       })
+
+      for (const editado of body.itensEditados) {
+        await tx.itemTeste.update({
+          where: { id: editado.id },
+          data: {
+            nome: editado.nome,
+            ...(editado.descricaoAcao !== undefined ? { descricaoAcao: editado.descricaoAcao } : {}),
+          },
+        })
+      }
 
       if (!itensPedidos) return
 

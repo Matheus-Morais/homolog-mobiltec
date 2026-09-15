@@ -212,21 +212,17 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
     setErro(null)
 
     const itensExistentesFinais: string[] = []
-    const itensNovosConvertidos: Array<{ grupo: GrupoItem; nome: string; descricaoAcao: string }> = []
+    const itensEditadosFinais: Array<{ id: string; nome: string; descricaoAcao: string }> = []
 
     for (const id of selecionados) {
+      itensExistentesFinais.push(id)
       const editado = itensCatalogoEditados.get(id)
       if (editado) {
-        const original = catalogo?.find((i) => i.id === id)
-        if (original) {
-          itensNovosConvertidos.push({
-            grupo: original.grupo,
-            nome: editado.nome,
-            descricaoAcao: editado.descricaoAcao,
-          })
-        }
-      } else {
-        itensExistentesFinais.push(id)
+        itensEditadosFinais.push({
+          id,
+          nome: editado.nome,
+          descricaoAcao: editado.descricaoAcao,
+        })
       }
     }
 
@@ -237,10 +233,8 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
         .map((l) => l.chave)
         .filter((c) => campos.has(c) || FICHA_FIXA.includes(c as ChaveFicha)),
       itensExistentes: itensExistentesFinais,
-      itensNovos: [
-        ...novos.map(({ grupo, nome, descricaoAcao }) => ({ grupo, nome, descricaoAcao })),
-        ...itensNovosConvertidos,
-      ],
+      itensNovos: novos.map(({ grupo, nome, descricaoAcao }) => ({ grupo, nome, descricaoAcao })),
+      itensEditados: itensEditadosFinais,
     }
 
     try {

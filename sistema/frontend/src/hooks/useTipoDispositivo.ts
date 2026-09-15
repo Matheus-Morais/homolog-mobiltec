@@ -40,6 +40,7 @@ export interface PayloadTipoDispositivo {
   camposFicha: (ChaveFicha | string)[]
   itensExistentes: string[]
   itensNovos: { grupo: GrupoItem; nome: string; descricaoAcao: string }[]
+  itensEditados?: { id: string; nome: string; descricaoAcao?: string }[]
 }
 
 interface TipoCriado {
