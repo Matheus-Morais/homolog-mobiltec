@@ -276,6 +276,9 @@ function CardDispositivoParceiro({
     return d.observacoes || 'Ajustes técnicos pendentes solicitados pela Mobiltec.'
   }, [d.notificacaoRevisao, observacoesProcessadas, d.observacoes])
 
+  const [expandirTextoRevisao, setExpandirTextoRevisao] = useState(false)
+  const precisaLerMais = textoRevisao.length > 120
+
   return (
     <article
       className="flex flex-col rounded-xl border shadow-xs overflow-hidden transition-all hover:shadow-md"
@@ -304,83 +307,41 @@ function CardDispositivoParceiro({
         </div>
       </div>
 
-      {/* Meio: Foto e Dados de Configuração */}
-      <div className="p-4 flex items-center gap-4">
-        <div
-          className="h-20 w-20 rounded-xl border overflow-hidden shrink-0 flex items-center justify-center p-1"
-          style={{ background: 'var(--color-sidebar)' }}
-        >
-          <FotoDispositivo url={d.fotoUrl} nome={d.nomeComercial} altura={76} semBorda />
-        </div>
-
-        <div className="flex-1 min-w-0 space-y-1 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[var(--color-muted-foreground)]">Android:</span>
-            <span className="font-semibold text-[var(--color-foreground)]">{d.versaoSo}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[var(--color-muted-foreground)]">Agente:</span>
-            <span className="font-semibold text-[var(--color-foreground)]">{d.versaoAgente}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[var(--color-muted-foreground)]">Gerenciamento:</span>
-            <span className="font-medium text-[var(--color-muted-foreground)] truncate max-w-[110px]">
-              {d.gerenciamento === 'ANDROID_ENTERPRISE' ? 'Enterprise' : 'Legado'}
-            </span>
-          </div>
-
-          {/* Barra de Progresso de Testes */}
-          <div className="pt-1.5">
-            <div className="flex items-center justify-between text-[11px] mb-1">
-              <span className="text-[var(--color-muted-foreground)]">Testes executados:</span>
-              <span className="font-semibold text-[var(--color-foreground)]">{pctAvaliado}%</span>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${pctAvaliado}%`,
-                  background: d.homologado ? 'var(--color-primary)' : '#6366f1',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Box de Notificação e Confirmação de Revisão Técnica Mobiltec */}
-      {d.status === 'EM_REVISAO' && (
-        <div
-          className="mx-4 mb-3 rounded-lg border p-3 text-xs space-y-2"
-          style={{
-            background: 'rgba(219, 234, 254, 0.35)',
-            borderColor: 'rgba(59, 130, 246, 0.3)',
-          }}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-1.5 font-semibold text-blue-900">
-              <span className="text-sm">⚠️</span>
-              <span>Revisão técnica solicitada pela Mobiltec</span>
+      {/* Meio: Foto e Dados Técnicos OU Texto Limpo da Revisão Técnica */}
+      {d.status === 'EM_REVISAO' ? (
+        <div className="p-4 flex-1 flex flex-col justify-between text-xs space-y-3">
+          <div className="space-y-1.5">
+            <div className="p-2.5 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-900/40 text-[12px] leading-relaxed text-[var(--color-foreground)] font-medium">
+              <p className="whitespace-pre-wrap">
+                {expandirTextoRevisao || !precisaLerMais
+                  ? textoRevisao
+                  : `${textoRevisao.slice(0, 115)}…`}
+              </p>
+              {precisaLerMais && (
+                <button
+                  type="button"
+                  onClick={() => setExpandirTextoRevisao((v) => !v)}
+                  className="mt-1 text-[11px] font-bold text-[var(--color-primary)] hover:underline cursor-pointer block"
+                >
+                  {expandirTextoRevisao ? 'Ler menos ▲' : 'Ler mais ▼'}
+                </button>
+              )}
             </div>
           </div>
 
-          <p className="text-blue-950/85 leading-relaxed bg-white/70 p-2 rounded border border-blue-200/50 text-[11px]">
-            {textoRevisao}
-          </p>
-
-          <div className="pt-1 flex items-center justify-between gap-2 flex-wrap text-[11px]">
+          <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] pt-1">
             {d.notificacaoRevisao?.confirmada ? (
-              <span className="inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
                 <span>✓</span>
                 <span>
-                  Recebimento confirmado por {d.notificacaoRevisao.confirmadaPor ?? 'Parceiro'} em{' '}
+                  Confirmado por {d.notificacaoRevisao.confirmadaPor ?? 'Parceiro'}
                   {d.notificacaoRevisao.confirmadaEm
-                    ? new Date(d.notificacaoRevisao.confirmadaEm).toLocaleDateString('pt-BR', {
+                    ? ` em ${new Date(d.notificacaoRevisao.confirmadaEm).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',
                         hour: '2-digit',
                         minute: '2-digit',
-                      })
+                      })}`
                     : ''}
                 </span>
               </span>
@@ -389,7 +350,7 @@ function CardDispositivoParceiro({
                 type="button"
                 onClick={() => confirmarNotificacao.mutate(d.notificacaoRevisao!.id)}
                 disabled={confirmarNotificacao.isPending}
-                className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors shadow-2xs cursor-pointer flex items-center gap-1 text-[11px] disabled:opacity-50"
+                className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium transition-colors shadow-2xs cursor-pointer flex items-center gap-1 text-[11px] disabled:opacity-50"
               >
                 <span>{confirmarNotificacao.isPending ? 'Confirmando…' : '✓ Confirmar recebimento (Ciente)'}</span>
               </button>
@@ -398,12 +359,55 @@ function CardDispositivoParceiro({
             {!ehAdmin && (
               <Link
                 to={`/matriz/${d.categoriaSlug}`}
-                className="text-blue-700 hover:underline font-medium ml-auto inline-flex items-center gap-1"
+                className="text-[var(--color-primary)] hover:underline font-semibold ml-auto inline-flex items-center gap-1"
               >
                 <span>Ajustar itens na bateria</span>
                 <span>→</span>
               </Link>
             )}
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 flex items-center gap-4">
+          <div
+            className="h-20 w-20 rounded-xl border overflow-hidden shrink-0 flex items-center justify-center p-1"
+            style={{ background: 'var(--color-sidebar)' }}
+          >
+            <FotoDispositivo url={d.fotoUrl} nome={d.nomeComercial} altura={76} semBorda />
+          </div>
+
+          <div className="flex-1 min-w-0 space-y-1 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Android:</span>
+              <span className="font-semibold text-[var(--color-foreground)]">{d.versaoSo}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Agente:</span>
+              <span className="font-semibold text-[var(--color-foreground)]">{d.versaoAgente}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Gerenciamento:</span>
+              <span className="font-medium text-[var(--color-muted-foreground)] truncate max-w-[110px]">
+                {d.gerenciamento === 'ANDROID_ENTERPRISE' ? 'Enterprise' : 'Legado'}
+              </span>
+            </div>
+
+            {/* Barra de Progresso de Testes */}
+            <div className="pt-1.5">
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-[var(--color-muted-foreground)]">Testes executados:</span>
+                <span className="font-semibold text-[var(--color-foreground)]">{pctAvaliado}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${pctAvaliado}%`,
+                    background: d.homologado ? 'var(--color-primary)' : '#6366f1',
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

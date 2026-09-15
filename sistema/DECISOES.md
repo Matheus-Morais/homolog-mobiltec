@@ -1028,6 +1028,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D448 | Redesign compacto horizontal dos cards de métricas em Validação de Certificados, contraste alto nas notificações e simplificação do card de homologação | Em `CentralNotificacoes.tsx`: restaura contraste pleno no texto descritivo das notificações (`color: var(--color-foreground)`, removendo opacidade esmaecida) para leitura nítida e confortável com borda esquerda roxa de destaque; em `ValidarCertificados.tsx`: compacta os cards superiores de métricas (*Aguardando Validação*, *Aprovados & Emitidos*, *Parceiros Cadastrados*) em layout horizontal com altura reduzida (`py-2.5 px-3.5`), ícones menores e o contador numérico posicionado ao lado do título; e simplifica o card de modelo enviado para validação, removendo o emoji de prédio (`🏢`) da tag do parceiro, eliminando a barra e os contadores de progresso de testes (`0 OK 1 div 47 pend`), e promovendo a data de envio (`· Envio: dd/mm/aaaa`) para a linha superior de tags, unificando a altura do card em um design limpo e fluido. |
 
+---
+
+## Etapa 80 — Alertas Reativos de Menu por Perfil e Redesign Compacto do Card em Revisão (D449)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D449 | Dispensa de alerta de validação ao visualizar no menu, exibição e saída do alerta de revisão no menu do parceiro após confirmação, e redesign compacto do card em revisão | Em `Layout.tsx`: implementa persistência de IDs visualizados (`homolog.validacao-vistos`) para o Admin, exibindo badges em *Parceiros* e *Validar certificado* apenas para novas pendências e dispensando-os ao clicar/visitar a página; e para o Parceiro, exibe badge de alerta âmbar em *Painel* e no subitem da sua empresa (`/paineis/meu-painel`) enquanto houver revisões pendentes de confirmação (`pendentesConfirmacao`), removendo os badges do menu em tempo real no momento em que o recebimento for confirmado. Em `PainelParceiro.tsx`: quando o dispositivo estiver em revisão (`EM_REVISAO`), substitui a foto do coletor e as especificações técnicas (Android/Agente/Progresso) por um container clean com o texto da revisão da Mobiltec sem o cabeçalho/ícone `⚠️`, provê controle de 'Ler mais / Ler menos' para textos extensos, exibe status/botão de confirmação e mantém o rodapé alinhado por `mt-auto`, unificando a altura dos cards e eliminando deformações na grade. |
+
+
 
 
 

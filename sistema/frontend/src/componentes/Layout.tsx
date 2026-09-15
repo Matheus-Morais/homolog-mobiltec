@@ -8,6 +8,7 @@ import { ancorarMenu } from '@/lib/ancorarMenu'
 import { LogoMobiltec } from './LogoMobiltec'
 import { Icone, iconeDaCategoria, type NomeIcone } from './Icone'
 import { CentralNotificacoes } from './CentralNotificacoes'
+import { useNotificacoes } from '@/hooks/useNotificacoes'
 
 const CHAVE_MENU = 'homolog.menu-aberto'
 
@@ -31,11 +32,13 @@ function GrupoMenu({
   filhos,
   aberto,
   totalPendentes = 0,
+  aoClicarItem,
 }: {
   item: Omit<ItemMenuDados, 'fim'>
   filhos: ItemMenuDados[]
   aberto: boolean
   totalPendentes?: number
+  aoClicarItem?: (item: ItemMenuDados) => void
 }) {
   const { pathname } = useLocation()
   const noGrupo = filhos.some((f) => pathname === f.para || pathname.startsWith(`${f.para}/`))
@@ -207,6 +210,7 @@ function GrupoMenu({
                     key={f.para}
                     to={f.para}
                     end={f.fim}
+                    onClick={() => aoClicarItem?.(f)}
                     className={({ isActive }) =>
                       `btn-menu-subitem flex items-center justify-between truncate rounded-md px-2.5 py-1.5 text-[13px] font-medium leading-tight outline-none focus:outline-none focus-visible:outline-none ${
                         isActive
@@ -256,7 +260,10 @@ function GrupoMenu({
                 to={f.para}
                 end={f.fim}
                 role="menuitem"
-                onClick={() => setFlutuante(null)}
+                onClick={() => {
+                  setFlutuante(null)
+                  aoClicarItem?.(f)
+                }}
                 className="flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[0.04] outline-none focus:outline-none focus-visible:outline-none"
                 style={({ isActive }) => ({
                   background: isActive ? 'var(--color-muted)' : 'transparent',
@@ -303,11 +310,13 @@ function MenuPaineis({
   ehAdmin,
   ehParceiro,
   usuario,
+  revisoesPendentes = 0,
 }: {
   aberto: boolean
   ehAdmin: boolean
   ehParceiro: boolean
   usuario: any
+  revisoesPendentes?: number
 }) {
   const { pathname } = useLocation()
   const { data: parceiros = [] } = useParceiros(ehAdmin)
@@ -458,9 +467,23 @@ function MenuPaineis({
         }}
       >
         <Icone nome="painel" className="h-[18px] w-[18px] shrink-0" />
+        {!aberto && ehParceiro && revisoesPendentes > 0 && (
+          <span
+            className="absolute top-1 right-1 h-2 w-2 rounded-full ring-2 shadow-xs"
+            style={{ background: '#F59E0B' }}
+          />
+        )}
         {aberto && (
           <>
             <span className="flex-1 truncate text-left">Painel</span>
+            {ehParceiro && revisoesPendentes > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs"
+                style={{ background: '#F59E0B' }}
+              >
+                {revisoesPendentes}
+              </span>
+            )}
             <svg
               viewBox="0 0 16 16"
               className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 opacity-75"
@@ -518,6 +541,14 @@ function MenuPaineis({
                   }
                 >
                   <span className="truncate">{usuario.empresa}</span>
+                  {revisoesPendentes > 0 && (
+                    <span
+                      className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0"
+                      style={{ background: '#F59E0B' }}
+                    >
+                      {revisoesPendentes}
+                    </span>
+                  )}
                 </NavLink>
               )}
 
@@ -626,14 +657,22 @@ function MenuPaineis({
               to="/paineis/meu-painel"
               role="menuitem"
               onClick={() => setFlutuante(null)}
-              className="flex items-center px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[0.04] outline-none"
+              className="flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[0.04] outline-none"
               style={({ isActive }) => ({
                 background: isActive ? 'var(--color-muted)' : 'transparent',
                 color: isActive ? 'var(--color-primary)' : 'inherit',
                 fontWeight: isActive ? 600 : 400,
               })}
             >
-              {usuario.empresa}
+              <span className="truncate">{usuario.empresa}</span>
+              {revisoesPendentes > 0 && (
+                <span
+                  className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0"
+                  style={{ background: '#F59E0B' }}
+                >
+                  {revisoesPendentes}
+                </span>
+              )}
             </NavLink>
           )}
 
@@ -692,11 +731,58 @@ export function Layout() {
   const { data: categorias } = useCategorias()
   const { data: todasHomologacoes = [] } = useListaHomologacoes()
   const { data: todosParceiros = [] } = useParceiros(ehAdmin)
+  const { data: notificacoesData } = useNotificacoes()
   const { pathname } = useLocation()
 
-  const totalPendentes = todasHomologacoes.filter(
-    (h) => h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO',
-  ).length
+  const revisoesPendentes = ehParceiro ? (notificacoesData?.pendentesConfirmacao ?? 0) : 0
+
+  const homologacoesPendentes = useMemo(() => {
+    return todasHomologacoes.filter(
+      (h) => h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO',
+    )
+  }, [todasHomologacoes])
+
+  const CHAVE_VISTOS = 'homolog.validacao-vistos'
+  const [vistosIds, setVistosIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(CHAVE_VISTOS)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Se o admin acessar a rota de validação de certificados, marca todas as pendências atuais como vistas
+  useEffect(() => {
+    if (pathname === '/parceiros/validar-certificados' && homologacoesPendentes.length > 0) {
+      const idsAtuais = homologacoesPendentes.map((h) => h.id)
+      const todosJaVistos = idsAtuais.every((id) => vistosIds.includes(id))
+      if (!todosJaVistos) {
+        const novoConjunto = Array.from(new Set([...vistosIds, ...idsAtuais]))
+        setVistosIds(novoConjunto)
+        try {
+          localStorage.setItem(CHAVE_VISTOS, JSON.stringify(novoConjunto))
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }, [pathname, homologacoesPendentes, vistosIds])
+
+  function marcarPendenciasVistas() {
+    const idsAtuais = homologacoesPendentes.map((h) => h.id)
+    const novoConjunto = Array.from(new Set([...vistosIds, ...idsAtuais]))
+    setVistosIds(novoConjunto)
+    try {
+      localStorage.setItem(CHAVE_VISTOS, JSON.stringify(novoConjunto))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const totalPendentes = ehAdmin
+    ? homologacoesPendentes.filter((h) => !vistosIds.includes(h.id)).length
+    : 0
 
   const [aberto, setAberto] = useState(() => {
     try {
@@ -835,6 +921,7 @@ export function Layout() {
               ehAdmin={ehAdmin}
               ehParceiro={ehParceiro}
               usuario={usuario}
+              revisoesPendentes={revisoesPendentes}
             />
 
             {/* Menu Homologações — os dispositivos registrados ficam aqui */}
@@ -883,6 +970,11 @@ export function Layout() {
                     filhos={opcoesParceiros}
                     aberto={aberto}
                     totalPendentes={totalPendentes}
+                    aoClicarItem={(f) => {
+                      if (f.para.includes('validar-certificados')) {
+                        marcarPendenciasVistas()
+                      }
+                    }}
                   />
                 )}
               </div>
