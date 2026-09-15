@@ -322,6 +322,9 @@ function MenuPaineis({
       if (chave === 'tnsi' || chave === 'tns') {
         chave = 'tns'
       }
+      // Mobiltec é a empresa principal/interna exibida no topo do menu Painel, não deve aparecer na lista de parceiros
+      if (chave === 'mobiltec') continue
+
       if (!mapa.has(chave)) {
         mapa.set(chave, {
           ...p,

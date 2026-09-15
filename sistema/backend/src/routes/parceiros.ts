@@ -252,7 +252,7 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       const parceiro = await fastify.prisma.usuario.findFirst({
         where: {
           OR: [{ id }, { empresa: { equals: id, mode: 'insensitive' } }],
-          papel: 'PARCEIRO',
+          ativo: true,
         },
         select: {
           id: true,
@@ -294,7 +294,7 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
 
 /**
  * Monta os dados consolidados do painel de um parceiro:
- * métricas de homologação, progresso de testes e lista de dispositivos.
+ * métricas de homologação, progresso de testes e lista de dispositivos do seu ambiente.
  */
 async function montarDadosPainel(fastify: any, parceiro: any) {
   const empresa = parceiro.empresa?.trim()
@@ -303,6 +303,30 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     empresa?.toLowerCase() === 'tnsi' ||
     parceiro.email?.toLowerCase() === 'hgomes@tnsi.com'
 
+  // Consolida as categorias permitidas do parceiro e de todos os usuários parceiros desta empresa
+  const usuariosDaEmpresa = empresa
+    ? await fastify.prisma.usuario.findMany({
+        where: { empresa: { equals: empresa, mode: 'insensitive' } },
+        select: { id: true, categoriasPermitidas: true },
+      })
+    : []
+
+  const categoriasPermitidasSet = new Set<string>(
+    Array.isArray(parceiro.categoriasPermitidas) ? parceiro.categoriasPermitidas : [],
+  )
+  for (const u of usuariosDaEmpresa) {
+    if (Array.isArray(u.categoriasPermitidas)) {
+      u.categoriasPermitidas.forEach((c: string) => categoriasPermitidasSet.add(c))
+    }
+  }
+
+  // TNS opera na categoria PoS completa
+  if (ehTNS) {
+    categoriasPermitidasSet.add('pos')
+  }
+
+  const listaCategorias = Array.from(categoriasPermitidasSet)
+
   const dispositivos = await fastify.prisma.dispositivo.findMany({
     where: {
       ativo: true,
@@ -310,7 +334,12 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
         ...(empresa ? [{ empresa: { equals: empresa, mode: 'insensitive' } }] : []),
         ...(empresa ? [{ fabricante: { equals: empresa, mode: 'insensitive' } }] : []),
         { homologacoes: { some: { responsavelId: parceiro.id } } },
-        ...(empresa ? [{ homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } }] : []),
+        ...(empresa
+          ? [{ homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } }]
+          : []),
+        ...(listaCategorias.length > 0
+          ? [{ categoria: { slug: { in: listaCategorias } } }]
+          : []),
       ],
     },
     include: {
@@ -318,7 +347,7 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
       homologacoes: {
         include: {
           resultados: { select: { status: true, justificativaId: true, justificativaTexto: true } },
-          responsavel: { select: { id: true, nome: true, email: true } },
+          responsavel: { select: { id: true, nome: true, email: true, empresa: true } },
         },
         orderBy: { criadoEm: 'desc' },
       },
@@ -349,7 +378,12 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     : []
 
   const listaDispositivos = dispositivos.map((d: any) => {
-    const atual = d.homologacoes[0]
+    const homologacaoDoParceiro = d.homologacoes.find(
+      (h: any) =>
+        h.responsavelId === parceiro.id ||
+        (empresa && h.responsavel?.empresa?.toLowerCase() === empresa.toLowerCase()),
+    )
+    const atual = homologacaoDoParceiro || d.homologacoes[0]
     const notificacaoRevisao = notificacoes.find(
       (n: any) => n.homologacaoId === atual?.id && n.tipo === 'REVISAO',
     )

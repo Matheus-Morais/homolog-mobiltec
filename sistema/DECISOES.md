@@ -982,6 +982,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D442 | Seletor de Tipo de Agente, flag contextual Sim/Não de assinatura de fabricante e correção do erro 500 no cadastro | No modal de cadastro e edição de modelos (`ModalNovoModelo.tsx`), substitui o campo de texto livre de Tipo de Agente por um seletor selecionável com opções padrão ('Agente de Prod', 'Agente Dev', 'Agente QA', 'Agente POS', 'Agente Legado') acompanhado do botão '+ Novo agente' com formulário inline para adição dinâmica; remove os checkboxes genéricos 'Assinatura do agente' e 'Precisa assinatura DEV' e adiciona container contextual exibido exclusivamente para 'Agente POS' e 'Agente Legado' com a pergunta 'O agente precisa de assinatura do fabricante: Sim ou Não', sincronizando as flags correspondentes; e no backend (`matriz.ts` e `dispositivos.ts`), desestrutura explicitamente os campos de entidade e envolve as queries de criação em tratamento robusto de erros, evitando vazamento de propriedades no Prisma `homologacoes.create` que causava erro interno 500. |
 
+---
+
+## Etapa 74 — Exclusão da Mobiltec da Lista de Parceiros e Abrangência de Dispositivos por Ambiente no Painel (D443)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D443 | Remoção da Mobiltec no submenu Parceiros e consolidação dos dispositivos de categorias permitidas no Painel do Parceiro | No menu lateral (`Layout.tsx`), filtra a empresa Mobiltec da lista desdobrável de parceiros para admins (`empresasParceirasUnicas`), mantendo o link principal 'Mobiltec' unicamente no topo de 'Painel'; e no backend (`parceiros.ts`), ajusta `montarDadosPainel` para consolidar as `categoriasPermitidas` de todos os usuários da empresa parceira (e explicitamente 'pos' para TNS), expandindo a query `dispositivo.findMany` para incluir todos os dispositivos das categorias permitidas além daqueles explicitamente associados por empresa ou responsabilidade, garantindo que ao clicar em qualquer parceiro (ex: TNS com seus 32 dispositivos) o administrador visualize o ambiente completo e coerente de testes daquela organização. |
+
+
 
 
 
