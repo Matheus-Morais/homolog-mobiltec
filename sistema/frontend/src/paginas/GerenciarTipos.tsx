@@ -11,7 +11,9 @@ import {
 import { Icone, iconeDaCategoria } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { LINHAS_FICHA } from '@/lib/tipos'
-
+import type { BateriaTeste } from '@/lib/tipos'
+import { useBaterias } from '@/hooks/useBateria'
+import { ModalBateria } from '@/componentes/tipo/ModalBateria'
 /**
  * Editar / remover tipo de dispositivo.
  *
@@ -28,11 +30,13 @@ export function GerenciarTipos() {
   const navegar = useNavigate()
   const localizacao = useLocation()
   const { data: tipos, isLoading } = useTiposDispositivo()
+  const { data: todasBaterias } = useBaterias()
   const editar = useEditarTipo()
   const remover = useRemoverTipo()
 
   const [erro, setErro] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<TipoDispositivo | null>(null)
+  const [modalBateria, setModalBateria] = useState<{ categoriaId: string; bateria?: BateriaTeste } | null>(null)
 
   /** O que a última edição fez, entregue pelo formulário ao voltar para cá */
   const recado = localizacao.state as { resumo?: ResumoEdicao; nome?: string } | null
@@ -118,62 +122,107 @@ export function GerenciarTipos() {
               <div
                 key={tipo.id}
                 data-tipo={tipo.slug}
-                className="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3"
+                className="flex flex-col gap-3 rounded-lg border px-4 py-3"
                 style={{
                   background: 'var(--color-card)',
                   opacity: tipo.ativo ? 1 : 0.62,
                 }}
               >
-                <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-md"
-                  style={{ background: 'var(--gradient-brand-purple)', color: '#fff' }}
-                >
-                  <Icone nome={iconeDaCategoria(tipo.icone)} className="h-[18px] w-[18px]" />
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-md"
+                    style={{ background: 'var(--gradient-brand-purple)', color: '#fff' }}
+                  >
+                    <Icone nome={iconeDaCategoria(tipo.icone)} className="h-[18px] w-[18px]" />
+                  </span>
 
-                <div className="min-w-40 flex-1">
-                  <p className="flex items-center gap-2 text-sm font-semibold">
-                    {tipo.nome}
-                    {!tipo.ativo && (
-                      <span
-                        className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                        style={{
-                          background: 'var(--color-muted)',
-                          color: 'var(--color-muted-foreground)',
-                        }}
-                      >
-                        fora de operação
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-                    {tipo.dispositivos} {tipo.dispositivos === 1 ? 'modelo' : 'modelos'} ·{' '}
-                    {tipo.itens.length} {tipo.itens.length === 1 ? 'item' : 'itens'} de teste ·{' '}
-                    {linhas} {linhas === 1 ? 'linha' : 'linhas'} na ficha ·{' '}
-                    <code>/matriz/{tipo.slug}</code>
-                  </p>
+                  <div className="min-w-40 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-semibold">
+                      {tipo.nome}
+                      {!tipo.ativo && (
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                          style={{
+                            background: 'var(--color-muted)',
+                            color: 'var(--color-muted-foreground)',
+                          }}
+                        >
+                          fora de operação
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                      {tipo.dispositivos} {tipo.dispositivos === 1 ? 'modelo' : 'modelos'} ·{' '}
+                      {linhas} {linhas === 1 ? 'linha' : 'linhas'} na ficha ·{' '}
+                      <code>/matriz/{tipo.slug}</code>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Acao rotulo="Planilha" aoClicar={() => navegar(`/matriz/${tipo.slug}`)} />
+                    <Acao rotulo="Editar" aoClicar={() => navegar(`/registro/tipos/${tipo.id}`)} />
+                    <Acao
+                      rotulo={tipo.ativo ? 'Desativar' : 'Reativar'}
+                      aoClicar={() => alternarAtivo(tipo)}
+                    />
+                    <Acao
+                      rotulo="Apagar"
+                      perigo
+                      desabilitado={tipo.dispositivos > 0}
+                      titulo={
+                        tipo.dispositivos > 0
+                          ? `"${tipo.nome}" tem ${tipo.dispositivos} modelo(s) — desative em vez de apagar`
+                          : 'Apagar este tipo, que não tem modelo nenhum'
+                      }
+                      aoClicar={() => setConfirmando(tipo)}
+                    />
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Acao rotulo="Planilha" aoClicar={() => navegar(`/matriz/${tipo.slug}`)} />
-                  <Acao rotulo="Editar" aoClicar={() => navegar(`/registro/tipos/${tipo.id}`)} />
-                  <Acao
-                    rotulo={tipo.ativo ? 'Desativar' : 'Reativar'}
-                    aoClicar={() => alternarAtivo(tipo)}
-                  />
-                  <Acao
-                    rotulo="Apagar"
-                    perigo
-                    // Com modelos cadastrados o backend recusa; travar aqui
-                    // evita oferecer um caminho que não existe.
-                    desabilitado={tipo.dispositivos > 0}
-                    titulo={
-                      tipo.dispositivos > 0
-                        ? `"${tipo.nome}" tem ${tipo.dispositivos} modelo(s) — desative em vez de apagar`
-                        : 'Apagar este tipo, que não tem modelo nenhum'
-                    }
-                    aoClicar={() => setConfirmando(tipo)}
-                  />
+                <div className="border-t pt-3 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="label-caps">Baterias de Teste</h4>
+                    <button
+                      type="button"
+                      onClick={() => setModalBateria({ categoriaId: tipo.id })}
+                      className="text-xs font-semibold hover:underline"
+                      style={{ color: 'var(--color-primary)' }}
+                    >
+                      + Nova bateria
+                    </button>
+                  </div>
+                  
+                  <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {(todasBaterias?.filter(b => b.categoriaId === tipo.id) ?? []).map(bateria => {
+                      const qtdItens = bateria._count?.itens ?? bateria.itens?.length ?? 0
+                      return (
+                        <div
+                          key={bateria.id}
+                          className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                          style={{
+                            background: 'var(--color-sidebar)',
+                            borderColor: 'var(--color-border)',
+                            opacity: bateria.ativo ? 1 : 0.6
+                          }}
+                        >
+                          <div>
+                            <p className="font-semibold">{bateria.nome}</p>
+                            <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                              {qtdItens} {qtdItens === 1 ? 'item' : 'itens'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setModalBateria({ categoriaId: tipo.id, bateria })}
+                            className="text-xs font-medium hover:underline"
+                            style={{ color: 'var(--color-muted-foreground)' }}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             )
@@ -220,6 +269,14 @@ export function GerenciarTipos() {
             </div>
           </div>
         </div>
+      )}
+
+      {modalBateria && (
+        <ModalBateria
+          categoriaId={modalBateria.categoriaId}
+          bateria={modalBateria.bateria}
+          aoFechar={() => setModalBateria(null)}
+        />
       )}
     </div>
   )

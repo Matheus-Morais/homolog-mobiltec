@@ -872,4 +872,11 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | D427 | Atualização de segurança do ecossistema Fastify 5 e JWT | Atualização coordenada de `fastify` (5.12.3), `@fastify/jwt` (10.2.2), `@fastify/static` (10.1.3), `@fastify/cors` (11.3.0), `@fastify/multipart` (10.1.1) e `fastify-plugin` (6.0.0) para sanar vulnerabilidades críticas de bypass de autenticação JWT e path traversal (GHSA-gmvf-9v4p-v8jc, GHSA-8pvw-jcv7-9cmj, GHSA-jx2c-rxcm-jvmq), com preservação de 100% dos tipos e roteiros de verificação mecânica |
 | D428 | Blindagem de RBAC para perfil LEITOR e restrição de rotas sensíveis de catálogo, dispositivos e vitrine | Garante que usuários com perfil LEITOR não possam criar ou alterar homologações, itens de catálogo ou transicionar status, restringe operações estruturais (DELETE/POST dispositivos, tipos e baterias) a ADMIN/HOMOLOGADOR, reabertura a ADMIN, e isola homologações em andamento na vitrine por empresa de parceiro |
 
+## Etapa 60 — Baterias de Teste: Criação, Edição e Reordenação
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D429 | Baterias de teste múltiplas e independentes por tipo de dispositivo | O schema já suporta N baterias por categoria (relação 1:N `Categoria → BateriaTeste`), mas a UI e a lógica tratavam como 1:1. Agora o admin pode criar baterias adicionais dentro de um tipo existente, e na criação de homologação escolhe qual bateria usar. Atende ao pedido de "criar e configurar novas baterias de testes, além das que já existem" |
+| D430 | Reordenação de itens da bateria via endpoint PATCH em lote | Nova rota `PATCH /baterias/:id/ordem` aceita array `[{ itemId, ordem }]` e atualiza as posições em transação. A UI exibe campos numéricos de ordem editáveis — mapeamento direto do requisito "cada teste deverá possuir um número de ordem" e "o administrador poderá alterar esses números" |
+| D431 | Rota PATCH /baterias/:id para edição de bateria existente | Só existia `POST /baterias` (criação). Nova rota permite renomear, adicionar/remover itens e desativar bateria. Ao receber `itens`, faz reconciliação similar ao `PATCH /tipos-dispositivo` (D369): sincroniza homologações abertas que usam essa bateria |
 
