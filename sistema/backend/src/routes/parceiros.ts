@@ -286,6 +286,14 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
         include: {
           resultados: { select: { status: true, justificativaId: true, justificativaTexto: true } },
           responsavel: { select: { id: true, nome: true, email: true } },
+          // O último apontamento da Mobiltec, para o card do painel dizer o
+          // que precisa ser ajustado (D435)
+          historicoStatus: {
+            where: { statusNovo: 'EM_REVISAO' },
+            orderBy: { criadoEm: 'desc' },
+            take: 1,
+            select: { motivo: true, criadoEm: true, usuario: { select: { nome: true } } },
+          },
         },
         orderBy: { criadoEm: 'desc' },
       },
@@ -364,6 +372,14 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
       status: atual?.status ?? 'RASCUNHO',
       homologado: atual?.homologado ?? false,
       observacoes: atual?.observacoes ?? null,
+      revisaoPendente:
+        atual?.status === 'EM_REVISAO' && atual.historicoStatus[0]
+          ? {
+              motivo: atual.historicoStatus[0].motivo,
+              solicitadoEm: atual.historicoStatus[0].criadoEm,
+              solicitadoPor: atual.historicoStatus[0].usuario?.nome ?? null,
+            }
+          : null,
       dataInicio: atual?.dataInicio ?? null,
       dataFim: atual?.dataFim ?? null,
       responsavelNome: atual?.responsavel?.nome ?? parceiro.nome,
