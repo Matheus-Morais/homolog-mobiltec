@@ -218,11 +218,19 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
     })
 
     const body = schema.parse(request.body)
-    const fabricante = body.fabricante || 'Fabricante'
-    const modelo = body.modelo || 'Modelo'
-    const nomeComercial = body.nomeComercial || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
-    const categoriaId = body.categoriaId
-    const { linkFabricante, bateriaId: bateriaIdRaw, ...restoHomologacao } = body
+    const {
+      categoriaId,
+      fabricante: fabricanteRaw,
+      modelo: modeloRaw,
+      nomeComercial: nomeComercialRaw,
+      linkFabricante,
+      bateriaId: bateriaIdRaw,
+      ...restoHomologacao
+    } = body
+
+    const fabricante = fabricanteRaw || 'Fabricante'
+    const modelo = modeloRaw || 'Modelo'
+    const nomeComercial = nomeComercialRaw || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
 
     let bateria = null
     if (bateriaIdRaw && typeof bateriaIdRaw === 'string' && bateriaIdRaw.trim()) {
@@ -305,12 +313,15 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.status(201).send(dispositivo)
     } catch (e: any) {
+      fastify.log.error(e)
       if (e.code === 'P2002') {
         return reply.status(409).send({
           erro: `Já existe um dispositivo ${fabricante} ${modelo}. Para um novo teste do mesmo modelo, abra um reteste em vez de cadastrar de novo.`,
         })
       }
-      throw e
+      return reply.status(400).send({
+        erro: e?.message || 'Não foi possível cadastrar o modelo e abrir a homologação.',
+      })
     }
   })
 

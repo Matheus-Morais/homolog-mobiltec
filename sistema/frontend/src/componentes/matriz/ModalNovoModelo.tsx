@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   useCadastrarModelo,
   useSalvarDispositivo,
@@ -22,6 +22,14 @@ interface Props {
 }
 
 const hoje = () => new Date().toISOString().slice(0, 10)
+
+const TIPOS_AGENTE_PADRAO = [
+  'Agente de Prod',
+  'Agente Dev',
+  'Agente QA',
+  'Agente POS',
+  'Agente Legado',
+]
 
 /**
  * O mesmo formulário para cadastrar um modelo e para configurar um já
@@ -51,6 +59,10 @@ export function ModalNovoModelo({
   const editando = !!coluna
   const h = coluna?.homologacao
 
+  const [tiposAgenteExtras, setTiposAgenteExtras] = useState<string[]>([])
+  const [cadastrandoAgente, setCadastrandoAgente] = useState(false)
+  const [novoAgenteNome, setNovoAgenteNome] = useState('')
+
   const [f, setF] = useState({
     fabricante: h?.dispositivo.fabricante ?? '',
     modelo: h?.dispositivo.modelo ?? '',
@@ -61,7 +73,7 @@ export function ModalNovoModelo({
     imei2: h?.imei2 ?? '',
     versaoSo: h?.versaoSo ?? '',
     gerenciamento: (h?.gerenciamento ?? 'ANDROID_LEGADO') as TipoGerenciamento,
-    tipoAgente: h?.tipoAgente ?? 'Agente PoS',
+    tipoAgente: h?.tipoAgente ?? 'Agente POS',
     versaoAgente: h?.versaoAgente ?? '',
     ferramenta: h?.ferramenta ?? '',
     metodoInscricao: h?.metodoInscricao ?? 'ADB / Arquivo',
@@ -69,6 +81,42 @@ export function ModalNovoModelo({
     precisaAssinaturaDev: h?.precisaAssinaturaDev ?? false,
     dataInicio: h?.dataInicio?.slice(0, 10) ?? hoje(),
   })
+
+  const tiposAgenteDisponiveis = useMemo(() => {
+    const lista = [...TIPOS_AGENTE_PADRAO]
+    if (h?.tipoAgente && !lista.some((t: string) => t.toLowerCase() === h.tipoAgente.toLowerCase())) {
+      lista.push(h.tipoAgente)
+    }
+    for (const extra of tiposAgenteExtras) {
+      if (!lista.some((t: string) => t.toLowerCase() === extra.toLowerCase())) {
+        lista.push(extra)
+      }
+    }
+    return lista
+  }, [h, tiposAgenteExtras])
+
+  function salvarNovoAgente() {
+    const nomeLimpo = novoAgenteNome.trim()
+    if (!nomeLimpo) return
+    if (!tiposAgenteDisponiveis.some((t: string) => t.toLowerCase() === nomeLimpo.toLowerCase())) {
+      setTiposAgenteExtras((prev) => [...prev, nomeLimpo])
+    }
+    setF((v) => ({ ...v, tipoAgente: nomeLimpo }))
+    setCadastrandoAgente(false)
+    setNovoAgenteNome('')
+  }
+
+  const ehAgentePosOuLegado = useMemo(() => {
+    const t = f.tipoAgente.trim().toLowerCase()
+    return (
+      t === 'agente pos' ||
+      t === 'agente legado' ||
+      t === 'agente legaldo' ||
+      t.includes('pos') ||
+      t.includes('legado') ||
+      t.includes('legaldo')
+    )
+  }, [f.tipoAgente])
 
   // Sincroniza a bateria selecionada assim que a lista de baterias estiver carregada
   useEffect(() => {
@@ -211,10 +259,141 @@ export function ModalNovoModelo({
                   ))}
                 </select>
               </div>
-              <Campo rotulo="Tipo de agente" obrigatorio valor={f.tipoAgente} aoMudar={set('tipoAgente')} />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="label-caps block">
+                    Tipo de agente <span style={{ color: 'var(--color-destructive)' }}>*</span>
+                  </label>
+                  {!cadastrandoAgente ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCadastrandoAgente(true)
+                        setNovoAgenteNome('')
+                      }}
+                      className="text-[11px] font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
+                      style={{ color: 'var(--color-primary)' }}
+                    >
+                      + Novo agente
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCadastrandoAgente(false)}
+                      className="text-[11px] hover:underline cursor-pointer"
+                      style={{ color: 'var(--color-muted-foreground)' }}
+                    >
+                      Voltar
+                    </button>
+                  )}
+                </div>
+
+                {!cadastrandoAgente ? (
+                  <select
+                    value={f.tipoAgente}
+                    onChange={(e) => set('tipoAgente')(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border bg-transparent text-sm cursor-pointer"
+                    style={{ borderColor: 'var(--color-input)' }}
+                  >
+                    {tiposAgenteDisponiveis.map((ta: string) => (
+                      <option key={ta} value={ta}>
+                        {ta}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={novoAgenteNome}
+                      onChange={(e) => setNovoAgenteNome(e.target.value)}
+                      placeholder="Nome do novo tipo de agente…"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          salvarNovoAgente()
+                        }
+                      }}
+                      className="flex-1 px-2.5 py-1.5 text-xs rounded-md border bg-transparent"
+                      style={{ borderColor: 'var(--color-input)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={salvarNovoAgente}
+                      disabled={!novoAgenteNome.trim()}
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold text-white transition-opacity disabled:opacity-50 cursor-pointer"
+                      style={{ background: 'var(--gradient-brand-purple)' }}
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                )}
+              </div>
               <Campo rotulo="Versão do agente" obrigatorio valor={f.versaoAgente} aoMudar={set('versaoAgente')} />
               <Campo rotulo="Método de inscrição" obrigatorio valor={f.metodoInscricao} aoMudar={set('metodoInscricao')} />
               <Campo rotulo="Ferramenta" valor={f.ferramenta} aoMudar={set('ferramenta')} />
+
+              {ehAgentePosOuLegado && (
+                <div
+                  className="sm:col-span-3 p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
+                  style={{
+                    borderColor: 'var(--color-brand-purple-border, rgba(110, 34, 107, 0.2))',
+                    background: 'var(--color-brand-purple-soft, rgba(251, 244, 250, 0.8))',
+                  }}
+                >
+                  <div>
+                    <span
+                      className="block text-xs font-bold"
+                      style={{ color: 'var(--color-brand-purple-fg, #6e226b)' }}
+                    >
+                      O agente precisa de assinatura do fabricante? <span style={{ color: 'var(--color-destructive)' }}>*</span>
+                    </span>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
+                      Requisito para dispositivos PoS e versões legadas que operam com binários assinados.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        set('assinaturaAgente')(true)
+                        set('precisaAssinaturaDev')(true)
+                      }}
+                      className={`px-3.5 py-1 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                        f.assinaturaAgente
+                          ? 'text-white shadow-xs'
+                          : 'bg-white/80 hover:bg-white text-neutral-600'
+                      }`}
+                      style={{
+                        background: f.assinaturaAgente ? 'var(--gradient-brand-purple)' : undefined,
+                        borderColor: f.assinaturaAgente ? 'var(--color-primary)' : 'var(--color-border)',
+                      }}
+                    >
+                      Sim
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        set('assinaturaAgente')(false)
+                        set('precisaAssinaturaDev')(false)
+                      }}
+                      className={`px-3.5 py-1 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
+                        !f.assinaturaAgente
+                          ? 'text-white shadow-xs'
+                          : 'bg-white/80 hover:bg-white text-neutral-600'
+                      }`}
+                      style={{
+                        background: !f.assinaturaAgente ? 'var(--gradient-brand-purple)' : undefined,
+                        borderColor: !f.assinaturaAgente ? 'var(--color-primary)' : 'var(--color-border)',
+                      }}
+                    >
+                      Não
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -251,11 +430,6 @@ export function ModalNovoModelo({
                   style={{ borderColor: 'var(--color-input)' }}
                 />
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-4 mt-3">
-              <Marcador rotulo="Assinatura do agente" valor={f.assinaturaAgente} aoMudar={set('assinaturaAgente')} />
-              <Marcador rotulo="Precisa assinatura DEV" valor={f.precisaAssinaturaDev} aoMudar={set('precisaAssinaturaDev')} />
             </div>
           </section>
 
@@ -344,22 +518,5 @@ function Campo({
         style={{ borderColor: 'var(--color-input)' }}
       />
     </div>
-  )
-}
-
-function Marcador({
-  rotulo,
-  valor,
-  aoMudar,
-}: {
-  rotulo: string
-  valor: boolean
-  aoMudar: (v: boolean) => void
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm cursor-pointer">
-      <input type="checkbox" checked={valor} onChange={(e) => aoMudar(e.target.checked)} />
-      {rotulo}
-    </label>
   )
 }

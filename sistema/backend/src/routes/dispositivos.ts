@@ -92,10 +92,16 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       })
       return reply.status(201).send(dispositivo)
     } catch (e: any) {
+      fastify.log.error(e)
       if (e.code === 'P2002') {
         return reply.status(409).send({ erro: 'Já existe um dispositivo com esse fabricante e modelo.' })
       }
-      throw e
+      if (e.code === 'P2003') {
+        return reply.status(400).send({ erro: 'Categoria de dispositivo inválida ou inexistente.' })
+      }
+      return reply.status(400).send({
+        erro: e?.message || 'Não foi possível cadastrar o dispositivo.',
+      })
     }
   })
 

@@ -956,8 +956,10 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 
 ## Etapa 70 — Flexibilização Total e Resiliência no Cadastro de Dispositivos e Homologações (D439)
 
-| # | Decisão | Justificativa |
-|---|---|---|
+| D439 | Flexibilização e resiliência no cadastro de modelos e dispositivos | Elimina restrições rígidas e limitadores de dados inválidos no cadastro de dispositivos, adotando valores padrão e preenchimento tolerante para permitir homologações ágeis mesmo com informações parciais. |
+
+---
+
 ## Etapa 71 — Gestão Dinâmica de Itens de Registro, Edição e Lixeira Reativa em Configurar Homologação (D440)
 
 | # | Decisão | Justificativa |
@@ -971,6 +973,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | # | Decisão | Justificativa |
 |---|---|---|
 | D441 | Flag "Dar acesso de Administrador" para parceiros vinculados à empresa Mobiltec | Ao registrar ou editar parceiro em `GerenciarParceiros.tsx`, quando a empresa selecionada for Mobiltec (`empresa.trim().toLowerCase() === 'mobiltec'`), exibe container destacado com checkbox "Dar acesso de Administrador"; quando marcada, envia `isAdmin: true`, atribuindo no backend (`parceiros.ts`) papel `papel: 'ADMIN'` e cargo `cargo: 'Administrador'`, liberando todas as permissões de administração do sistema; se desmarcada ou para outras empresas parceiras, mantém `papel: 'PARCEIRO'` e cargo `'Parceiro Homologador'`; atualiza `GET /parceiros` para listar também parceiros internos/admin que possuam empresa preenchida; e renderiza badge visual "Admin" nos cards de gerenciamento de parceiros. |
+
+---
+
+## Etapa 73 — Seletor de Tipo de Agente, Assinatura de Fabricante e Correção de Cadastro de Dispositivo (D442)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D442 | Seletor de Tipo de Agente, flag contextual Sim/Não de assinatura de fabricante e correção do erro 500 no cadastro | No modal de cadastro e edição de modelos (`ModalNovoModelo.tsx`), substitui o campo de texto livre de Tipo de Agente por um seletor selecionável com opções padrão ('Agente de Prod', 'Agente Dev', 'Agente QA', 'Agente POS', 'Agente Legado') acompanhado do botão '+ Novo agente' com formulário inline para adição dinâmica; remove os checkboxes genéricos 'Assinatura do agente' e 'Precisa assinatura DEV' e adiciona container contextual exibido exclusivamente para 'Agente POS' e 'Agente Legado' com a pergunta 'O agente precisa de assinatura do fabricante: Sim ou Não', sincronizando as flags correspondentes; e no backend (`matriz.ts` e `dispositivos.ts`), desestrutura explicitamente os campos de entidade e envolve as queries de criação em tratamento robusto de erros, evitando vazamento de propriedades no Prisma `homologacoes.create` que causava erro interno 500. |
+
 
 
 
