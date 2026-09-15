@@ -519,7 +519,7 @@ function CardDispositivoParceiro({
       )}
 
       {/* Ações Rápidas no Rodapé */}
-      {(ehAdmin || d.status !== 'EM_REVISAO' || (d.homologacaoId && (d.status === 'APROVADO' || d.status === 'PUBLICADO'))) && (
+      {(ehAdmin || d.status !== 'EM_REVISAO') && (
         <div className="p-3 border-t bg-[var(--color-card)] flex items-center justify-end gap-2 mt-auto">
           {ehAdmin ? (
             <button
