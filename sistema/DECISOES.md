@@ -1036,6 +1036,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D449 | Dispensa de alerta de validação ao visualizar no menu, exibição e saída do alerta de revisão no menu do parceiro após confirmação, e redesign compacto do card em revisão | Em `Layout.tsx`: implementa persistência de IDs visualizados (`homolog.validacao-vistos`) para o Admin, exibindo badges em *Parceiros* e *Validar certificado* apenas para novas pendências e dispensando-os ao clicar/visitar a página; e para o Parceiro, exibe badge de alerta âmbar em *Painel* e no subitem da sua empresa (`/paineis/meu-painel`) enquanto houver revisões pendentes de confirmação (`pendentesConfirmacao`), removendo os badges do menu em tempo real no momento em que o recebimento for confirmado. Em `PainelParceiro.tsx`: quando o dispositivo estiver em revisão (`EM_REVISAO`), substitui a foto do coletor e as especificações técnicas (Android/Agente/Progresso) por um container clean com o texto da revisão da Mobiltec sem o cabeçalho/ícone `⚠️`, provê controle de 'Ler mais / Ler menos' para textos extensos, exibe status/botão de confirmação e mantém o rodapé alinhado por `mt-auto`, unificando a altura dos cards e eliminando deformações na grade. |
 
+---
+
+## Etapa 81 — Isolamento Estrito do Painel do Parceiro e Eliminação de Vazamento de Dispositivos (D450)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D450 | Isolamento estrito do painel do parceiro para exibir unicamente dispositivos e homologações da própria empresa | Em `parceiros.ts` (`montarDadosPainel`): remove a cláusula aberta por categoria (`listaCategorias`) que provocava o vazamento de dispositivos da Mobiltec e de terceiros em teste para o painel do parceiro; restringe a consulta e o `include` de homologações aos modelos cadastrados pela empresa do parceiro (`dispositivo.empresa` ou `fabricante`) ou que possuam homologações atribuídas ao parceiro ou a usuários da sua empresa; assegura que o painel do parceiro liste apenas os modelos do seu ambiente e que os modelos e homologações em andamento da Mobiltec sejam acessados exclusivamente através da vitrine geral em *Painel > Mobiltec*. |
+
+
 
 
 

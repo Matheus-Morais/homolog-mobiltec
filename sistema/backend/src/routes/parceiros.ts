@@ -298,53 +298,42 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
  */
 async function montarDadosPainel(fastify: any, parceiro: any) {
   const empresa = parceiro.empresa?.trim()
-  const ehTNS =
-    empresa?.toLowerCase() === 'tns' ||
-    empresa?.toLowerCase() === 'tnsi' ||
-    parceiro.email?.toLowerCase() === 'hgomes@tnsi.com'
 
-  // Consolida as categorias permitidas do parceiro e de todos os usuários parceiros desta empresa
-  const usuariosDaEmpresa = empresa
-    ? await fastify.prisma.usuario.findMany({
-        where: { empresa: { equals: empresa, mode: 'insensitive' } },
-        select: { id: true, categoriasPermitidas: true },
-      })
-    : []
+  // Escopo estrito do parceiro:
+  // Dispositivos cadastrados pela empresa do parceiro, com fabricante igual à empresa,
+  // ou que possuam homologações realizadas pelo parceiro ou por usuários da sua empresa.
+  const filtroDispositivoDoParceiro: any[] = [
+    { homologacoes: { some: { responsavelId: parceiro.id } } },
+  ]
 
-  const categoriasPermitidasSet = new Set<string>(
-    Array.isArray(parceiro.categoriasPermitidas) ? parceiro.categoriasPermitidas : [],
-  )
-  for (const u of usuariosDaEmpresa) {
-    if (Array.isArray(u.categoriasPermitidas)) {
-      u.categoriasPermitidas.forEach((c: string) => categoriasPermitidasSet.add(c))
-    }
+  if (empresa) {
+    filtroDispositivoDoParceiro.push(
+      { empresa: { equals: empresa, mode: 'insensitive' } },
+      { fabricante: { equals: empresa, mode: 'insensitive' } },
+      { homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } },
+    )
   }
 
-  // TNS opera na categoria PoS completa
-  if (ehTNS) {
-    categoriasPermitidasSet.add('pos')
+  const filtroHomologacaoDoParceiro: any[] = [
+    { responsavelId: parceiro.id },
+  ]
+  if (empresa) {
+    filtroHomologacaoDoParceiro.push({
+      responsavel: { empresa: { equals: empresa, mode: 'insensitive' } },
+    })
   }
-
-  const listaCategorias = Array.from(categoriasPermitidasSet)
 
   const dispositivos = await fastify.prisma.dispositivo.findMany({
     where: {
       ativo: true,
-      OR: [
-        ...(empresa ? [{ empresa: { equals: empresa, mode: 'insensitive' } }] : []),
-        ...(empresa ? [{ fabricante: { equals: empresa, mode: 'insensitive' } }] : []),
-        { homologacoes: { some: { responsavelId: parceiro.id } } },
-        ...(empresa
-          ? [{ homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } }]
-          : []),
-        ...(listaCategorias.length > 0
-          ? [{ categoria: { slug: { in: listaCategorias } } }]
-          : []),
-      ],
+      OR: filtroDispositivoDoParceiro,
     },
     include: {
       categoria: { select: { id: true, nome: true, slug: true, icone: true } },
       homologacoes: {
+        where: {
+          OR: filtroHomologacaoDoParceiro,
+        },
         include: {
           resultados: { select: { status: true, justificativaId: true, justificativaTexto: true } },
           responsavel: { select: { id: true, nome: true, email: true, empresa: true } },
@@ -378,12 +367,9 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     : []
 
   const listaDispositivos = dispositivos.map((d: any) => {
-    const homologacaoDoParceiro = d.homologacoes.find(
-      (h: any) =>
-        h.responsavelId === parceiro.id ||
-        (empresa && h.responsavel?.empresa?.toLowerCase() === empresa.toLowerCase()),
-    )
-    const atual = homologacaoDoParceiro || d.homologacoes[0]
+    // Como as homologações foram estritamente filtradas para este parceiro/empresa,
+    // a homologação mais recente do array é a oficial deste ambiente:
+    const atual = d.homologacoes[0] ?? null
     const notificacaoRevisao = notificacoes.find(
       (n: any) => n.homologacaoId === atual?.id && n.tipo === 'REVISAO',
     )
@@ -422,6 +408,8 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
         }
       }
       resumo.avaliados = resumo.total - resumo.naoTestado
+    } else {
+      metricas.emHomologacao++
     }
 
     return {
