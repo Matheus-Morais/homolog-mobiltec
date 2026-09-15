@@ -98,13 +98,16 @@ export function PainelParceiro() {
           <div
             className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border text-xs shadow-2xs"
             style={{
-              background: 'rgba(239, 68, 68, 0.04)',
-              borderColor: 'rgba(239, 68, 68, 0.25)',
-              color: '#991b1b',
+              background: 'var(--color-brand-purple-soft, #fbf4fa)',
+              borderColor: 'var(--color-brand-purple-border, #f0d5eb)',
+              color: 'var(--color-brand-purple-fg, #6e226b)',
             }}
           >
             <div className="flex items-center gap-2">
-              <span className="font-bold">⚠️ Pendência de Revisão Técnica</span>
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-bold">Pendência de Revisão Técnica</span>
               <span>
                 · A equipe Mobiltec solicitou ajustes técnicos em {pendentesRevisao.length} modelo(s). Veja os apontamentos e confirme o recebimento.
               </span>
@@ -330,12 +333,6 @@ function CardDispositivoParceiro({
             {/* Topo do Aviso: Quem enviou para revisão + Data */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className="h-6 w-6 rounded-full flex items-center justify-center font-bold text-[10px] text-white shrink-0 shadow-xs"
-                  style={{ background: 'var(--gradient-brand-purple)' }}
-                >
-                  {revisao.tecnicoNome.charAt(0).toUpperCase()}
-                </span>
                 <p className="text-[12px] truncate leading-tight">
                   <strong className="text-[var(--color-foreground)] font-bold">
                     {revisao.tecnicoNome}
@@ -366,10 +363,8 @@ function CardDispositivoParceiro({
                 borderColor: 'var(--color-border)',
               }}
             >
-              <p className="whitespace-pre-wrap">
-                {expandirTextoRevisao || !precisaLerMais
-                  ? revisao.mensagem
-                  : `${revisao.mensagem.slice(0, 125)}…`}
+              <p className={`whitespace-pre-wrap ${!expandirTextoRevisao && precisaLerMais ? 'line-clamp-1' : ''}`}>
+                {revisao.mensagem}
               </p>
               {precisaLerMais && (
                 <button

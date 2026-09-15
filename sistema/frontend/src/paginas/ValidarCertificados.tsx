@@ -5,7 +5,7 @@ import { Icone, iconeDaCategoria } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { ErroApi } from '@/lib/api'
 import { BadgeHomologado } from '@/componentes/comum/BadgeHomologado'
-import type { ItemObservacaoGeral } from '@/lib/tipos'
+import { ModalInformacoesHomologacao } from '@/componentes/parceiro/ModalInformacoesHomologacao'
 
 type AbaFiltro = 'pendentes' | 'aprovados' | 'todos'
 
@@ -15,8 +15,7 @@ export function ValidarCertificados() {
   const [busca, setBusca] = useState('')
   const [homologacaoEmAprovacao, setHomologacaoEmAprovacao] = useState<ItemListaHomologacao | null>(null)
   const [homologacaoEmRevisao, setHomologacaoEmRevisao] = useState<ItemListaHomologacao | null>(null)
-  const [homologacaoObservacoes, setHomologacaoObservacoes] = useState<ItemListaHomologacao | null>(null)
-  const [imagemAmpliada, setImagemAmpliada] = useState<{ url: string; nome: string } | null>(null)
+  const [homologacaoInfo, setHomologacaoInfo] = useState<ItemListaHomologacao | null>(null)
   const [motivoRevisao, setMotivoRevisao] = useState('')
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
@@ -468,35 +467,20 @@ export function ValidarCertificados() {
                           Certificado
                         </Link>
 
-                        {/* Ver Matriz */}
-                        <Link
-                          to={`/matriz/${h.dispositivo.categoria?.slug || 'pos'}`}
+                        {/* Exibir Informações */}
+                        <button
+                          type="button"
+                          onClick={() => setHomologacaoInfo(h)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors hover:opacity-80"
                           style={{
                             borderColor: 'var(--color-border)',
                             background: 'var(--color-card)',
-                            color: 'var(--color-muted-foreground)',
-                          }}
-                          title="Abrir coluna de testes na matriz"
-                        >
-                          <Icone nome="painel" className="h-3.5 w-3.5" />
-                          Matriz
-                        </Link>
-
-                        {/* Observações e Anexos */}
-                        <button
-                          type="button"
-                          onClick={() => setHomologacaoObservacoes(h)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors hover:opacity-80"
-                          style={{
-                            borderColor: 'var(--color-border)',
-                            background: 'var(--color-muted)',
                             color: 'var(--color-foreground)',
                           }}
-                          title="Visualizar observações e arquivos/logs anexados"
+                          title="Visualizar informações e detalhes dos testes"
                         >
-                          <Icone nome="anexo" className="h-3.5 w-3.5" />
-                          Observações
+                          <Icone nome="painel" className="h-3.5 w-3.5" />
+                          Exibir Informações
                         </button>
 
                         {/* Botão de Validação / Aprovação */}
@@ -677,217 +661,23 @@ export function ValidarCertificados() {
         </div>
       )}
 
-      {/* Modal de Observações e Anexos (para a equipe Mobiltec validar) */}
-      {homologacaoObservacoes && (
-        <ModalVerObservacoes
-          homologacao={homologacaoObservacoes}
-          aoFechar={() => setHomologacaoObservacoes(null)}
-          aoAmpliarImagem={(img) => setImagemAmpliada(img)}
+      {/* Modal de Informações */}
+      {homologacaoInfo && (
+        <ModalInformacoesHomologacao
+          homologacaoId={homologacaoInfo.id}
+          dispositivo={{
+            ...homologacaoInfo.dispositivo,
+            versaoSo: homologacaoInfo.versaoSo,
+            versaoAgente: homologacaoInfo.versaoAgente,
+            gerenciamento: homologacaoInfo.gerenciamento,
+            status: homologacaoInfo.status,
+            homologado: homologacaoInfo.homologado || homologacaoInfo.status === 'APROVADO' || homologacaoInfo.status === 'PUBLICADO',
+            homologacaoId: homologacaoInfo.id,
+            observacoes: homologacaoInfo.observacoes,
+          }}
+          aoFechar={() => setHomologacaoInfo(null)}
         />
       )}
-
-      {/* Modal de visualização de imagem ampliada */}
-      {imagemAmpliada && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80"
-          onClick={() => setImagemAmpliada(null)}
-        >
-          <div
-            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-full flex items-center justify-between pb-2 text-white text-xs">
-              <span className="font-medium truncate max-w-md">{imagemAmpliada.nome}</span>
-              <button
-                type="button"
-                onClick={() => setImagemAmpliada(null)}
-                className="px-2 py-1 rounded bg-white/20 hover:bg-white/30 text-white font-bold"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-            <img
-              src={imagemAmpliada.url}
-              alt={imagemAmpliada.nome}
-              className="max-h-[80vh] max-w-full object-contain rounded border border-white/20 shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function parseObservacoes(raw?: string | null): ItemObservacaoGeral[] {
-  if (!raw || !raw.trim()) return []
-  try {
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) return parsed
-  } catch {
-    // plain text fallback
-  }
-  return [
-    {
-      id: 'legado',
-      titulo: 'Observação Geral',
-      texto: raw,
-      autorNome: 'Parceiro',
-      criadoEm: new Date().toISOString(),
-      anexos: [],
-    },
-  ]
-}
-
-function formatarTamanho(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function ModalVerObservacoes({
-  homologacao,
-  aoFechar,
-  aoAmpliarImagem,
-}: {
-  homologacao: ItemListaHomologacao
-  aoFechar: () => void
-  aoAmpliarImagem: (img: { url: string; nome: string }) => void
-}) {
-  const lista = parseObservacoes(homologacao.observacoes)
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,15,18,.45)' }}
-      onClick={aoFechar}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border shadow-xl"
-        style={{ background: 'var(--color-popover)', borderColor: 'var(--color-border)' }}
-      >
-        <div className="p-5 border-b flex items-start justify-between gap-3 shrink-0">
-          <div>
-            <h3 className="text-base font-bold" style={{ color: 'var(--color-foreground)' }}>
-              Observações e Anexos
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-              {homologacao.dispositivo.nomeComercial} · {homologacao.dispositivo.fabricante}{' '}
-              {homologacao.dispositivo.modelo}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={aoFechar}
-            className="p-1 rounded text-muted-foreground hover:text-foreground"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
-          {lista.length === 0 ? (
-            <div
-              className="p-8 text-center rounded-lg border flex flex-col items-center justify-center text-muted-foreground"
-              style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-            >
-              <Icone nome="anexo" className="h-8 w-8 mb-2 opacity-50" />
-              <p className="text-sm font-medium">Nenhuma observação registrada pelo parceiro.</p>
-            </div>
-          ) : (
-            lista.map((obs) => (
-              <div
-                key={obs.id}
-                className="p-4 rounded-lg border space-y-2.5"
-                style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-foreground)' }}>
-                    {obs.titulo}
-                  </h4>
-                  <span className="text-[11px]" style={{ color: 'var(--color-muted-foreground)' }}>
-                    {new Date(obs.criadoEm).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-
-                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-foreground)' }}>
-                  {obs.texto}
-                </p>
-
-                {obs.anexos && obs.anexos.length > 0 && (
-                  <div className="pt-2 border-t mt-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground">
-                      Anexos ({obs.anexos.length})
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {obs.anexos.map((a) => {
-                        const ehImagem = a.tipo === 'imagem' || /\.(png|jpe?g|webp)$/i.test(a.nome)
-                        if (ehImagem) {
-                          return (
-                            <div
-                              key={a.url}
-                              onClick={() => aoAmpliarImagem({ url: a.url, nome: a.nome })}
-                              className="group relative flex flex-col items-center rounded-lg border overflow-hidden bg-muted/40 cursor-pointer hover:border-primary transition-all"
-                              style={{ width: '100px' }}
-                            >
-                              <img src={a.url} alt={a.nome} className="h-16 w-full object-cover" />
-                              <span className="w-full truncate px-1 py-0.5 text-[9px] text-center font-medium bg-popover">
-                                {a.nome}
-                              </span>
-                              <span className="absolute top-1 right-1 bg-black/60 text-white rounded px-1 text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
-                                Ampliar
-                              </span>
-                            </div>
-                          )
-                        }
-                        return (
-                          <a
-                            key={a.url}
-                            href={a.url}
-                            download={a.nome}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold bg-muted/30 hover:bg-muted transition-colors"
-                            style={{ borderColor: 'var(--color-border)' }}
-                          >
-                            <span className="text-sm">📦</span>
-                            <div className="min-w-0">
-                              <p className="truncate max-w-[140px] font-medium leading-tight">{a.nome}</p>
-                              {a.tamanho && (
-                                <p className="text-[9px] text-muted-foreground">{formatarTamanho(a.tamanho)}</p>
-                              )}
-                            </div>
-                            <Icone nome="baixar" className="h-3 w-3 shrink-0 text-primary" />
-                          </a>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="p-4 border-t flex justify-end shrink-0">
-          <button
-            type="button"
-            onClick={aoFechar}
-            className="px-4 py-1.5 rounded-lg border text-xs font-semibold"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

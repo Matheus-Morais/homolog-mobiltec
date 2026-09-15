@@ -60,22 +60,15 @@ export function parseObservacoes(raw?: string | null): ItemObservacaoProcessada[
 
 interface Props {
   homologacaoId: string
-  dispositivo: DispositivoPainelParceiro
+  dispositivo: Partial<DispositivoPainelParceiro> & { nomeComercial: string; status: StatusHomologacao; homologacaoId?: string | null }
   aoFechar: () => void
 }
 
 type FiltroItens = 'todos' | 'divergencias' | 'ok' | 'pendentes'
 
-function formatarNomeGrupo(nome: string) {
-  return nome
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/(^\w|\s\w)/g, (m) => m.toUpperCase())
-}
-
 export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoFechar }: Props) {
   const { data: homologacao, isLoading } = useHomologacao(homologacaoId)
-  const [abaAtiva, setAbaAtiva] = useState<string>('TODOS')
+  const [abaAtiva, setAbaAtiva] = useState<'TESTES' | 'OBSERVACOES'>('TESTES')
   const [filtroStatus, setFiltroStatus] = useState<FiltroItens>('todos')
 
   const resultados = homologacao?.resultados ?? []
@@ -102,24 +95,8 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
     return { total, ok, divergencias, pendentes, naoAplicavel, pct }
   }, [resultados])
 
-  const gruposDisponiveis = useMemo(() => {
-    const mapa = new Map<string, number>()
-    for (const r of resultados) {
-      const g = r.item?.grupo ?? 'OUTROS'
-      mapa.set(g, (mapa.get(g) ?? 0) + 1)
-    }
-    return Array.from(mapa.entries()).map(([grupo, total]) => ({
-      id: grupo,
-      nome: formatarNomeGrupo(grupo),
-      total,
-    }))
-  }, [resultados])
-
   const itensExibidos = useMemo(() => {
     let lista = resultados
-    if (abaAtiva !== 'TODOS' && abaAtiva !== 'OBSERVACOES') {
-      lista = lista.filter((r) => (r.item?.grupo ?? 'OUTROS') === abaAtiva)
-    }
     if (filtroStatus === 'divergencias') {
       lista = lista.filter((r) => ['FALHA', 'NAO_SUPORTADO', 'COM_RESSALVA'].includes(r.status))
     } else if (filtroStatus === 'ok') {
@@ -128,15 +105,20 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
       lista = lista.filter((r) => r.status === 'NAO_TESTADO')
     }
     return lista
-  }, [resultados, abaAtiva, filtroStatus])
+  }, [resultados, filtroStatus])
+
+  const itensFuncionalidade = itensExibidos.filter((r) => (r.item?.grupo ?? 'OUTROS') !== 'TELEMETRIA')
+  const itensTelemetria = itensExibidos.filter((r) => (r.item?.grupo ?? 'OUTROS') === 'TELEMETRIA')
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={aoFechar}
     >
       <div
-        className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[64rem] max-h-[95vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
       >
         {/* Topo do Modal com roxo sutil de fundo */}
@@ -150,7 +132,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                {d.fabricante} · {d.categoriaNome}
+                {d.fabricante} · {d.categoriaNome ?? 'Dispositivo'}
               </span>
             </div>
             <h2 className="text-lg font-bold text-slate-900 mt-0.5">{d.nomeComercial}</h2>
@@ -163,27 +145,27 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            {d.homologado || d.status === 'APROVADO' || d.status === 'PUBLICADO' ? (
-              <BadgeHomologado homologado={true} />
-            ) : (
-              <BadgeStatusModal status={d.status} />
-            )}
+          <div className="flex flex-col items-end gap-2 shrink-0">
             <button
               type="button"
               onClick={aoFechar}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               title="Fechar"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+            {d.homologado || d.status === 'APROVADO' || d.status === 'PUBLICADO' ? (
+              <BadgeHomologado homologado={true} />
+            ) : (
+              <BadgeStatusModal status={d.status} />
+            )}
           </div>
         </div>
 
         {/* Resumo Quantitativo dos Testes (Compacto e Neutro) */}
-        <div className="flex items-center flex-wrap gap-4 sm:gap-6 px-5 py-3 border-b bg-slate-50/60 text-xs text-slate-600 shrink-0">
+        <div className="flex items-center flex-wrap gap-4 sm:gap-6 px-5 py-2.5 border-b bg-slate-50/60 text-xs text-slate-600 shrink-0">
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Progresso:</span>
             <span className="text-sm font-bold text-slate-900">{resumo.pct}%</span>
@@ -192,74 +174,50 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
           <span className="text-slate-300 hidden sm:inline">|</span>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Aprovados:</span>
-            <span className="text-sm font-bold text-slate-900">{resumo.ok}</span>
+            <span className="text-sm font-bold text-emerald-700">{resumo.ok}</span>
           </div>
           <span className="text-slate-300 hidden sm:inline">|</span>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Divergências:</span>
-            <span className="text-sm font-bold text-slate-900">{resumo.divergencias}</span>
+            <span className="text-sm font-bold text-amber-700">{resumo.divergencias}</span>
           </div>
           <span className="text-slate-300 hidden sm:inline">|</span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Não Testados:</span>
-            <span className="text-sm font-bold text-slate-900">{resumo.pendentes}</span>
-          </div>
-          <span className="text-slate-300 hidden sm:inline">|</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Não Aplicável:</span>
-            <span className="text-sm font-bold text-slate-900">{resumo.naoAplicavel}</span>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pendentes:</span>
+            <span className="text-sm font-bold text-slate-700">{resumo.pendentes}</span>
           </div>
         </div>
 
         {/* Barra de Abas / Botões Lado a Lado (Clean e Compacto) */}
         <div className="px-5 pt-3 pb-2 border-b bg-white flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
             <button
               type="button"
-              onClick={() => setAbaAtiva('TODOS')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                abaAtiva === 'TODOS'
-                  ? 'text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+              onClick={() => setAbaAtiva('TESTES')}
+              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                abaAtiva === 'TESTES'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
-              style={abaAtiva === 'TODOS' ? { background: 'var(--gradient-brand-purple)' } : undefined}
             >
-              Todos ({resultados.length})
+              Testes Executados
             </button>
-
-            {gruposDisponiveis.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                onClick={() => setAbaAtiva(g.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  abaAtiva === g.id
-                    ? 'text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-                style={abaAtiva === g.id ? { background: 'var(--gradient-brand-purple)' } : undefined}
-              >
-                {g.nome} ({g.total})
-              </button>
-            ))}
-
             <button
               type="button"
               onClick={() => setAbaAtiva('OBSERVACOES')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 abaAtiva === 'OBSERVACOES'
-                  ? 'text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
-              style={abaAtiva === 'OBSERVACOES' ? { background: 'var(--gradient-brand-purple)' } : undefined}
             >
               <span>💬</span>
               <span>Observações ({observacoes.length})</span>
             </button>
           </div>
 
-          {/* Filtros de Status (exibidos apenas quando estiver na visualização de testes) */}
-          {abaAtiva !== 'OBSERVACOES' && (
+          {/* Filtros de Status */}
+          {abaAtiva === 'TESTES' && (
             <div className="flex items-center gap-1 text-xs">
               <button
                 type="button"
@@ -281,7 +239,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                     : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                Divergências ({resumo.divergencias})
+                Divergências
               </button>
               <button
                 type="button"
@@ -292,59 +250,41 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                     : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
-                OK ({resumo.ok})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroStatus('pendentes')}
-                className={`px-2.5 py-1 rounded text-[11px] transition-colors cursor-pointer ${
-                  filtroStatus === 'pendentes'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                Pendentes ({resumo.pendentes})
+                OK
               </button>
             </div>
           )}
         </div>
 
         {/* Conteúdo com Scroll */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5 bg-slate-50/30">
           {isLoading ? (
             <div className="py-12">
-              <LoadingTela mensagem="Carregando checklist e relatório de testes…" />
+              <LoadingTela mensagem="Carregando relatório de testes…" />
             </div>
           ) : abaAtiva === 'OBSERVACOES' ? (
             /* Visualização Exclusiva de Observações */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-2 border-b pb-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <span>💬</span>
-                  <span>Observações Registradas pelo Parceiro ({observacoes.length})</span>
-                </h3>
-              </div>
-
+            <div className="space-y-4 max-w-3xl mx-auto">
               {observacoes.length === 0 ? (
-                <div className="py-14 px-4 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center gap-2">
-                  <span className="text-3xl opacity-70">💬</span>
+                <div className="py-14 px-4 text-center rounded-xl border border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-2">
+                  <span className="text-3xl opacity-50">💬</span>
                   <p className="text-xs font-medium text-slate-600">
                     O parceiro não registrou nenhuma observação até o momento.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {observacoes.map((obs) => (
                     <div
                       key={obs.id}
-                      className="p-3.5 rounded-xl border bg-slate-50/60 shadow-2xs space-y-1.5 text-xs"
+                      className="p-4 rounded-xl border bg-white shadow-sm space-y-2 text-xs"
                       style={{ borderColor: 'var(--color-border)' }}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-bold text-slate-900">{obs.titulo}</span>
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                        <span className="font-bold text-sm text-slate-900">{obs.titulo}</span>
                         {(obs.autorEmail || obs.autorNome) && (
                           <span className="text-[10.5px] text-slate-500 font-medium">
-                            Registrado por <strong>{obs.autorEmail || obs.autorNome}</strong>
+                            Por <strong>{obs.autorEmail || obs.autorNome}</strong>
                             {obs.data || obs.criadoEm
                               ? ` em ${new Date(obs.data || obs.criadoEm!).toLocaleDateString('pt-BR')} às ${new Date(obs.data || obs.criadoEm!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
                               : ''}
@@ -352,7 +292,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                         )}
                       </div>
                       {obs.texto && (
-                        <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap pl-3 border-l-2 border-slate-300">
+                        <p className="text-slate-700 text-[13px] leading-relaxed whitespace-pre-wrap pt-1">
                           {obs.texto}
                         </p>
                       )}
@@ -362,75 +302,107 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
               )}
             </div>
           ) : (
-            /* Tabela Compacta e Simples de Testes */
-            <div className="rounded-xl border overflow-hidden bg-white shadow-2xs" style={{ borderColor: 'var(--color-border)' }}>
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-50 border-b text-[11px] font-semibold text-slate-500 uppercase tracking-wider" style={{ borderColor: 'var(--color-border)' }}>
-                  <tr>
-                    <th className="py-2.5 px-3.5">Item de Teste</th>
-                    <th className="py-2.5 px-3.5 w-36 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {itensExibidos.length === 0 ? (
+            /* Layout 2 Colunas: Funcionalidade | Telemetria */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              
+              {/* Coluna Funcionalidade */}
+              <div className="rounded-xl border overflow-hidden bg-white shadow-sm flex flex-col" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="bg-slate-100 border-b px-3 py-2 font-bold text-xs text-slate-700 tracking-wide uppercase text-center">
+                  Bateria de Testes
+                </div>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="border-b bg-slate-50/50">
                     <tr>
-                      <td colSpan={2} className="py-10 text-center text-slate-400 italic">
-                        Nenhum item encontrado com o filtro selecionado.
-                      </td>
+                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase w-full">Item de Teste</th>
+                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase text-right whitespace-nowrap">Status</th>
                     </tr>
-                  ) : (
-                    itensExibidos.map((res: any) => (
-                      <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-2.5 px-3.5 align-top">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-slate-800">
-                              {res.item?.nome ?? 'Item de teste'}
-                            </span>
-                            {abaAtiva === 'TODOS' && res.item?.grupo && (
-                              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">
-                                {formatarNomeGrupo(res.item.grupo)}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Justificativa anexada */}
-                          {(res.justificativa || res.justificativaTexto) && (
-                            <div className="mt-1.5 p-2 rounded-lg bg-amber-50/70 border border-amber-200 text-[11px] text-amber-900 space-y-0.5">
-                              <span className="font-bold block">
-                                Justificativa: {res.justificativa?.titulo ?? 'Nota do técnico'}
-                              </span>
-                              <p className="text-amber-800/90 whitespace-pre-wrap">
-                                {res.justificativa?.texto ?? res.justificativaTexto}
-                              </p>
-                              <div className="text-[10px] text-amber-700/80 pt-1 border-t border-amber-200/60 mt-1 flex items-center justify-between">
-                                <span>
-                                  Registrado por: <strong>{res.autorEmail || (homologacao?.responsavel as any)?.email || 'contato@mobiltec.com.br'}</strong>
-                                </span>
-                                {res.atualizadoEm && (
-                                  <span>
-                                    {new Date(res.atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
-                                    {new Date(res.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Observação técnica adicional do item */}
-                          {res.observacao && (
-                            <div className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-500 italic">
-                              Obs: {res.observacao}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3.5 align-top text-right">
-                          <BadgeStatusItem status={res.status} />
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {itensFuncionalidade.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="py-8 text-center text-slate-400 italic">
+                          Nenhum item encontrado.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      itensFuncionalidade.map((res: any) => (
+                        <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-3 align-top min-w-0">
+                            <span className="font-semibold text-slate-800 break-words block mb-1 leading-tight">
+                              {res.item?.nome ?? 'Item'}
+                            </span>
+                            
+                            {(res.justificativa || res.justificativaTexto) && (
+                              <div className="mt-1.5 p-1.5 rounded bg-amber-50 border border-amber-100 text-[10px] text-amber-900 leading-tight">
+                                <span className="font-bold">Justificativa: </span>
+                                {res.justificativa?.texto ?? res.justificativaTexto}
+                              </div>
+                            )}
+                            {res.observacao && (
+                              <div className="mt-1 text-[10px] text-slate-500 italic leading-tight border-l-2 border-slate-200 pl-1.5">
+                                Obs: {res.observacao}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top text-right">
+                            <BadgeStatusItem status={res.status} />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Coluna Telemetria / Coleta */}
+              <div className="rounded-xl border overflow-hidden bg-white shadow-sm flex flex-col" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="bg-slate-100 border-b px-3 py-2 font-bold text-xs text-slate-700 tracking-wide uppercase text-center">
+                  Telemetria / Coleta
+                </div>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="border-b bg-slate-50/50">
+                    <tr>
+                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase w-full">Item de Teste</th>
+                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase text-right whitespace-nowrap">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {itensTelemetria.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="py-8 text-center text-slate-400 italic">
+                          Nenhum item encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      itensTelemetria.map((res: any) => (
+                        <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-3 align-top min-w-0">
+                            <span className="font-semibold text-slate-800 break-words block mb-1 leading-tight">
+                              {res.item?.nome ?? 'Item'}
+                            </span>
+                            
+                            {(res.justificativa || res.justificativaTexto) && (
+                              <div className="mt-1.5 p-1.5 rounded bg-amber-50 border border-amber-100 text-[10px] text-amber-900 leading-tight">
+                                <span className="font-bold">Justificativa: </span>
+                                {res.justificativa?.texto ?? res.justificativaTexto}
+                              </div>
+                            )}
+                            {res.observacao && (
+                              <div className="mt-1 text-[10px] text-slate-500 italic leading-tight border-l-2 border-slate-200 pl-1.5">
+                                Obs: {res.observacao}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top text-right">
+                            <BadgeStatusItem status={res.status} />
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
             </div>
           )}
         </div>
@@ -441,18 +413,18 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
             {d.status === 'AGUARDANDO_ANALISE' || d.status === 'EM_REVISAO' ? (
               <Link
                 to="/ambiente/validar-certificados"
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-white shadow-xs transition-opacity hover:opacity-90 inline-flex items-center gap-1.5"
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-white shadow-xs transition-opacity hover:opacity-90 inline-flex items-center gap-1.5"
                 style={{ background: 'var(--gradient-brand-purple)' }}
               >
-                <span>Validar Certificado na Esteira Mobiltec</span>
+                <span>Validar Certificado na Esteira</span>
                 <span>→</span>
               </Link>
             ) : null}
 
-            {d.homologado || d.status === 'APROVADO' || d.status === 'PUBLICADO' ? (
+            {(d.homologado || d.status === 'APROVADO' || d.status === 'PUBLICADO') && d.homologacaoId ? (
               <Link
                 to={`/homologacoes/${d.homologacaoId}/certificado`}
-                className="px-3 py-2 rounded-lg border text-xs font-semibold text-[var(--color-primary)] hover:bg-purple-50 transition-colors inline-flex items-center gap-1.5"
+                className="px-3 py-2 rounded-lg border text-xs font-semibold text-[var(--color-primary)] hover:bg-purple-50 transition-colors inline-flex items-center gap-1.5 bg-white"
               >
                 <Icone nome="certificado" className="h-4 w-4" />
                 <span>Visualizar Certificado Oficial</span>
@@ -463,7 +435,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
           <button
             type="button"
             onClick={aoFechar}
-            className="px-4 py-2 rounded-lg border text-xs font-medium text-slate-700 hover:bg-slate-200/70 transition-colors cursor-pointer"
+            className="px-5 py-2 rounded-lg border text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 transition-colors cursor-pointer shadow-sm"
           >
             Fechar
           </button>
@@ -487,7 +459,7 @@ function BadgeStatusModal({ status }: { status: StatusHomologacao }) {
 
   return (
     <span
-      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold select-none"
+      className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold select-none shadow-sm"
       style={{ background: conf.bg, color: conf.fg }}
     >
       {conf.rotulo}
@@ -509,8 +481,8 @@ function BadgeStatusItem({ status }: { status: StatusResultado }) {
 
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold shrink-0 select-none border border-black/5"
-      style={{ background: conf.bg, color: conf.fg }}
+      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shrink-0 select-none shadow-xs"
+      style={{ background: conf.bg, color: conf.fg, border: '1px solid rgba(0,0,0,0.05)' }}
     >
       {conf.rotulo}
     </span>

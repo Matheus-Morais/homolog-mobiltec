@@ -1064,7 +1064,7 @@ export function Layout() {
                     color: ehParceiro ? 'var(--color-warning-fg)' : 'var(--color-info-fg)',
                   }}
                 >
-                  {ehParceiro ? (usuario?.empresa || 'Parceiro') : 'Mobiltec'}
+                  {ehParceiro ? (usuario?.empresa?.replace(/^Parceiro\s*\((.*?)\)$/i, '$1') || usuario?.empresa || 'Parceiro') : 'Mobiltec'}
                 </span>
               </div>
             </div>
