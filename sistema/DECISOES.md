@@ -1020,7 +1020,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 
 | # | Decisão | Justificativa |
 |---|---|---|
-| D447 | Atualização in-place de nome e descrição de funcionalidades em Configurar Homologação sem alteração de ordem nem reinício de status | Em `FormularioTipo.tsx`, mantém o ID dos itens editados do catálogo na lista `itensExistentesFinais` e despacha os dados renomeados via `itensEditados` (em vez de tratá-los como `itensNovosConvertidos`), evitando que o backend remova o item da bateria e o recrie com novo ID ao final da lista; e em `tipos-dispositivo.ts` (`PATCH` e `POST /tipos-dispositivo`), adiciona suporte ao array `itensEditados` para atualizar `itemTeste.nome` e `itemTeste.descricaoAcao` diretamente no banco sem modificar a tabela pivot `bateriaItem` nem recriar os registros da tabela `resultado` das homologações abertas, garantindo que o status avaliado e a ordem na planilha de testes permaneçam 100% preservados. |
+---
+
+## Etapa 79 — Redesign Compacto em Validação de Certificados, Contraste de Notificações e Simplificação de Card (D448)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D448 | Redesign compacto horizontal dos cards de métricas em Validação de Certificados, contraste alto nas notificações e simplificação do card de homologação | Em `CentralNotificacoes.tsx`: restaura contraste pleno no texto descritivo das notificações (`color: var(--color-foreground)`, removendo opacidade esmaecida) para leitura nítida e confortável com borda esquerda roxa de destaque; em `ValidarCertificados.tsx`: compacta os cards superiores de métricas (*Aguardando Validação*, *Aprovados & Emitidos*, *Parceiros Cadastrados*) em layout horizontal com altura reduzida (`py-2.5 px-3.5`), ícones menores e o contador numérico posicionado ao lado do título; e simplifica o card de modelo enviado para validação, removendo o emoji de prédio (`🏢`) da tag do parceiro, eliminando a barra e os contadores de progresso de testes (`0 OK 1 div 47 pend`), e promovendo a data de envio (`· Envio: dd/mm/aaaa`) para a linha superior de tags, unificando a altura do card em um design limpo e fluido. |
+
 
 
 

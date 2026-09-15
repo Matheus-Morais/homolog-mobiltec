@@ -187,7 +187,13 @@ function ItemNotificacao({
         </span>
       </div>
 
-      <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11.5px] whitespace-pre-wrap pl-3.5 border-l-2 border-slate-200 dark:border-slate-700">
+      <p
+        className="leading-relaxed text-[12px] whitespace-pre-wrap pl-3 border-l-2 font-medium"
+        style={{
+          color: 'var(--color-foreground)',
+          borderColor: 'var(--color-primary)',
+        }}
+      >
         {item.mensagem}
       </p>
 
