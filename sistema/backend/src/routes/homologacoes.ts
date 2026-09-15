@@ -39,42 +39,67 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR', 'PARCEIRO'])],
   }, async (request, reply) => {
     const schema = z.object({
-      dispositivoId: z.string().uuid(),
-      bateriaId: z.string().uuid(),
-      numeroSerie: z.string().min(1),
-      imei1: z.string().optional().nullable(),
-      imei2: z.string().optional().nullable(),
-      versaoSo: z.string().min(1),
-      gerenciamento: z.enum(['ANDROID_LEGADO', 'ANDROID_ENTERPRISE']),
-      tipoAgente: z.string().min(1),
-      versaoAgente: z.string().min(1),
-      versaoPos: z.string().optional().nullable(),
-      ferramenta: z.string().optional().nullable(),
-      metodoInscricao: z.string().min(1),
-      assinaturaAgente: z.boolean().default(false),
-      precisaAssinaturaDev: z.boolean().default(false),
-      dataInicio: z.string().transform(s => new Date(s)),
-      responsavelId: z.string().uuid().optional(),
-      gerenteId: z.string().uuid().optional().nullable(),
-      apoioId: z.string().uuid().optional().nullable(),
+      dispositivoId: z.string(),
+      bateriaId: z.string().optional().nullable(),
+      numeroSerie: z.string().optional().default('Sem informação').transform(s => s?.trim() || 'Sem informação'),
+      imei1: z.string().optional().nullable().transform(s => s?.trim() || null),
+      imei2: z.string().optional().nullable().transform(s => s?.trim() || null),
+      versaoSo: z.string().optional().default('Android').transform(s => s?.trim() || 'Android'),
+      gerenciamento: z.any().optional().transform(v => v === 'ANDROID_ENTERPRISE' ? 'ANDROID_ENTERPRISE' : 'ANDROID_LEGADO'),
+      tipoAgente: z.string().optional().default('Agente PoS').transform(s => s?.trim() || 'Agente PoS'),
+      versaoAgente: z.string().optional().default('Não informada').transform(s => s?.trim() || 'Não informada'),
+      versaoPos: z.string().optional().nullable().transform(s => s?.trim() || null),
+      ferramenta: z.string().optional().nullable().transform(s => s?.trim() || null),
+      metodoInscricao: z.string().optional().default('Não informado').transform(s => s?.trim() || 'Não informado'),
+      assinaturaAgente: z.any().optional().transform(v => Boolean(v)),
+      precisaAssinaturaDev: z.any().optional().transform(v => Boolean(v)),
+      dataInicio: z.any().optional().transform(s => {
+        if (!s) return new Date()
+        const d = new Date(s)
+        return isNaN(d.getTime()) ? new Date() : d
+      }),
+      responsavelId: z.string().optional(),
+      gerenteId: z.string().optional().nullable(),
+      apoioId: z.string().optional().nullable(),
       localEmissao: z.string().default('São Paulo'),
     })
 
     const body = schema.parse(request.body)
     const responsavelId = body.responsavelId ?? request.user.id
 
-    // Busca a bateria para obter os itens
-    const bateria = await fastify.prisma.bateriaTeste.findUnique({
-      where: { id: body.bateriaId },
-      include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+    // Busca o dispositivo para saber a categoria se precisar achar a bateria
+    const dispositivo = await fastify.prisma.dispositivo.findUnique({
+      where: { id: body.dispositivoId },
+      select: { id: true, categoriaId: true },
     })
-    if (!bateria) return reply.status(404).send({ erro: 'Bateria não encontrada' })
-    if (!bateria.ativo) return reply.status(400).send({ erro: 'Bateria inativa' })
+    if (!dispositivo) return reply.status(404).send({ erro: 'Dispositivo não encontrado' })
+
+    let bateria = null
+    if (body.bateriaId && typeof body.bateriaId === 'string' && body.bateriaId.trim()) {
+      bateria = await fastify.prisma.bateriaTeste.findUnique({
+        where: { id: body.bateriaId.trim() },
+        include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { categoriaId: dispositivo.categoriaId, ativo: true },
+        include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { ativo: true },
+        include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+      })
+    }
+    if (!bateria) return reply.status(404).send({ erro: 'Bateria de testes não encontrada' })
 
     // Cria homologação e todos os resultados NAO_TESTADO atomicamente
     const homologacao = await fastify.prisma.homologacao.create({
       data: {
         ...body,
+        bateriaId: bateria.id,
         responsavelId,
         status: StatusHomologacao.RASCUNHO,
         resultados: {

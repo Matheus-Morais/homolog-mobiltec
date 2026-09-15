@@ -89,7 +89,6 @@ export function ModalReabrir({
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
-              placeholder="ex.: Reteste solicitado pelo fabricante após correção do agente"
               className="w-full p-3 rounded-md border bg-transparent text-sm resize-y"
               style={{ borderColor: 'var(--color-input)' }}
             />

@@ -83,7 +83,6 @@ export function ModalEditarTexto({
               autoFocus
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
-              placeholder="Nome de quem assina"
               className="w-full px-3 py-2 rounded-md border bg-transparent text-sm"
               style={{ borderColor: 'var(--color-input)' }}
             />

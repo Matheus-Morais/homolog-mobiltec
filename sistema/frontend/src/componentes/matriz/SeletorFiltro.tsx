@@ -193,8 +193,7 @@ export function SeletorFiltro({
                     setAberto(false)
                   }
                 }}
-                placeholder={`Filtrar ${rotuloCurto.toLowerCase()}…`}
-                className="w-full pl-7 pr-6 py-1.5 text-xs rounded-md border bg-muted/40 text-foreground focus:bg-background focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground/60"
+                className="w-full pl-7 pr-6 py-1.5 text-xs rounded-md border bg-muted/40 text-foreground focus:bg-background focus:ring-1 focus:ring-primary outline-none transition-all"
                 style={{ borderColor: 'var(--color-border)' }}
               />
               <span className="absolute left-2 text-[11px] text-muted-foreground pointer-events-none select-none">

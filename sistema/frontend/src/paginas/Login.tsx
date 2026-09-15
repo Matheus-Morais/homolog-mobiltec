@@ -181,7 +181,6 @@ export function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-md border text-sm transition-colors"
                     style={{ borderColor: 'var(--color-input)', background: 'var(--color-muted)' }}
-                    placeholder="voce@mobiltec.com.br"
                   />
                 </div>
 
@@ -198,7 +197,6 @@ export function Login() {
                     onChange={(e) => setSenha(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-md border text-sm transition-colors"
                     style={{ borderColor: 'var(--color-input)', background: 'var(--color-muted)' }}
-                    placeholder="••••••••"
                   />
 
                   {/* Marcador, e não um olho dentro do campo: numa senha

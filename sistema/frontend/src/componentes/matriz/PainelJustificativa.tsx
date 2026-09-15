@@ -293,7 +293,6 @@ export function PainelJustificativa({
                   setTextoLivre(e.target.value)
                   if (avisoSucesso) setAvisoSucesso(false)
                 }}
-                placeholder="Explique tecnicamente por que o item não ficou OK. Este texto sai no certificado."
                 className="w-full p-3 rounded-md border bg-transparent text-sm leading-relaxed resize-y"
                 style={{ borderColor: 'var(--color-input)' }}
               />
@@ -321,7 +320,6 @@ export function PainelJustificativa({
                     autoFocus
                     value={tituloBiblioteca}
                     onChange={(e) => setTituloBiblioteca(e.target.value)}
-                    placeholder="ex.: Device Admin depreciado — comandos de tela"
                     className="w-full px-3 py-2 rounded-md border bg-transparent text-sm"
                     style={{ borderColor: 'var(--color-input)' }}
                   />

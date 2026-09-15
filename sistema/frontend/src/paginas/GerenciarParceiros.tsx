@@ -417,7 +417,6 @@ export function GerenciarParceiros() {
                       <input
                         type="text"
                         autoFocus
-                        placeholder="Ex: Sunmi, Gertec, Ingenico..."
                         value={novaEmpresaNome}
                         onChange={(e) => {
                           setNovaEmpresaNome(e.target.value)
@@ -462,7 +461,6 @@ export function GerenciarParceiros() {
                   <input
                     type="text"
                     required
-                    placeholder="Ex: Carlos Silva"
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-all"
@@ -481,7 +479,6 @@ export function GerenciarParceiros() {
                   <input
                     type="email"
                     required
-                    placeholder="parceiro@empresa.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-all"
@@ -500,7 +497,6 @@ export function GerenciarParceiros() {
                 </label>
                 <input
                   type="text"
-                  placeholder={parceiroEdicao ? 'Deixe em branco para manter a atual' : 'Senha inicial (mín. 6 caracteres)'}
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-1 transition-all font-mono"

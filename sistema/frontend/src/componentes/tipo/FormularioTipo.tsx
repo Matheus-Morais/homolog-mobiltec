@@ -178,7 +178,6 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
                   id="nome-tipo"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  placeholder="Balança Etiquetadora"
                   maxLength={60}
                   className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
                   style={{ borderColor: 'var(--color-input)' }}
@@ -508,7 +507,6 @@ function PainelGrupo({
           value={nome}
           data-novo-item
           onChange={(e) => setNome(e.target.value)}
-          placeholder="Novo item deste tópico"
           maxLength={200}
           // Enter dentro de um input submeteria o formulário inteiro; aqui ele
           // só adiciona o item, que é o que a tecla significa neste campo.
@@ -525,7 +523,6 @@ function PainelGrupo({
           value={acao}
           data-nova-acao
           onChange={(e) => setAcao(e.target.value)}
-          placeholder="Ação realizada (opcional)"
           maxLength={500}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

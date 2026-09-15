@@ -165,7 +165,6 @@ export function PainelParceiro() {
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar modelo, versão…"
                 className="w-full rounded-lg border py-1.5 pl-9 pr-3 text-xs"
                 style={{ background: 'var(--color-card)' }}
               />

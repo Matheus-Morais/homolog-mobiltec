@@ -190,38 +190,70 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================================
   fastify.post('/matriz/modelo', { onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR', 'PARCEIRO'])] }, async (request, reply) => {
     const schema = z.object({
-      categoriaId: z.string().uuid(),
+      categoriaId: z.string(),
       // Dispositivo
-      fabricante: z.string().min(1).max(100),
-      modelo: z.string().min(1).max(100),
-      nomeComercial: z.string().min(1).max(200),
-      linkFabricante: z.string().url().optional().nullable(),
+      fabricante: z.string().optional().default('Fabricante').transform(s => s?.trim() || 'Fabricante'),
+      modelo: z.string().optional().default('Modelo').transform(s => s?.trim() || 'Modelo'),
+      nomeComercial: z.string().optional().nullable().transform(s => s?.trim() || undefined),
+      linkFabricante: z.string().optional().nullable().transform(s => s?.trim() || null),
       // Homologação inicial
-      bateriaId: z.string().uuid(),
-      numeroSerie: z.string().min(1),
-      imei1: z.string().optional().nullable(),
-      imei2: z.string().optional().nullable(),
-      versaoSo: z.string().min(1),
-      gerenciamento: z.enum(['ANDROID_LEGADO', 'ANDROID_ENTERPRISE']),
-      tipoAgente: z.string().min(1),
-      versaoAgente: z.string().min(1),
-      versaoPos: z.string().optional().nullable(),
-      ferramenta: z.string().optional().nullable(),
-      metodoInscricao: z.string().min(1),
-      assinaturaAgente: z.boolean().default(false),
-      precisaAssinaturaDev: z.boolean().default(false),
-      dataInicio: z.string().transform(s => new Date(s)),
+      bateriaId: z.string().optional().nullable(),
+      numeroSerie: z.string().optional().default('Sem informação').transform(s => s?.trim() || 'Sem informação'),
+      imei1: z.string().optional().nullable().transform(s => s?.trim() || null),
+      imei2: z.string().optional().nullable().transform(s => s?.trim() || null),
+      versaoSo: z.string().optional().default('Android').transform(s => s?.trim() || 'Android'),
+      gerenciamento: z.any().optional().transform(v => v === 'ANDROID_ENTERPRISE' ? 'ANDROID_ENTERPRISE' : 'ANDROID_LEGADO'),
+      tipoAgente: z.string().optional().default('Agente PoS').transform(s => s?.trim() || 'Agente PoS'),
+      versaoAgente: z.string().optional().default('Não informada').transform(s => s?.trim() || 'Não informada'),
+      versaoPos: z.string().optional().nullable().transform(s => s?.trim() || null),
+      ferramenta: z.string().optional().nullable().transform(s => s?.trim() || null),
+      metodoInscricao: z.string().optional().default('Não informado').transform(s => s?.trim() || 'Não informado'),
+      assinaturaAgente: z.any().optional().transform(v => Boolean(v)),
+      precisaAssinaturaDev: z.any().optional().transform(v => Boolean(v)),
+      dataInicio: z.any().optional().transform(s => {
+        if (!s) return new Date()
+        const d = new Date(s)
+        return isNaN(d.getTime()) ? new Date() : d
+      }),
     })
 
     const body = schema.parse(request.body)
-    const { categoriaId, fabricante, modelo, nomeComercial, linkFabricante, ...dadosHomologacao } = body
+    const fabricante = body.fabricante || 'Fabricante'
+    const modelo = body.modelo || 'Modelo'
+    const nomeComercial = body.nomeComercial || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
+    const categoriaId = body.categoriaId
+    const { linkFabricante, bateriaId: bateriaIdRaw, ...restoHomologacao } = body
 
-    const bateria = await fastify.prisma.bateriaTeste.findUnique({
-      where: { id: body.bateriaId },
-      include: { itens: { select: { itemId: true } } },
-    })
-    if (!bateria) return reply.status(404).send({ erro: 'Bateria não encontrada' })
-    if (!bateria.ativo) return reply.status(400).send({ erro: 'Bateria inativa' })
+    let bateria = null
+    if (bateriaIdRaw && typeof bateriaIdRaw === 'string' && bateriaIdRaw.trim()) {
+      bateria = await fastify.prisma.bateriaTeste.findUnique({
+        where: { id: bateriaIdRaw.trim() },
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { categoriaId, ativo: true },
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { categoriaId },
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) return reply.status(404).send({ erro: 'Bateria de testes não encontrada' })
+
+    const dadosHomologacao = {
+      ...restoHomologacao,
+      bateriaId: bateria.id,
+    }
 
     let empresaDispositivo: string | null = null
     if (request.user.papel === 'PARCEIRO') {

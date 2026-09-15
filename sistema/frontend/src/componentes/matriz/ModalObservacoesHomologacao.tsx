@@ -269,7 +269,6 @@ export function ModalObservacoesHomologacao({
                     type="text"
                     value={novoTitulo}
                     onChange={(e) => setNovoTitulo(e.target.value)}
-                    placeholder="Título da observação (ex.: Problema na instalação do dispositivo)"
                     className="w-full px-3 py-2 text-sm rounded-md border bg-transparent text-foreground outline-none focus:ring-1 focus:ring-primary"
                     style={{ borderColor: 'var(--color-input)' }}
                   />
@@ -280,7 +279,6 @@ export function ModalObservacoesHomologacao({
                     rows={3}
                     value={novoTexto}
                     onChange={(e) => setNovoTexto(e.target.value)}
-                    placeholder="Descreva a falha ou comportamento observado... Você pode colar imagens (Ctrl+V) ou anexar arquivos .zip e fotos abaixo."
                     className="w-full resize-y px-3 py-2 text-sm rounded-md border bg-transparent text-foreground leading-relaxed outline-none focus:ring-1 focus:ring-primary"
                     style={{ borderColor: 'var(--color-input)' }}
                   />

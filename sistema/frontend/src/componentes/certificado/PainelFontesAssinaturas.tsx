@@ -85,7 +85,6 @@ export function PainelFontesAssinaturas({ homologacao, somenteLeitura }: Props) 
             valor={responsavel}
             aoMudar={setResponsavel}
             aoSair={() => salvarAssinaturaSeMudou('assinaturaResponsavel', responsavel)}
-            placeholder={homologacao.responsavel?.nome || 'Nome de quem assina'}
             somenteLeitura={somenteLeitura}
           />
           <CampoAssinatura
@@ -93,7 +92,6 @@ export function PainelFontesAssinaturas({ homologacao, somenteLeitura }: Props) 
             valor={gerente}
             aoMudar={setGerente}
             aoSair={() => salvarAssinaturaSeMudou('assinaturaGerente', gerente)}
-            placeholder={homologacao.gerente?.nome || 'Nome de quem assina'}
             somenteLeitura={somenteLeitura}
           />
           <CampoAssinatura
@@ -101,7 +99,6 @@ export function PainelFontesAssinaturas({ homologacao, somenteLeitura }: Props) 
             valor={apoio}
             aoMudar={setApoio}
             aoSair={() => salvarAssinaturaSeMudou('assinaturaApoio', apoio)}
-            placeholder={homologacao.apoio?.nome || 'Nome de quem assina'}
             somenteLeitura={somenteLeitura}
           />
         </div>
@@ -163,14 +160,12 @@ export function PainelFontesAssinaturas({ homologacao, somenteLeitura }: Props) 
             <input
               value={rotuloNovo}
               onChange={(e) => setRotuloNovo(e.target.value)}
-              placeholder="Título da referência"
               className="w-full px-2.5 py-1.5 rounded-md border bg-transparent text-xs"
               style={{ borderColor: 'var(--color-input)' }}
             />
             <input
               value={urlNova}
               onChange={(e) => setUrlNova(e.target.value)}
-              placeholder="https:// (opcional)"
               className="w-full px-2.5 py-1.5 rounded-md border bg-transparent text-xs"
               style={{ borderColor: 'var(--color-input)' }}
             />
@@ -194,14 +189,13 @@ function CampoAssinatura({
   valor,
   aoMudar,
   aoSair,
-  placeholder,
   somenteLeitura,
 }: {
   rotulo: string
   valor: string
   aoMudar: (v: string) => void
   aoSair: () => void
-  placeholder: string
+  placeholder?: string
   somenteLeitura: boolean
 }) {
   return (
@@ -215,7 +209,6 @@ function CampoAssinatura({
         onChange={(e) => aoMudar(e.target.value)}
         onBlur={aoSair}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-        placeholder={placeholder}
         className="w-full px-2.5 py-1.5 rounded-md border bg-transparent text-sm disabled:opacity-60"
         style={{ borderColor: 'var(--color-input)' }}
       />

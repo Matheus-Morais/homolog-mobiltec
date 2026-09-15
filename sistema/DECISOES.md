@@ -944,6 +944,24 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D437 | Visibilidade unificada no Painel Geral Mobiltec e seletor estrito com criação rápida de parceiros | Ajusta `GET /vitrine` para que o painel principal (`/`) forneça visão geral das homologações em andamento no ambiente Mobiltec para todos os usuários (incluindo parceiros), preservando os painéis exclusivos de cada parceiro (`/paineis/meu-painel`) para acompanhamento restrito de sua própria empresa; remove a duplicação do botão "Mobiltec" no menu lateral para usuários internos; e em `GerenciarParceiros.tsx`, substitui o campo livre por seletor com nomes fixos pré-registrados (`Mobiltec`, `TNS` e existentes) acompanhado de botão de criação inline `+ Criar Novo Parceiro`, garantindo vinculação estrita de cada usuário ao ambiente da sua empresa. |
 
+---
+
+## Etapa 69 — Remoção de Greyout em Campos Editáveis e Limpeza de Textos Pré-Prontos de Migração (D438)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D438 | Remoção de placeholders em campos digitáveis e limpeza definitiva de textos pré-prontos automáticos originados da planilha | Remove todos os atributos `placeholder` de inputs e textareas da interface (modais de observação, justificativa, reabertura, novo modelo, criação de parceiro, buscas e assinaturas do certificado), garantindo caixas 100% em branco sem qualquer texto fantasma/greyout pré-escrito que possa simular preenchimento; executa limpeza idempotente no banco via `limpar-textos-automaticos.mjs`, zerando exclusivamente as 75 justificativas genéricas de migração (*"Migrado da planilha..."*) e as 143 observações automáticas geradas pela importação legado (*"Marcado como Testar..."*, *"Item do catálogo sem linha..."*, *"Planilha: ..."*), mantendo estritamente preservadas as 62 observações e 14 justificativas técnicas reais lançadas por usuários humanos; e atualiza `importar-planilha.ts` para que futuras reimportações não reinjetem esses textos sintéticos. |
+
+---
+
+## Etapa 70 — Flexibilização Total e Resiliência no Cadastro de Dispositivos e Homologações (D439)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D439 | Flexibilização e resiliência no cadastro de modelos/dispositivos com resolução automática de bateria e normalização de campos | Elimina os bloqueios rígidos de validação ("Dados inválidos.") que travavam o cadastro de novos dispositivos na matriz e na API quando campos secundários vinham vazios ou a bateria não estava selecionada: em `POST /matriz/modelo` e `POST /homologacoes`, implementa resolução automática da bateria ativa da categoria caso `bateriaId` venha nulo/vazio; normaliza campos vazios com fallbacks seguros (`Fabricante`, `Modelo`, `Dispositivo`, `Sem informação`, `Android`, `Agente PoS`, `Não informada`, `Não informado`); remove restrições excessivas como `.url()` estrito em `linkFabricante`; e no frontend (`ModalNovoModelo.tsx`), sincroniza a seleção reativa de baterias via `useEffect`, garante fallbacks em tempo de envio e exibe detalhamento claro de campos rejeitados caso ocorra qualquer erro de API. |
+
+
+
 
 
 

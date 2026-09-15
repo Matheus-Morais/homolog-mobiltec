@@ -308,7 +308,6 @@ export function ValidarCertificados() {
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Filtrar por modelo, parceiro ou S/N…"
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border bg-transparent outline-none focus:ring-1"
               style={{ borderColor: 'var(--color-input)' }}
             />
@@ -686,7 +685,6 @@ export function ValidarCertificados() {
                 rows={3}
                 value={motivoRevisao}
                 onChange={(e) => setMotivoRevisao(e.target.value)}
-                placeholder="Ex: Favor verificar o item de telemetria de bateria e justificar o resultado..."
                 className="w-full px-3 py-2 text-xs rounded-lg border bg-transparent outline-none focus:ring-1"
                 style={{ borderColor: 'var(--color-input)' }}
               />

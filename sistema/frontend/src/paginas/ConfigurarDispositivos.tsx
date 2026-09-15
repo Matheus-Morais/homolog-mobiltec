@@ -140,7 +140,6 @@ export function ConfigurarDispositivos() {
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por modelo, fabricante, parceiro ou versão…"
               className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs bg-transparent outline-none focus:border-[var(--color-primary)] transition-colors"
               style={{ borderColor: 'var(--color-input)', color: 'var(--color-foreground)' }}
             />

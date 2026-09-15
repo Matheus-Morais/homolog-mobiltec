@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   useCadastrarModelo,
   useSalvarDispositivo,
@@ -70,57 +70,79 @@ export function ModalNovoModelo({
     dataInicio: h?.dataInicio?.slice(0, 10) ?? hoje(),
   })
 
+  // Sincroniza a bateria selecionada assim que a lista de baterias estiver carregada
+  useEffect(() => {
+    if (!f.bateriaId && baterias && baterias.length > 0) {
+      setF((v) => ({ ...v, bateriaId: baterias[0].id }))
+    }
+  }, [baterias, f.bateriaId])
+
   const set = (chave: keyof typeof f) => (valor: unknown) => setF((v) => ({ ...v, [chave]: valor }))
   const salvando = cadastrar.isPending || salvarFicha.isPending || salvarDispositivo.isPending
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
     setErro(null)
-    // O nome comercial default é "Fabricante Modelo", como na planilha.
-    const nomeComercial = f.nomeComercial.trim() || `${f.fabricante} ${f.modelo}`.trim()
+    const fabricante = f.fabricante.trim() || 'Fabricante'
+    const modelo = f.modelo.trim() || 'Modelo'
+    const nomeComercial = f.nomeComercial.trim() || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
+    const bateriaId = f.bateriaId || baterias[0]?.id || ''
 
     try {
       if (editando) {
         // Identidade mora no dispositivo; o resto, na homologação
         await salvarDispositivo.mutateAsync({
           dispositivoId: h!.dispositivoId,
-          fabricante: f.fabricante,
-          modelo: f.modelo,
+          fabricante,
+          modelo,
           nomeComercial,
         })
         await salvarFicha.mutateAsync({
           homologacaoId: h!.id,
-          numeroSerie: f.numeroSerie,
+          numeroSerie: f.numeroSerie.trim() || 'Sem informação',
           imei1: f.imei1.trim() || null,
           imei2: f.imei2.trim() || null,
-          versaoSo: f.versaoSo,
+          versaoSo: f.versaoSo.trim() || 'Android',
           gerenciamento: f.gerenciamento,
-          tipoAgente: f.tipoAgente,
-          versaoAgente: f.versaoAgente,
+          tipoAgente: f.tipoAgente.trim() || 'Agente PoS',
+          versaoAgente: f.versaoAgente.trim() || 'Não informada',
           ferramenta: f.ferramenta.trim() || null,
-          metodoInscricao: f.metodoInscricao,
+          metodoInscricao: f.metodoInscricao.trim() || 'Não informado',
           assinaturaAgente: f.assinaturaAgente,
           precisaAssinaturaDev: f.precisaAssinaturaDev,
-          dataInicio: f.dataInicio,
+          dataInicio: f.dataInicio || hoje(),
         })
       } else {
         const payload: PayloadNovoModelo = {
           categoriaId,
           ...f,
+          bateriaId,
+          fabricante,
+          modelo,
           nomeComercial,
+          numeroSerie: f.numeroSerie.trim() || 'Sem informação',
+          versaoSo: f.versaoSo.trim() || 'Android',
+          tipoAgente: f.tipoAgente.trim() || 'Agente PoS',
+          versaoAgente: f.versaoAgente.trim() || 'Não informada',
+          metodoInscricao: f.metodoInscricao.trim() || 'Não informado',
           imei1: f.imei1.trim() || null,
           imei2: f.imei2.trim() || null,
           ferramenta: f.ferramenta.trim() || null,
+          dataInicio: f.dataInicio || hoje(),
         }
         await cadastrar.mutateAsync(payload)
       }
       aoCriar()
     } catch (err) {
-      setErro(
-        err instanceof ErroApi
-          ? err.message
-          : `Não foi possível ${editando ? 'salvar as alterações' : 'cadastrar o modelo'}.`,
-      )
+      if (err instanceof ErroApi) {
+        if (err.campos && err.campos.length > 0) {
+          setErro(`${err.message}: ${err.campos.map(c => `${c.campo} (${c.mensagem})`).join(', ')}`)
+        } else {
+          setErro(err.message)
+        }
+      } else {
+        setErro(`Não foi possível ${editando ? 'salvar as alterações' : 'cadastrar o modelo'}.`)
+      }
     }
   }
 
@@ -151,13 +173,12 @@ export function ModalNovoModelo({
           <section>
             <p className="label-caps mb-2">Identidade do modelo</p>
             <div className="grid sm:grid-cols-3 gap-3">
-              <Campo rotulo="Fabricante" obrigatorio valor={f.fabricante} aoMudar={set('fabricante')} placeholder="Sunmi" />
-              <Campo rotulo="Modelo" obrigatorio valor={f.modelo} aoMudar={set('modelo')} placeholder="P2mini-B-8766" />
+              <Campo rotulo="Fabricante" obrigatorio valor={f.fabricante} aoMudar={set('fabricante')} />
+              <Campo rotulo="Modelo" obrigatorio valor={f.modelo} aoMudar={set('modelo')} />
               <Campo
                 rotulo="Nome comercial"
                 valor={f.nomeComercial}
                 aoMudar={set('nomeComercial')}
-                placeholder={`${f.fabricante} ${f.modelo}`.trim() || 'SUNMI P2mini'}
               />
             </div>
           </section>
@@ -174,7 +195,7 @@ export function ModalNovoModelo({
           <section>
             <p className="label-caps mb-2">Agente e plataforma</p>
             <div className="grid sm:grid-cols-3 gap-3">
-              <Campo rotulo="Versão do SO" obrigatorio valor={f.versaoSo} aoMudar={set('versaoSo')} placeholder="Android 11" />
+              <Campo rotulo="Versão do SO" obrigatorio valor={f.versaoSo} aoMudar={set('versaoSo')} />
               <div>
                 <label className="label-caps block mb-1.5">Gerenciamento</label>
                 <select
@@ -191,9 +212,9 @@ export function ModalNovoModelo({
                 </select>
               </div>
               <Campo rotulo="Tipo de agente" obrigatorio valor={f.tipoAgente} aoMudar={set('tipoAgente')} />
-              <Campo rotulo="Versão do agente" obrigatorio valor={f.versaoAgente} aoMudar={set('versaoAgente')} placeholder="11.18.4" />
+              <Campo rotulo="Versão do agente" obrigatorio valor={f.versaoAgente} aoMudar={set('versaoAgente')} />
               <Campo rotulo="Método de inscrição" obrigatorio valor={f.metodoInscricao} aoMudar={set('metodoInscricao')} />
-              <Campo rotulo="Ferramenta" valor={f.ferramenta} aoMudar={set('ferramenta')} placeholder="ADB / Bluetooth" />
+              <Campo rotulo="Ferramenta" valor={f.ferramenta} aoMudar={set('ferramenta')} />
             </div>
           </section>
 
@@ -203,7 +224,7 @@ export function ModalNovoModelo({
               <div className="sm:col-span-2">
                 <label className="label-caps block mb-1.5">Bateria de testes</label>
                 <select
-                  value={f.bateriaId}
+                  value={f.bateriaId || baterias[0]?.id || ''}
                   onChange={(e) => set('bateriaId')(e.target.value)}
                   // Trocar a bateria de uma homologação em andamento significaria
                   // recriar as linhas e perder o que já foi avaliado. Para mudar
@@ -301,7 +322,6 @@ function Campo({
   rotulo,
   valor,
   aoMudar,
-  placeholder,
   obrigatorio,
 }: {
   rotulo: string
@@ -320,7 +340,6 @@ function Campo({
         required={obrigatorio}
         value={valor}
         onChange={(e) => aoMudar(e.target.value)}
-        placeholder={placeholder}
         className="w-full px-3 py-2 rounded-md border bg-transparent text-sm"
         style={{ borderColor: 'var(--color-input)' }}
       />

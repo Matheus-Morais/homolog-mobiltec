@@ -128,7 +128,6 @@ export function ModalObservacao({
             rows={5}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Nota interna sobre este item. Você pode colar prints com Ctrl+V ou anexar arquivos .zip e imagens."
             className="w-full p-3 rounded-md border bg-transparent text-sm leading-relaxed resize-y outline-none focus:ring-1 focus:ring-primary"
             style={{ borderColor: 'var(--color-input)' }}
           />

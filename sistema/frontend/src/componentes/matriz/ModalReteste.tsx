@@ -84,7 +84,6 @@ export function ModalReteste({ coluna, aoFechar, aoCriar }: Props) {
               autoFocus
               value={versaoAgente}
               onChange={(e) => setVersaoAgente(e.target.value)}
-              placeholder="ex.: 12.7.0"
               className="w-full px-3 py-2 rounded-md border bg-transparent text-sm"
               style={{ borderColor: 'var(--color-input)' }}
             />

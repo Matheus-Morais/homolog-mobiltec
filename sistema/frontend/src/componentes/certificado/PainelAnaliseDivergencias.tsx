@@ -235,7 +235,6 @@ export function PainelAnaliseDivergencias({ homologacaoId }: { homologacaoId: st
                   value={b.titulo}
                   data-campo="titulo"
                   onChange={(e) => mexer(i, 'titulo', e.target.value)}
-                  placeholder="Título (ex.: Comandos Remotos)"
                   className="mb-1.5 w-full rounded border bg-transparent px-2 py-1 text-xs font-semibold"
                   style={{ borderColor: 'var(--color-input)' }}
                 />
@@ -243,7 +242,6 @@ export function PainelAnaliseDivergencias({ homologacaoId }: { homologacaoId: st
                   value={b.subtitulo}
                   data-campo="subtitulo"
                   onChange={(e) => mexer(i, 'subtitulo', e.target.value)}
-                  placeholder="Subtítulo (ex.: Wipe - Acesso Remoto)"
                   className="mb-1.5 w-full rounded border bg-transparent px-2 py-1 text-xs"
                   style={{ borderColor: 'var(--color-input)' }}
                 />
@@ -252,7 +250,6 @@ export function PainelAnaliseDivergencias({ homologacaoId }: { homologacaoId: st
                   data-campo="texto"
                   onChange={(e) => mexer(i, 'texto', e.target.value)}
                   rows={4}
-                  placeholder="Texto do parágrafo"
                   className="w-full resize-y rounded border bg-transparent px-2 py-1 text-xs leading-relaxed"
                   style={{ borderColor: 'var(--color-input)' }}
                 />

@@ -269,7 +269,6 @@ export function Home() {
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar modelo, fabricante, versão…"
               className="w-full rounded-lg border py-1.5 pl-9 pr-3 text-sm"
               style={{ background: 'var(--color-card)' }}
             />
