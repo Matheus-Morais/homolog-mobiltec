@@ -12,7 +12,11 @@
 import { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { StatusResultado, StatusHomologacao } from '@prisma/client'
-import { TRANSICOES_PERMITIDAS, validarTransicao } from '../lib/transicoes.js'
+import {
+  STATUS_EDITAVEIS_PARCEIRO,
+  TRANSICOES_PERMITIDAS,
+  validarTransicao,
+} from '../lib/transicoes.js'
 
 // Status que EXIGEM justificativa (regra central da spec)
 const STATUS_COM_JUSTIFICATIVA_OBRIGATORIA: StatusResultado[] = [
@@ -128,6 +132,15 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
             justificativaTexto: true,
           },
         },
+        // Só o último envio para revisão: é o apontamento que o card da tela
+        // de validação exibe, sem precisar abrir a ficha (D435). `take: 1`
+        // mantém a lista leve — o histórico inteiro sai em /homologacoes/:id.
+        historicoStatus: {
+          where: { statusNovo: StatusHomologacao.EM_REVISAO },
+          orderBy: { criadoEm: 'desc' },
+          take: 1,
+          include: { usuario: { select: { nome: true } } },
+        },
       },
       orderBy: { criadoEm: 'desc' },
     })
@@ -182,12 +195,14 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(403).send({ erro: 'Homologação aprovada é somente leitura. Reabra para editar.' })
     }
 
-    // Parceiro só pode alterar dados enquanto em RASCUNHO e apenas de homologações próprias
+    // Parceiro só altera dados enquanto a homologação está com ele — RASCUNHO
+    // (primeira execução) ou EM_REVISAO (ajustes pedidos pelo Admin, D434) — e
+    // apenas de homologações próprias
     if (request.user.papel === 'PARCEIRO') {
       if (atual.responsavelId !== request.user.id && atual.apoioId !== request.user.id) {
         return reply.status(403).send({ erro: 'Parceiros só podem editar homologações atribuídas a eles.' })
       }
-      if (atual.status !== StatusHomologacao.RASCUNHO) {
+      if (!STATUS_EDITAVEIS_PARCEIRO.includes(atual.status)) {
         return reply.status(403).send({ erro: 'Homologação em análise ou finalizada é somente leitura para parceiros.' })
       }
       // Parceiro não edita assinaturas oficiais nem fontes — rejeitar explicitamente
@@ -231,6 +246,12 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         },
         certificados: {
           orderBy: { emitidoEm: 'desc' },
+          include: { usuario: { select: { nome: true } } },
+        },
+        // O histórico entra na resposta por causa do motivo da revisão (D435):
+        // é o que a ficha mostra ao parceiro para ele saber o que ajustar.
+        historicoStatus: {
+          orderBy: { criadoEm: 'desc' },
           include: { usuario: { select: { nome: true } } },
         },
       },
@@ -336,7 +357,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
       if (!ehExcecaoHgomes && homologacao.responsavelId !== request.user.id && homologacao.apoioId !== request.user.id) {
         return reply.status(403).send({ erro: 'Parceiros só podem editar resultados de homologações atribuídas a eles.' })
       }
-      if (!ehExcecaoHgomes && homologacao.status !== StatusHomologacao.RASCUNHO) {
+      if (!ehExcecaoHgomes && !STATUS_EDITAVEIS_PARCEIRO.includes(homologacao.status)) {
         return reply.status(403).send({ erro: 'Homologação em análise ou finalizada é somente leitura para parceiros.' })
       }
       if (body.justificativaId || body.justificativaTexto) {
@@ -448,6 +469,27 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
       return false
     })
 
+    // Devolver ao parceiro exige dizer o que ajustar (D435).
+    //
+    // É o único canal pelo qual ele descobre o apontamento — sem isso a
+    // homologação volta para a bancada sem instrução, e o ciclo de revisão
+    // não fecha. Mesmo piso de 10 caracteres da reabertura.
+    //
+    // A exigência vale só para `AGUARDANDO_ANALISE → EM_REVISAO`, que é a
+    // devolução de fato. `RASCUNHO → EM_REVISAO` é escala interna do
+    // "Finalizar" da Mobiltec a caminho de APROVADO (ModalFinalizar): a
+    // homologação nunca chegou à fila, não há parceiro a quem instruir.
+    const ehDevolucaoAoParceiro =
+      novoStatus === StatusHomologacao.EM_REVISAO &&
+      homologacao.status === StatusHomologacao.AGUARDANDO_ANALISE
+
+    if (ehDevolucaoAoParceiro && (motivo ?? '').trim().length < 10) {
+      return reply.status(422).send({
+        erro: 'Descreva os ajustes solicitados ao parceiro (mínimo de 10 caracteres).',
+        campo: 'motivo',
+      })
+    }
+
     // Para APROVADO: homologado é obrigatório (decisão manual)
     if (novoStatus === StatusHomologacao.APROVADO && homologado === undefined) {
       return reply.status(422).send({
@@ -494,7 +536,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
           statusAnterior: homologacao.status,
           statusNovo: novoStatus,
           usuarioId: request.user.id,
-          motivo: motivo ?? null,
+          motivo: motivo?.trim() || null,
         },
       }),
     ])

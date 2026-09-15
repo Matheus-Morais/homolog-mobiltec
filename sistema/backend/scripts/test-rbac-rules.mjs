@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 console.log('=== INICIANDO TESTES DE VERIFICAÇÃO RBAC & MÁQUINA DE ESTADOS ===\n')
 
 // Importa das fontes canônicas (src/lib ou dist/lib)
-let ehDominioOficial, DOMINIOS_MOBILTEC, validarTransicao, TRANSICOES_PERMITIDAS
+let ehDominioOficial, DOMINIOS_MOBILTEC, validarTransicao, TRANSICOES_PERMITIDAS, STATUS_EDITAVEIS_PARCEIRO
 
 try {
   const dom = await import('../dist/lib/dominios.js')
@@ -17,6 +17,7 @@ try {
   const trans = await import('../dist/lib/transicoes.js')
   validarTransicao = trans.validarTransicao
   TRANSICOES_PERMITIDAS = trans.TRANSICOES_PERMITIDAS
+  STATUS_EDITAVEIS_PARCEIRO = trans.STATUS_EDITAVEIS_PARCEIRO
 } catch {
   const dom = await import('../src/lib/dominios.ts')
   ehDominioOficial = dom.ehDominioOficial
@@ -25,6 +26,7 @@ try {
   const trans = await import('../src/lib/transicoes.ts')
   validarTransicao = trans.validarTransicao
   TRANSICOES_PERMITIDAS = trans.TRANSICOES_PERMITIDAS
+  STATUS_EDITAVEIS_PARCEIRO = trans.STATUS_EDITAVEIS_PARCEIRO
 }
 
 console.log('1. Testando validação de domínios corporativos (módulo canônico src/lib/dominios)...')
@@ -45,6 +47,15 @@ assert.equal(validarTransicao('PARCEIRO', 'RASCUNHO', 'APROVADO').permitida, fal
 assert.equal(validarTransicao('PARCEIRO', 'RASCUNHO', 'EM_REVISAO').permitida, false)
 assert.equal(validarTransicao('PARCEIRO', 'AGUARDANDO_ANALISE', 'APROVADO').permitida, false)
 assert.equal(validarTransicao('PARCEIRO', 'AGUARDANDO_ANALISE', 'PUBLICADO').permitida, false)
+
+// Ciclo de revisão (D434): o parceiro reenvia o que ajustou, e só isso
+assert.equal(validarTransicao('PARCEIRO', 'EM_REVISAO', 'AGUARDANDO_ANALISE').permitida, true, 'Parceiro reenvia para validação depois de atender aos apontamentos')
+assert.equal(validarTransicao('PARCEIRO', 'EM_REVISAO', 'APROVADO').permitida, false, 'Parceiro não aprova a própria homologação em revisão')
+assert.equal(validarTransicao('PARCEIRO', 'EM_REVISAO', 'RASCUNHO').permitida, false, 'Parceiro não devolve a homologação para rascunho')
+assert.equal(validarTransicao('PARCEIRO', 'AGUARDANDO_ANALISE', 'EM_REVISAO').permitida, false, 'Só a Mobiltec envia para revisão')
+
+// Edição: o parceiro escreve enquanto a homologação está com ele, e só então
+assert.deepEqual([...STATUS_EDITAVEIS_PARCEIRO].sort(), ['EM_REVISAO', 'RASCUNHO'], 'Parceiro edita em rascunho e em revisão — nunca sob custódia da Mobiltec')
 
 // Leitor
 assert.equal(validarTransicao('LEITOR', 'RASCUNHO', 'AGUARDANDO_ANALISE').permitida, false, 'LEITOR não pode transicionar para AGUARDANDO_ANALISE')
