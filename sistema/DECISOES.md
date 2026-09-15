@@ -1054,6 +1054,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D451 | Desbloqueio da edição de testes e habilitação de reenvio para validação pela Mobiltec quando a homologação estiver com status EM_REVISAO | Em `transicoes.ts` (`validarTransicao`): autoriza o papel `PARCEIRO` a transicionar de `EM_REVISAO` para `AGUARDANDO_ANALISE` (além da transição padrão de `RASCUNHO`), garantindo que o parceiro possa submeter novamente após corrigir os apontamentos; em `homologacoes.ts` (`PUT /homologacoes/:id/resultados/:itemId`): autoriza o parceiro a atualizar status e observações de itens de teste quando a homologação estiver em `EM_REVISAO`, com validação de titularidade da mesma empresa; em `tipos.ts` (`ehSomenteLeitura`): atualiza a regra para que o parceiro só tenha visualização somente-leitura enquanto a homologação estiver sob custódia da Mobiltec (`AGUARDANDO_ANALISE`) ou em estados finais concluídos (`APROVADO`, `PUBLICADO`, `REPROVADO`), liberando total interatividade de edição em `EM_REVISAO`; e em `ModalFinalizar.tsx` e `Matriz.tsx`: ajusta os botões e títulos de ação dinamicamente para 'Reenviar para Validação Mobiltec' quando o status for `EM_REVISAO`. |
 
+---
+
+## Etapa 83 — Redesign Premium do Aviso de Revisão e Eliminação de Cards Desarmoniosos (D452)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D452 | Aviso estilizado de revisão com identificação do técnico emitente, eliminação de caixas escuras/verdes e alinhamento visual com o Design System | Em `parceiros.ts` (`montarDadosPainel`): inclui `historicoStatus` com o último registro de transição para `EM_REVISAO` e o usuário responsável, expondo o objeto `revisaoInfo` contendo o nome real do técnico da Mobiltec que solicitou a revisão (`tecnicoNome`), a mensagem exata (`mensagem`) e a data/hora do envio (`criadoEm`); em `tipos.ts`: declara a interface `RevisaoInfo` e a associa a `DispositivoPainelParceiro`; em `PainelParceiro.tsx`: elimina os blocos amarronzados e a pílula verde sobre fundo cinza escuro, substituindo-os por um card de aviso premium integrado ao Design System (cabeçalho com avatar roxo em gradiente da marca, nome do técnico e indicador temporal sutil, caixa de mensagem nítida sobre `var(--color-card)`, linha de ciência/confirmação discreta com dot esmeralda sutil, e botão de confirmação com gradiente roxo oficial); e remove o link redundante 'Ajustar itens na bateria' do corpo, unificando a ação contextual no botão de rodapé 'Ajustar testes na bateria →'. |
+
+
 
 
 

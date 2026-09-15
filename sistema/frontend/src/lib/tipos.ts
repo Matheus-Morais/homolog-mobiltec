@@ -282,6 +282,7 @@ export interface DispositivoPainelParceiro {
   dataFim: string | null
   responsavelNome: string
   notificacaoRevisao?: Notificacao | null
+  revisaoInfo?: RevisaoInfo | null
   resumo: {
     total: number
     ok: number
@@ -307,6 +308,16 @@ export interface Notificacao {
   confirmadaPor?: string | null
   link?: string | null
   criadoEm: string
+}
+
+export interface RevisaoInfo {
+  tecnicoNome: string
+  mensagem: string
+  criadoEm: string | null
+  confirmada: boolean
+  confirmadaPor?: string | null
+  confirmadaEm?: string | null
+  notificacaoId?: string | null
 }
 
 export interface PainelParceiroDados {

@@ -268,16 +268,26 @@ function CardDispositivoParceiro({
     return parseObservacoes(d.observacoes)
   }, [d.observacoes])
 
-  const textoRevisao = useMemo(() => {
-    if (d.notificacaoRevisao?.mensagem) return d.notificacaoRevisao.mensagem
-    if (observacoesProcessadas.length > 0) {
-      return `${observacoesProcessadas[0].titulo}: ${observacoesProcessadas[0].texto}`
+  const revisao = useMemo(() => {
+    if (d.revisaoInfo) return d.revisaoInfo
+    const msg =
+      d.notificacaoRevisao?.mensagem ||
+      (observacoesProcessadas.length > 0
+        ? `${observacoesProcessadas[0].titulo}: ${observacoesProcessadas[0].texto}`
+        : d.observacoes || 'Ajustes técnicos pendentes solicitados pela Mobiltec.')
+    return {
+      tecnicoNome: 'Técnico Mobiltec',
+      mensagem: msg,
+      criadoEm: d.notificacaoRevisao?.criadoEm ?? null,
+      confirmada: Boolean(d.notificacaoRevisao?.confirmada),
+      confirmadaPor: d.notificacaoRevisao?.confirmadaPor ?? null,
+      confirmadaEm: d.notificacaoRevisao?.confirmadaEm ?? null,
+      notificacaoId: d.notificacaoRevisao?.id ?? null,
     }
-    return d.observacoes || 'Ajustes técnicos pendentes solicitados pela Mobiltec.'
-  }, [d.notificacaoRevisao, observacoesProcessadas, d.observacoes])
+  }, [d.revisaoInfo, d.notificacaoRevisao, observacoesProcessadas, d.observacoes])
 
   const [expandirTextoRevisao, setExpandirTextoRevisao] = useState(false)
-  const precisaLerMais = textoRevisao.length > 120
+  const precisaLerMais = revisao.mensagem.length > 130
 
   return (
     <article
@@ -307,64 +317,101 @@ function CardDispositivoParceiro({
         </div>
       </div>
 
-      {/* Meio: Foto e Dados Técnicos OU Texto Limpo da Revisão Técnica */}
+      {/* Meio: Foto e Dados Técnicos OU Card de Aviso da Revisão Técnica */}
       {d.status === 'EM_REVISAO' ? (
         <div className="p-4 flex-1 flex flex-col justify-between text-xs space-y-3">
-          <div className="space-y-1.5">
-            <div className="p-2.5 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-900/40 text-[12px] leading-relaxed text-[var(--color-foreground)] font-medium">
+          <div
+            className="rounded-xl border p-3.5 flex flex-col justify-between gap-2.5 transition-all shadow-2xs"
+            style={{
+              background: 'var(--color-sidebar)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            {/* Topo do Aviso: Quem enviou para revisão + Data */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="h-6 w-6 rounded-full flex items-center justify-center font-bold text-[10px] text-white shrink-0 shadow-xs"
+                  style={{ background: 'var(--gradient-brand-purple)' }}
+                >
+                  {revisao.tecnicoNome.charAt(0).toUpperCase()}
+                </span>
+                <p className="text-[12px] truncate leading-tight">
+                  <strong className="text-[var(--color-foreground)] font-bold">
+                    {revisao.tecnicoNome}
+                  </strong>
+                  <span className="text-[var(--color-muted-foreground)] font-normal ml-1">
+                    enviou para revisão
+                  </span>
+                </p>
+              </div>
+
+              {revisao.criadoEm && (
+                <span className="text-[10px] text-[var(--color-muted-foreground)] font-medium shrink-0">
+                  {new Date(revisao.criadoEm).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              )}
+            </div>
+
+            {/* Mensagem da Revisão */}
+            <div
+              className="p-3 rounded-lg border text-[12px] leading-relaxed text-[var(--color-foreground)] shadow-2xs"
+              style={{
+                background: 'var(--color-card)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
               <p className="whitespace-pre-wrap">
                 {expandirTextoRevisao || !precisaLerMais
-                  ? textoRevisao
-                  : `${textoRevisao.slice(0, 115)}…`}
+                  ? revisao.mensagem
+                  : `${revisao.mensagem.slice(0, 125)}…`}
               </p>
               {precisaLerMais && (
                 <button
                   type="button"
                   onClick={() => setExpandirTextoRevisao((v) => !v)}
-                  className="mt-1 text-[11px] font-bold text-[var(--color-primary)] hover:underline cursor-pointer block"
+                  className="mt-1.5 text-[11px] font-semibold text-[var(--color-primary)] hover:underline cursor-pointer block"
                 >
                   {expandirTextoRevisao ? 'Ler menos ▲' : 'Ler mais ▼'}
                 </button>
               )}
             </div>
-          </div>
 
-          <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] pt-1">
-            {d.notificacaoRevisao?.confirmada ? (
-              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-                <span>✓</span>
-                <span>
-                  Confirmado por {d.notificacaoRevisao.confirmadaPor ?? 'Parceiro'}
-                  {d.notificacaoRevisao.confirmadaEm
-                    ? ` em ${new Date(d.notificacaoRevisao.confirmadaEm).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}`
-                    : ''}
-                </span>
-              </span>
-            ) : d.notificacaoRevisao?.id ? (
-              <button
-                type="button"
-                onClick={() => confirmarNotificacao.mutate(d.notificacaoRevisao!.id)}
-                disabled={confirmarNotificacao.isPending}
-                className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-medium transition-colors shadow-2xs cursor-pointer flex items-center gap-1 text-[11px] disabled:opacity-50"
-              >
-                <span>{confirmarNotificacao.isPending ? 'Confirmando…' : '✓ Confirmar recebimento (Ciente)'}</span>
-              </button>
-            ) : null}
-
-            {!ehAdmin && (
-              <Link
-                to={`/matriz/${d.categoriaSlug}`}
-                className="text-[var(--color-primary)] hover:underline font-semibold ml-auto inline-flex items-center gap-1"
-              >
-                <span>Ajustar itens na bateria</span>
-                <span>→</span>
-              </Link>
-            )}
+            {/* Status / Ação de Confirmação (Ciente) */}
+            <div className="pt-2 border-t border-[var(--color-border)]/50 flex items-center justify-between gap-2 flex-wrap text-[11px]">
+              {revisao.confirmada ? (
+                <div className="flex items-center gap-1.5 text-[var(--color-muted-foreground)] text-[11px]">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shrink-0 shadow-xs" />
+                  <span>
+                    Confirmado por <strong className="text-[var(--color-foreground)]">{revisao.confirmadaPor ?? 'Parceiro'}</strong>
+                    {revisao.confirmadaEm
+                      ? ` em ${new Date(revisao.confirmadaEm).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`
+                      : ''}
+                  </span>
+                </div>
+              ) : revisao.notificacaoId ? (
+                <button
+                  type="button"
+                  onClick={() => confirmarNotificacao.mutate(revisao.notificacaoId!)}
+                  disabled={confirmarNotificacao.isPending}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white shadow-xs transition-opacity hover:opacity-90 inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  style={{ background: 'var(--gradient-brand-purple)' }}
+                >
+                  <span>✓</span>
+                  <span>{confirmarNotificacao.isPending ? 'Confirmando…' : 'Confirmar recebimento (Ciente)'}</span>
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : (
@@ -483,7 +530,7 @@ function CardDispositivoParceiro({
             className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5"
             style={{ background: 'var(--gradient-brand-purple)' }}
           >
-            <span>Bateria de testes</span>
+            <span>{d.status === 'EM_REVISAO' ? 'Ajustar testes na bateria' : 'Bateria de testes'}</span>
             <span>→</span>
           </Link>
         )}

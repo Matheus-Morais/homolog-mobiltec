@@ -337,6 +337,14 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
         include: {
           resultados: { select: { status: true, justificativaId: true, justificativaTexto: true } },
           responsavel: { select: { id: true, nome: true, email: true, empresa: true } },
+          historicoStatus: {
+            where: { statusNovo: 'EM_REVISAO' },
+            orderBy: { criadoEm: 'desc' },
+            take: 1,
+            include: {
+              usuario: { select: { id: true, nome: true, email: true, cargo: true } },
+            },
+          },
         },
         orderBy: { criadoEm: 'desc' },
       },
@@ -373,6 +381,30 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     const notificacaoRevisao = notificacoes.find(
       (n: any) => n.homologacaoId === atual?.id && n.tipo === 'REVISAO',
     )
+    const ultimoHistoricoRevisao = atual?.historicoStatus?.[0] ?? null
+    const tecnicoNome =
+      ultimoHistoricoRevisao?.usuario?.nome || 'Técnico Mobiltec'
+    const mensagemRevisao =
+      notificacaoRevisao?.mensagem ||
+      ultimoHistoricoRevisao?.motivo ||
+      atual?.observacoes ||
+      'A equipe técnica da Mobiltec solicitou ajustes nesta homologação.'
+    const dataRevisao =
+      ultimoHistoricoRevisao?.criadoEm || notificacaoRevisao?.criadoEm || null
+
+    const revisaoInfo =
+      atual?.status === 'EM_REVISAO'
+        ? {
+            tecnicoNome,
+            mensagem: mensagemRevisao,
+            criadoEm: dataRevisao,
+            confirmada: Boolean(notificacaoRevisao?.confirmada),
+            confirmadaPor: notificacaoRevisao?.confirmadaPor ?? null,
+            confirmadaEm: notificacaoRevisao?.confirmadaEm ?? null,
+            notificacaoId: notificacaoRevisao?.id ?? null,
+          }
+        : null
+
     const resumo = {
       total: atual?.resultados.length ?? 0,
       ok: 0,
@@ -436,6 +468,7 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
       dataFim: atual?.dataFim ?? null,
       responsavelNome: atual?.responsavel?.nome ?? parceiro.nome,
       notificacaoRevisao: notificacaoRevisao ?? null,
+      revisaoInfo,
       resumo,
     }
   })
