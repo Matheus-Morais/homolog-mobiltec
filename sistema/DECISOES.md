@@ -998,6 +998,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D444 | Modal de Informações com abas em botões horizontais, tabela compacta de testes/observações e tabela de parceiros com filtro em tempo real | Em `ModalInformacoesHomologacao.tsx`, substitui os blocos verticais grandes e o card fixo de observações por uma barra de botões/abas dispostos lado a lado ('Todos', 'Telemetria', 'Coleta', 'Comandos', 'Perfis' e 'Observações'); ao selecionar uma categoria de teste, renderiza uma tabela compacta e limpa contendo Nome do Teste e Status (com justificativa técnica discreta quando houver); ao clicar em 'Observações', alterna exclusivamente para a visualização de observações com mensagem amigável quando vazia ('O parceiro não registrou nenhuma observação até o momento'); e em `GerenciarParceiros.tsx`, substitui o grid de cards por uma tabela administrativa estruturada e compacta acompanhada de input de busca e filtro em tempo real por empresa ou colaborador. |
 
+---
+
+## Etapa 76 — Seletor de SO, Dropdowns com Design System, Badges Premium e Placeholders de Busca (D445)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D445 | Seletor de Sistema Operacional, rótulo dinâmico da versão, dropdowns customizados com Design System, desobrigação do número de série, badges premium e placeholders nas buscas | Em `ModalNovoModelo.tsx`: adiciona seletor de Sistema Operacional ('Android', 'iOS', 'Microsoft', 'Linux'), ajustando o rótulo da versão dinamicamente ('Versão do Android', 'Versão do iOS', 'Versão do Windows', 'Versão do Linux') e exibindo os cadastros específicos de Android ('Gerenciamento') unicamente quando o SO for Android; substitui os elementos `<select>` nativos do navegador por um componente customizado `SeletorDropdown` alinhado ao Design System (com popover flutuante, bordas sutis, hover roxo de marca e checkmark ativo); remove a obrigatoriedade do campo 'Número de série', permitindo submissão transparente sem exigência; em `ConfigurarDispositivos.tsx`, atualiza o badge do cabeçalho e da coluna de status para uma flag pill clean e premium com dot indicador esmeralda (`bg-emerald-500`), e estiliza o badge 'Mobiltec' na coluna Ambiente/Parceiro com o gradiente oficial roxo (`var(--gradient-brand-purple)`); e nas barras de pesquisa de `Home.tsx`, `PainelParceiro.tsx` e `ConfigurarDispositivos.tsx`, restaura o placeholder informativo ('Pesquise o modelo, versão, fabricante, etc...') com expansão de largura para acomodação limpa do texto. |
+
+
 
 
 

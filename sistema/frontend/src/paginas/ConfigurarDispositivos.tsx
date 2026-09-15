@@ -117,7 +117,8 @@ export function ConfigurarDispositivos() {
                 <span>Total:</span>
                 <strong className="font-bold">{homologacoes.length}</strong>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-200/90 bg-emerald-50/90 text-emerald-700 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200/60" />
                 <span>Aprovados:</span>
                 <strong className="font-bold">{totalAprovados + totalPublicados}</strong>
               </span>
@@ -140,7 +141,8 @@ export function ConfigurarDispositivos() {
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs bg-transparent outline-none focus:border-[var(--color-primary)] transition-colors"
+              placeholder="Pesquise o modelo, versão, fabricante, etc..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border text-xs bg-transparent outline-none focus:border-[var(--color-primary)] transition-colors placeholder:text-[var(--color-muted-foreground)]/70"
               style={{ borderColor: 'var(--color-input)', color: 'var(--color-foreground)' }}
             />
             <div className="absolute left-2.5 top-2 text-[var(--color-muted-foreground)]">
@@ -298,15 +300,21 @@ export function ConfigurarDispositivos() {
                         {/* Ambiente / Parceiro */}
                         <td className="px-4 py-3.5">
                           <div className="space-y-0.5">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                ehParceiro
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800'
-                                  : 'bg-purple-100 text-purple-900 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-200 dark:border-purple-800'
-                              }`}
-                            >
-                              {ehParceiro ? `Parceiro ${empresa}` : 'Mobiltec'}
-                            </span>
+                            {ehParceiro ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800">
+                                Parceiro {empresa}
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide text-white shadow-xs"
+                                style={{
+                                  background: 'var(--gradient-brand-purple)',
+                                  boxShadow: '0 2px 6px rgba(110, 34, 107, 0.25)',
+                                }}
+                              >
+                                Mobiltec
+                              </span>
+                            )}
                             {h.responsavel?.nome && (
                               <p className="text-[10px] text-[var(--color-muted-foreground)]">
                                 Resp.: {h.responsavel.nome}
@@ -332,21 +340,22 @@ export function ConfigurarDispositivos() {
 
                         {/* Status */}
                         <td className="px-4 py-3.5">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                              h.status === 'APROVADO'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : h.status === 'PUBLICADO'
-                                  ? 'bg-sky-100 text-sky-800 border border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
-                                  : 'bg-red-100 text-red-800 border border-red-300 dark:bg-red-950/60 dark:text-red-300'
-                            }`}
-                          >
-                            {h.status === 'APROVADO'
-                              ? 'Aprovado'
-                              : h.status === 'PUBLICADO'
-                                ? 'Publicado'
-                                : 'Reprovado'}
-                          </span>
+                          {h.status === 'APROVADO' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border border-emerald-200/80 bg-emerald-50/90 text-emerald-700 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200/60" />
+                              Aprovado
+                            </span>
+                          ) : h.status === 'PUBLICADO' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border border-sky-200/80 bg-sky-50/90 text-sky-700 shadow-2xs dark:bg-sky-950/40 dark:border-sky-800/60 dark:text-sky-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-sky-500 ring-2 ring-sky-200/60" />
+                              Publicado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border border-red-200/80 bg-red-50/90 text-red-700 shadow-2xs dark:bg-red-950/40 dark:border-red-800/60 dark:text-red-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-red-200/60" />
+                              Reprovado
+                            </span>
+                          )}
                         </td>
 
                         {/* Ações */}

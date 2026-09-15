@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   useCadastrarModelo,
   useSalvarDispositivo,
@@ -31,15 +31,43 @@ const TIPOS_AGENTE_PADRAO = [
   'Agente Legado',
 ]
 
+type SistemaOperacional = 'Android' | 'iOS' | 'Microsoft' | 'Linux'
+
+const OPCOES_SO: OpcaoDropdown<SistemaOperacional>[] = [
+  { valor: 'Android', rotulo: 'Android' },
+  { valor: 'iOS', rotulo: 'iOS' },
+  { valor: 'Microsoft', rotulo: 'Microsoft Windows' },
+  { valor: 'Linux', rotulo: 'Linux' },
+]
+
+function detectarSo(versaoSo?: string | null): SistemaOperacional {
+  if (!versaoSo) return 'Android'
+  const v = versaoSo.toLowerCase()
+  if (v.includes('ios') || v.includes('apple') || v.includes('iphone') || v.includes('ipad')) return 'iOS'
+  if (v.includes('windows') || v.includes('microsoft') || v.includes('win')) return 'Microsoft'
+  if (v.includes('linux') || v.includes('ubuntu') || v.includes('debian')) return 'Linux'
+  return 'Android'
+}
+
+function limparPrefixoSo(versaoSo: string, so: SistemaOperacional): string {
+  if (!versaoSo) return ''
+  switch (so) {
+    case 'Android':
+      return versaoSo.replace(/^\s*android\s*/i, '').trim()
+    case 'iOS':
+      return versaoSo.replace(/^\s*ios\s*/i, '').trim()
+    case 'Microsoft':
+      return versaoSo.replace(/^\s*(microsoft|windows|win)\s*/i, '').trim()
+    case 'Linux':
+      return versaoSo.replace(/^\s*linux\s*/i, '').trim()
+    default:
+      return versaoSo.trim()
+  }
+}
+
 /**
  * O mesmo formulário para cadastrar um modelo e para configurar um já
  * existente.
- *
- * São os mesmos campos, e mantê-los em dois componentes garantiria que um dia
- * eles divergissem. O que muda entre os dois modos é só o destino: cadastrar
- * cria dispositivo + homologação numa tacada; configurar salva os dados de
- * identidade no dispositivo e o resto na homologação, que é onde cada coisa
- * mora.
  */
 export function ModalNovoModelo({
   categoriaId,
@@ -59,6 +87,9 @@ export function ModalNovoModelo({
   const editando = !!coluna
   const h = coluna?.homologacao
 
+  const soDetectado = useMemo(() => detectarSo(h?.versaoSo), [h?.versaoSo])
+  const [so, setSo] = useState<SistemaOperacional>(soDetectado)
+
   const [tiposAgenteExtras, setTiposAgenteExtras] = useState<string[]>([])
   const [cadastrandoAgente, setCadastrandoAgente] = useState(false)
   const [novoAgenteNome, setNovoAgenteNome] = useState('')
@@ -71,7 +102,7 @@ export function ModalNovoModelo({
     numeroSerie: h?.numeroSerie ?? '',
     imei1: h?.imei1 ?? '',
     imei2: h?.imei2 ?? '',
-    versaoSo: h?.versaoSo ?? '',
+    versaoSo: h?.versaoSo ? limparPrefixoSo(h.versaoSo, soDetectado) : '',
     gerenciamento: (h?.gerenciamento ?? 'ANDROID_LEGADO') as TipoGerenciamento,
     tipoAgente: h?.tipoAgente ?? 'Agente POS',
     versaoAgente: h?.versaoAgente ?? '',
@@ -118,6 +149,21 @@ export function ModalNovoModelo({
     )
   }, [f.tipoAgente])
 
+  const rotuloVersaoSo = useMemo(() => {
+    switch (so) {
+      case 'Android':
+        return 'Versão do Android'
+      case 'iOS':
+        return 'Versão do iOS'
+      case 'Microsoft':
+        return 'Versão do Windows'
+      case 'Linux':
+        return 'Versão do Linux'
+      default:
+        return 'Versão do SO'
+    }
+  }, [so])
+
   // Sincroniza a bateria selecionada assim que a lista de baterias estiver carregada
   useEffect(() => {
     if (!f.bateriaId && baterias && baterias.length > 0) {
@@ -136,9 +182,22 @@ export function ModalNovoModelo({
     const nomeComercial = f.nomeComercial.trim() || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
     const bateriaId = f.bateriaId || baterias[0]?.id || ''
 
+    // Formatação elegante da versão com prefixo apropriado quando não-Android
+    let versaoSoGravada = f.versaoSo.trim()
+    if (!versaoSoGravada) {
+      versaoSoGravada = so === 'Microsoft' ? 'Windows' : so
+    } else {
+      if (so === 'iOS' && !versaoSoGravada.toLowerCase().includes('ios')) {
+        versaoSoGravada = `iOS ${versaoSoGravada}`
+      } else if (so === 'Microsoft' && !versaoSoGravada.toLowerCase().includes('win') && !versaoSoGravada.toLowerCase().includes('micro')) {
+        versaoSoGravada = `Windows ${versaoSoGravada}`
+      } else if (so === 'Linux' && !versaoSoGravada.toLowerCase().includes('linux')) {
+        versaoSoGravada = `Linux ${versaoSoGravada}`
+      }
+    }
+
     try {
       if (editando) {
-        // Identidade mora no dispositivo; o resto, na homologação
         await salvarDispositivo.mutateAsync({
           dispositivoId: h!.dispositivoId,
           fabricante,
@@ -150,7 +209,7 @@ export function ModalNovoModelo({
           numeroSerie: f.numeroSerie.trim() || 'Sem informação',
           imei1: f.imei1.trim() || null,
           imei2: f.imei2.trim() || null,
-          versaoSo: f.versaoSo.trim() || 'Android',
+          versaoSo: versaoSoGravada,
           gerenciamento: f.gerenciamento,
           tipoAgente: f.tipoAgente.trim() || 'Agente PoS',
           versaoAgente: f.versaoAgente.trim() || 'Não informada',
@@ -169,7 +228,7 @@ export function ModalNovoModelo({
           modelo,
           nomeComercial,
           numeroSerie: f.numeroSerie.trim() || 'Sem informação',
-          versaoSo: f.versaoSo.trim() || 'Android',
+          versaoSo: versaoSoGravada,
           tipoAgente: f.tipoAgente.trim() || 'Agente PoS',
           versaoAgente: f.versaoAgente.trim() || 'Não informada',
           metodoInscricao: f.metodoInscricao.trim() || 'Não informado',
@@ -184,7 +243,7 @@ export function ModalNovoModelo({
     } catch (err) {
       if (err instanceof ErroApi) {
         if (err.campos && err.campos.length > 0) {
-          setErro(`${err.message}: ${err.campos.map(c => `${c.campo} (${c.mensagem})`).join(', ')}`)
+          setErro(`${err.message}: ${err.campos.map((c) => `${c.campo} (${c.mensagem})`).join(', ')}`)
         } else {
           setErro(err.message)
         }
@@ -234,7 +293,7 @@ export function ModalNovoModelo({
           <section>
             <p className="label-caps mb-2">Unidade testada</p>
             <div className="grid sm:grid-cols-3 gap-3">
-              <Campo rotulo="Número de série" obrigatorio valor={f.numeroSerie} aoMudar={set('numeroSerie')} />
+              <Campo rotulo="Número de série" valor={f.numeroSerie} aoMudar={set('numeroSerie')} />
               <Campo rotulo="IMEI 1" valor={f.imei1} aoMudar={set('imei1')} />
               <Campo rotulo="IMEI 2" valor={f.imei2} aoMudar={set('imei2')} />
             </div>
@@ -243,93 +302,103 @@ export function ModalNovoModelo({
           <section>
             <p className="label-caps mb-2">Agente e plataforma</p>
             <div className="grid sm:grid-cols-3 gap-3">
-              <Campo rotulo="Versão do SO" obrigatorio valor={f.versaoSo} aoMudar={set('versaoSo')} />
-              <div>
-                <label className="label-caps block mb-1.5">Gerenciamento</label>
-                <select
-                  value={f.gerenciamento}
-                  onChange={(e) => set('gerenciamento')(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border bg-transparent text-sm"
-                  style={{ borderColor: 'var(--color-input)' }}
-                >
-                  {(Object.keys(ROTULO_GERENCIAMENTO) as TipoGerenciamento[]).map((g) => (
-                    <option key={g} value={g}>
-                      {ROTULO_GERENCIAMENTO[g]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="label-caps block">
-                    Tipo de agente <span style={{ color: 'var(--color-destructive)' }}>*</span>
-                  </label>
-                  {!cadastrandoAgente ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCadastrandoAgente(true)
-                        setNovoAgenteNome('')
-                      }}
-                      className="text-[11px] font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
-                      style={{ color: 'var(--color-primary)' }}
-                    >
-                      + Novo agente
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setCadastrandoAgente(false)}
-                      className="text-[11px] hover:underline cursor-pointer"
-                      style={{ color: 'var(--color-muted-foreground)' }}
-                    >
-                      Voltar
-                    </button>
-                  )}
-                </div>
+              <SeletorDropdown<SistemaOperacional>
+                rotulo="Sistema Operacional"
+                obrigatorio
+                valor={so}
+                aoMudar={(novoSo) => setSo(novoSo)}
+                opcoes={OPCOES_SO}
+              />
 
+              <Campo
+                rotulo={rotuloVersaoSo}
+                obrigatorio
+                valor={f.versaoSo}
+                aoMudar={set('versaoSo')}
+              />
+
+              {so === 'Android' && (
+                <SeletorDropdown<TipoGerenciamento>
+                  rotulo="Gerenciamento"
+                  valor={f.gerenciamento}
+                  aoMudar={(v) => set('gerenciamento')(v)}
+                  opcoes={(Object.keys(ROTULO_GERENCIAMENTO) as TipoGerenciamento[]).map((g) => ({
+                    valor: g,
+                    rotulo: ROTULO_GERENCIAMENTO[g],
+                  }))}
+                />
+              )}
+
+              <div className={so !== 'Android' ? 'sm:col-span-1' : ''}>
                 {!cadastrandoAgente ? (
-                  <select
-                    value={f.tipoAgente}
-                    onChange={(e) => set('tipoAgente')(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border bg-transparent text-sm cursor-pointer"
-                    style={{ borderColor: 'var(--color-input)' }}
-                  >
-                    {tiposAgenteDisponiveis.map((ta: string) => (
-                      <option key={ta} value={ta}>
-                        {ta}
-                      </option>
-                    ))}
-                  </select>
+                  <SeletorDropdown<string>
+                    rotulo="Tipo de agente"
+                    obrigatorio
+                    valor={f.tipoAgente}
+                    aoMudar={(v) => set('tipoAgente')(v)}
+                    opcoes={tiposAgenteDisponiveis.map((ta) => ({
+                      valor: ta,
+                      rotulo: ta,
+                    }))}
+                    acaoExtra={
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCadastrandoAgente(true)
+                          setNovoAgenteNome('')
+                        }}
+                        className="text-[11px] font-semibold hover:underline cursor-pointer flex items-center gap-0.5"
+                        style={{ color: 'var(--color-primary)' }}
+                      >
+                        + Novo agente
+                      </button>
+                    }
+                  />
                 ) : (
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      autoFocus
-                      value={novoAgenteNome}
-                      onChange={(e) => setNovoAgenteNome(e.target.value)}
-                      placeholder="Nome do novo tipo de agente…"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          salvarNovoAgente()
-                        }
-                      }}
-                      className="flex-1 px-2.5 py-1.5 text-xs rounded-md border bg-transparent"
-                      style={{ borderColor: 'var(--color-input)' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={salvarNovoAgente}
-                      disabled={!novoAgenteNome.trim()}
-                      className="px-3 py-1.5 rounded-md text-xs font-semibold text-white transition-opacity disabled:opacity-50 cursor-pointer"
-                      style={{ background: 'var(--gradient-brand-purple)' }}
-                    >
-                      Salvar
-                    </button>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="label-caps block">
+                        Tipo de agente <span style={{ color: 'var(--color-destructive)' }}>*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCadastrandoAgente(false)}
+                        className="text-[11px] hover:underline cursor-pointer"
+                        style={{ color: 'var(--color-muted-foreground)' }}
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={novoAgenteNome}
+                        onChange={(e) => setNovoAgenteNome(e.target.value)}
+                        placeholder="Nome do novo tipo de agente…"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            salvarNovoAgente()
+                          }
+                        }}
+                        className="flex-1 px-2.5 py-1.5 text-xs rounded-md border bg-transparent"
+                        style={{ borderColor: 'var(--color-input)' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={salvarNovoAgente}
+                        disabled={!novoAgenteNome.trim()}
+                        className="px-3 py-1.5 rounded-md text-xs font-semibold text-white transition-opacity disabled:opacity-50 cursor-pointer"
+                        style={{ background: 'var(--gradient-brand-purple)' }}
+                      >
+                        Salvar
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
+
               <Campo rotulo="Versão do agente" obrigatorio valor={f.versaoAgente} aoMudar={set('versaoAgente')} />
               <Campo rotulo="Método de inscrição" obrigatorio valor={f.metodoInscricao} aoMudar={set('metodoInscricao')} />
               <Campo rotulo="Ferramenta" valor={f.ferramenta} aoMudar={set('ferramenta')} />
@@ -401,24 +470,18 @@ export function ModalNovoModelo({
             <p className="label-caps mb-2">Bateria e datas</p>
             <div className="grid sm:grid-cols-3 gap-3">
               <div className="sm:col-span-2">
-                <label className="label-caps block mb-1.5">Bateria de testes</label>
-                <select
-                  value={f.bateriaId || baterias[0]?.id || ''}
-                  onChange={(e) => set('bateriaId')(e.target.value)}
-                  // Trocar a bateria de uma homologação em andamento significaria
-                  // recriar as linhas e perder o que já foi avaliado. Para mudar
-                  // de bateria o caminho é um reteste.
-                  disabled={editando}
-                  title={editando ? 'A bateria é definida no cadastro e não muda depois' : undefined}
-                  className="w-full px-3 py-2 rounded-md border bg-transparent text-sm disabled:opacity-60"
-                  style={{ borderColor: 'var(--color-input)' }}
-                >
-                  {baterias.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.nome} ({b._count?.itens ?? b.itens?.length ?? '?'} itens)
-                    </option>
-                  ))}
-                </select>
+                <SeletorDropdown<string>
+                  rotulo="Bateria de testes"
+                  desabilitado={editando}
+                  dica={editando ? 'A bateria é definida no cadastro e não muda depois' : undefined}
+                  valor={f.bateriaId || baterias[0]?.id || ''}
+                  aoMudar={(v) => set('bateriaId')(v)}
+                  opcoes={baterias.map((b) => ({
+                    valor: b.id,
+                    rotulo: b.nome,
+                    descricao: `${b._count?.itens ?? b.itens?.length ?? '?'} itens`,
+                  }))}
+                />
               </div>
               <div>
                 <label className="label-caps block mb-1.5">Data de início</label>
@@ -474,7 +537,7 @@ export function ModalNovoModelo({
             <button
               type="submit"
               disabled={salvando}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
+              className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50 cursor-pointer"
               style={{ background: 'var(--gradient-brand-purple)' }}
             >
               {salvando
@@ -517,6 +580,148 @@ function Campo({
         className="w-full px-3 py-2 rounded-md border bg-transparent text-sm"
         style={{ borderColor: 'var(--color-input)' }}
       />
+    </div>
+  )
+}
+
+interface OpcaoDropdown<T extends string = string> {
+  valor: T
+  rotulo: string
+  descricao?: string
+}
+
+function SeletorDropdown<T extends string = string>({
+  rotulo,
+  obrigatorio,
+  valor,
+  opcoes,
+  aoMudar,
+  desabilitado,
+  dica,
+  acaoExtra,
+}: {
+  rotulo?: string
+  obrigatorio?: boolean
+  valor: T
+  opcoes: OpcaoDropdown<T>[]
+  aoMudar: (v: T) => void
+  desabilitado?: boolean
+  dica?: string
+  acaoExtra?: React.ReactNode
+}) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function tratarCliqueFora(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setAberto(false)
+      }
+    }
+    function tratarEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') setAberto(false)
+    }
+    if (aberto) {
+      document.addEventListener('mousedown', tratarCliqueFora)
+      document.addEventListener('keydown', tratarEsc)
+    }
+    return () => {
+      document.removeEventListener('mousedown', tratarCliqueFora)
+      document.removeEventListener('keydown', tratarEsc)
+    }
+  }, [aberto])
+
+  const opcaoSelecionada = opcoes.find((o) => o.valor === valor)
+
+  return (
+    <div className="relative" ref={ref}>
+      {rotulo && (
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="label-caps block">
+            {rotulo} {obrigatorio && <span style={{ color: 'var(--color-destructive)' }}>*</span>}
+          </label>
+          {acaoExtra}
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={desabilitado}
+        title={dica}
+        onClick={() => !desabilitado && setAberto((v) => !v)}
+        className={`w-full px-3 py-2 rounded-md border text-sm text-left flex items-center justify-between transition-all cursor-pointer ${
+          desabilitado ? 'opacity-60 cursor-not-allowed' : 'hover:border-[var(--color-primary)]'
+        } ${aberto ? 'ring-2 ring-[var(--color-primary)]/20 border-[var(--color-primary)]' : ''}`}
+        style={{
+          borderColor: aberto ? 'var(--color-primary)' : 'var(--color-input)',
+          background: 'var(--color-popover)',
+          color: 'var(--color-foreground)',
+        }}
+      >
+        <span className="truncate">{opcaoSelecionada?.rotulo || valor || 'Selecione…'}</span>
+        <svg
+          className={`h-4 w-4 ml-2 shrink-0 transition-transform duration-200 text-[var(--color-muted-foreground)] ${
+            aberto ? 'rotate-180 text-[var(--color-primary)]' : ''
+          }`}
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
+          <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {aberto && (
+        <div
+          className="absolute z-50 mt-1.5 w-full rounded-xl border shadow-xl py-1 max-h-60 overflow-y-auto backdrop-blur-md transition-all"
+          style={{
+            background: 'var(--color-popover)',
+            borderColor: 'var(--color-border)',
+            boxShadow: '0 12px 30px -4px rgba(0, 0, 0, 0.15), 0 6px 12px -2px rgba(0, 0, 0, 0.08)',
+          }}
+        >
+          {opcoes.map((op) => {
+            const ativa = op.valor === valor
+            return (
+              <button
+                key={op.valor}
+                type="button"
+                onClick={() => {
+                  aoMudar(op.valor)
+                  setAberto(false)
+                }}
+                className={`w-full px-3.5 py-2 text-xs font-medium text-left flex items-center justify-between transition-colors cursor-pointer ${
+                  ativa
+                    ? 'bg-purple-50 text-[var(--color-primary)] font-semibold dark:bg-purple-950/50'
+                    : 'text-[var(--color-foreground)] hover:bg-neutral-500/10'
+                }`}
+              >
+                <div className="flex flex-col min-w-0 pr-2">
+                  <span className="truncate">{op.rotulo}</span>
+                  {op.descricao && (
+                    <span className="text-[10px] text-[var(--color-muted-foreground)] truncate">
+                      {op.descricao}
+                    </span>
+                  )}
+                </div>
+                {ativa && (
+                  <svg
+                    className="h-4 w-4 shrink-0 text-[var(--color-primary)]"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

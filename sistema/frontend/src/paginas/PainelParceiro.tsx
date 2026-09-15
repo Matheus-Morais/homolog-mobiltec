@@ -155,7 +155,7 @@ export function PainelParceiro() {
               />
             </div>
 
-            <label className="relative block w-full max-w-[17rem]">
+            <label className="relative block w-full max-w-[22rem]">
               <span
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--color-muted-foreground)' }}
@@ -165,7 +165,8 @@ export function PainelParceiro() {
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                className="w-full rounded-lg border py-1.5 pl-9 pr-3 text-xs"
+                placeholder="Pesquise o modelo, versão, fabricante, etc..."
+                className="w-full rounded-lg border py-1.5 pl-9 pr-3 text-xs sm:text-sm placeholder:text-[var(--color-muted-foreground)]/70"
                 style={{ background: 'var(--color-card)' }}
               />
             </label>
