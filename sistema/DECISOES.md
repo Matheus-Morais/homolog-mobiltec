@@ -958,7 +958,20 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 
 | # | Decisão | Justificativa |
 |---|---|---|
-| D439 | Flexibilização e resiliência no cadastro de modelos/dispositivos com resolução automática de bateria e normalização de campos | Elimina os bloqueios rígidos de validação ("Dados inválidos.") que travavam o cadastro de novos dispositivos na matriz e na API quando campos secundários vinham vazios ou a bateria não estava selecionada: em `POST /matriz/modelo` e `POST /homologacoes`, implementa resolução automática da bateria ativa da categoria caso `bateriaId` venha nulo/vazio; normaliza campos vazios com fallbacks seguros (`Fabricante`, `Modelo`, `Dispositivo`, `Sem informação`, `Android`, `Agente PoS`, `Não informada`, `Não informado`); remove restrições excessivas como `.url()` estrito em `linkFabricante`; e no frontend (`ModalNovoModelo.tsx`), sincroniza a seleção reativa de baterias via `useEffect`, garante fallbacks em tempo de envio e exibe detalhamento claro de campos rejeitados caso ocorra qualquer erro de API. |
+## Etapa 71 — Gestão Dinâmica de Itens de Registro, Edição e Lixeira Reativa em Configurar Homologação (D440)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D440 | Card de registro com criação e edição dinâmica de itens e lixeira reativa nos tópicos da bateria de testes | No Card "2. Itens do registro" de `FormularioTipo.tsx`, implementa o mesmo padrão interativo dos tópicos de teste: rodapé para cadastrar novos itens de registro/ficha com input de texto e botão Adicionar/Salvar, além de suporte a edição do rótulo de qualquer linha não-fixa via ícone de lápis; e em todos os cards (Itens de Registro e nos 4 tópicos da Bateria de Testes), compacta os campos de digitação e adiciona ao lado do botão Adicionar um botão com ícone de lixeira reativa (`lixeira`): o ícone permanece em cinza/greyout (`opacity-40 cursor-not-allowed`) enquanto 0 funcionalidades/itens estiverem flagados, e transita imediatamente para vermelho vivo ativo (`border-red-300 text-red-600 bg-red-50 hover:bg-red-100`) ao flagar 1 ou mais itens, permitindo excluir em lote as funcionalidades e itens selecionados do modelo/tipo de dispositivo sendo configurado; além de permitir edição inline/rodapé de qualquer funcionalidade já existente ou nova. |
+
+---
+
+## Etapa 72 — Flag de Acesso Administrador para Parceiro Mobiltec (D441)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D441 | Flag "Dar acesso de Administrador" para parceiros vinculados à empresa Mobiltec | Ao registrar ou editar parceiro em `GerenciarParceiros.tsx`, quando a empresa selecionada for Mobiltec (`empresa.trim().toLowerCase() === 'mobiltec'`), exibe container destacado com checkbox "Dar acesso de Administrador"; quando marcada, envia `isAdmin: true`, atribuindo no backend (`parceiros.ts`) papel `papel: 'ADMIN'` e cargo `cargo: 'Administrador'`, liberando todas as permissões de administração do sistema; se desmarcada ou para outras empresas parceiras, mantém `papel: 'PARCEIRO'` e cargo `'Parceiro Homologador'`; atualiza `GET /parceiros` para listar também parceiros internos/admin que possuam empresa preenchida; e renderiza badge visual "Admin" nos cards de gerenciamento de parceiros. |
+
 
 
 

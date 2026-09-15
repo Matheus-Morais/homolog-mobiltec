@@ -233,6 +233,7 @@ export interface PayloadCriarParceiro {
   email: string
   senha: string
   categoriasPermitidas: string[]
+  isAdmin?: boolean
 }
 
 export interface PayloadAtualizarParceiro {
@@ -242,6 +243,7 @@ export interface PayloadAtualizarParceiro {
   senha?: string
   categoriasPermitidas?: string[]
   ativo?: boolean
+  isAdmin?: boolean
 }
 
 export interface MetricasPainelParceiro {

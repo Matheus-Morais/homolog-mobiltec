@@ -61,6 +61,41 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
   )
   const [novos, setNovos] = useState<ItemNovo[]>([])
 
+  // Gestão de linhas da ficha/registro (incluindo criação e edição)
+  const [linhasRegistroCustom, setLinhasRegistroCustom] = useState<
+    Array<{ chave: string; rotulo: string }>
+  >(() => {
+    if (!tipo) return []
+    const chavesPadrao = new Set<string>(LINHAS_FICHA.map((l) => l.chave))
+    return (tipo.camposFicha ?? [])
+      .filter((c) => !chavesPadrao.has(c))
+      .map((c) => ({ chave: c, rotulo: c }))
+  })
+  const [rotulosEditadosRegistro, setRotulosEditadosRegistro] = useState<Record<string, string>>({})
+  const [registroEditandoChave, setRegistroEditandoChave] = useState<string | null>(null)
+  const [novoNomeRegistro, setNovoNomeRegistro] = useState('')
+
+  const todasLinhasRegistro = useMemo(() => {
+    const base = LINHAS_FICHA.map((l) => ({
+      chave: l.chave,
+      rotulo: rotulosEditadosRegistro[l.chave] ?? l.rotulo,
+      fixo: FICHA_FIXA.includes(l.chave),
+      customizado: false,
+    }))
+    const extras = linhasRegistroCustom.map((c) => ({
+      chave: c.chave,
+      rotulo: rotulosEditadosRegistro[c.chave] ?? c.rotulo,
+      fixo: false,
+      customizado: true,
+    }))
+    return [...base, ...extras]
+  }, [rotulosEditadosRegistro, linhasRegistroCustom])
+
+  // Itens do catálogo editados (nome e/ou ação descritiva)
+  const [itensCatalogoEditados, setItensCatalogoEditados] = useState<
+    Map<string, { nome: string; descricaoAcao: string }>
+  >(new Map())
+
   /** Itens do catálogo agrupados por tópico */
   const porGrupo = useMemo(() => {
     const mapa = new Map<GrupoItem, ItemTeste[]>()
@@ -74,17 +109,52 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
   const selecionados = marcados ?? new Set((catalogo ?? []).map((i) => i.id))
 
   const totalItens = selecionados.size + novos.length
-  const totalFicha = LINHAS_FICHA.filter(
-    (l) => campos.has(l.chave) || FICHA_FIXA.includes(l.chave),
+  const totalFicha = todasLinhasRegistro.filter(
+    (l) => campos.has(l.chave) || l.fixo,
   ).length
 
-  function alternarCampo(chave: ChaveFicha) {
+  const flagadosRegistro = useMemo(() => {
+    return todasLinhasRegistro.filter((l) => !l.fixo && campos.has(l.chave)).length
+  }, [todasLinhasRegistro, campos])
+
+  function alternarCampo(chave: string) {
     setCampos((atual) => {
       const proximo = new Set(atual)
       if (proximo.has(chave)) proximo.delete(chave)
       else proximo.add(chave)
       return proximo
     })
+  }
+
+  function salvarItemRegistro() {
+    const n = novoNomeRegistro.trim()
+    if (!n) return
+    if (registroEditandoChave) {
+      setRotulosEditadosRegistro((prev) => ({ ...prev, [registroEditandoChave]: n }))
+      setRegistroEditandoChave(null)
+      setNovoNomeRegistro('')
+    } else {
+      const chave = `reg_${Date.now()}`
+      setLinhasRegistroCustom((prev) => [...prev, { chave, rotulo: n }])
+      setCampos((prev) => new Set([...prev, chave]))
+      setNovoNomeRegistro('')
+    }
+  }
+
+  function cancelarEdicaoRegistro() {
+    setRegistroEditandoChave(null)
+    setNovoNomeRegistro('')
+  }
+
+  function excluirFlagadosRegistro() {
+    setCampos((atual) => {
+      const proximo = new Set(atual)
+      for (const l of todasLinhasRegistro) {
+        if (!l.fixo) proximo.delete(l.chave)
+      }
+      return proximo
+    })
+    setLinhasRegistroCustom((prev) => prev.filter((c) => !campos.has(c.chave)))
   }
 
   function alternarItem(id: string) {
@@ -103,17 +173,74 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
     setMarcados(proximo)
   }
 
+  function salvarEdicaoItemTeste(
+    idOuChave: string,
+    ehNovo: boolean,
+    novoNome: string,
+    novaAcao: string,
+  ) {
+    if (ehNovo) {
+      setNovos((atual) =>
+        atual.map((n) =>
+          n.chave === idOuChave
+            ? { ...n, nome: novoNome, descricaoAcao: novaAcao || novoNome }
+            : n,
+        ),
+      )
+    } else {
+      setItensCatalogoEditados((atual) => {
+        const proximo = new Map(atual)
+        proximo.set(idOuChave, { nome: novoNome, descricaoAcao: novaAcao || novoNome })
+        return proximo
+      })
+    }
+  }
+
+  function excluirFlagadosGrupo(grupo: GrupoItem) {
+    setMarcados((atual) => {
+      const proximo = new Set(atual ?? (catalogo ?? []).map((i) => i.id))
+      for (const item of porGrupo.get(grupo) ?? []) {
+        proximo.delete(item.id)
+      }
+      return proximo
+    })
+    setNovos((atual) => atual.filter((n) => n.grupo !== grupo))
+  }
+
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
     setErro(null)
+
+    const itensExistentesFinais: string[] = []
+    const itensNovosConvertidos: Array<{ grupo: GrupoItem; nome: string; descricaoAcao: string }> = []
+
+    for (const id of selecionados) {
+      const editado = itensCatalogoEditados.get(id)
+      if (editado) {
+        const original = catalogo?.find((i) => i.id === id)
+        if (original) {
+          itensNovosConvertidos.push({
+            grupo: original.grupo,
+            nome: editado.nome,
+            descricaoAcao: editado.descricaoAcao,
+          })
+        }
+      } else {
+        itensExistentesFinais.push(id)
+      }
+    }
+
     const payload = {
       nome: nome.trim(),
       icone,
-      camposFicha: LINHAS_FICHA.map((l) => l.chave).filter(
-        (c) => campos.has(c) || FICHA_FIXA.includes(c),
-      ),
-      itensExistentes: [...selecionados],
-      itensNovos: novos.map(({ grupo, nome, descricaoAcao }) => ({ grupo, nome, descricaoAcao })),
+      camposFicha: todasLinhasRegistro
+        .map((l) => l.chave)
+        .filter((c) => campos.has(c) || FICHA_FIXA.includes(c as ChaveFicha)),
+      itensExistentes: itensExistentesFinais,
+      itensNovos: [
+        ...novos.map(({ grupo, nome, descricaoAcao }) => ({ grupo, nome, descricaoAcao })),
+        ...itensNovosConvertidos,
+      ],
     }
 
     try {
@@ -220,7 +347,7 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
           <Secao
             numero={2}
             titulo="Itens do registro"
-            resumo={`${totalFicha} de ${LINHAS_FICHA.length} linhas`}
+            resumo={`${totalFicha} de ${todasLinhasRegistro.length} linhas`}
           >
             <p className="mb-3 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
               As linhas do topo da planilha, onde fica a ficha da unidade testada. Fabricante,
@@ -228,27 +355,124 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
               coluna e o que ela conclui.
             </p>
             <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
-              {LINHAS_FICHA.map((linha) => {
-                const fixo = FICHA_FIXA.includes(linha.chave)
+              {todasLinhasRegistro.map((linha) => {
+                const fixo = linha.fixo
+                const marcada = fixo || campos.has(linha.chave)
                 return (
-                  <label
+                  <div
                     key={linha.chave}
-                    className="flex cursor-pointer items-center gap-2 py-0.5 text-sm"
+                    className="flex items-center justify-between gap-1.5 py-0.5 text-sm"
                     style={fixo ? { color: 'var(--color-muted-foreground)' } : undefined}
-                    title={fixo ? 'Sempre presente' : undefined}
                   >
-                    <input
-                      type="checkbox"
-                      data-ficha={linha.chave}
-                      checked={fixo || campos.has(linha.chave)}
-                      disabled={fixo}
-                      onChange={() => alternarCampo(linha.chave)}
-                    />
-                    <span className="truncate">{linha.rotulo}</span>
-                    {fixo && <span className="text-xs opacity-70">fixo</span>}
-                  </label>
+                    <label
+                      className="flex cursor-pointer items-center gap-2 min-w-0 flex-1"
+                      title={fixo ? 'Sempre presente' : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        data-ficha={linha.chave}
+                        checked={marcada}
+                        disabled={fixo}
+                        onChange={() => alternarCampo(linha.chave)}
+                      />
+                      <span className="truncate">{linha.rotulo}</span>
+                      {fixo && <span className="text-xs opacity-70">fixo</span>}
+                      {linha.customizado && (
+                        <span
+                          className="rounded px-1.5 py-0.2 text-[9px] font-semibold uppercase"
+                          style={{ background: 'var(--gradient-brand-purple)', color: '#fff' }}
+                        >
+                          novo
+                        </span>
+                      )}
+                    </label>
+                    {!fixo && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegistroEditandoChave(linha.chave)
+                          setNovoNomeRegistro(linha.rotulo)
+                        }}
+                        title={`Editar "${linha.rotulo}"`}
+                        className="opacity-40 hover:opacity-100 p-0.5 rounded transition-opacity"
+                        style={{ color: 'var(--color-muted-foreground)' }}
+                      >
+                        <Icone nome="lapis" className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 )
               })}
+            </div>
+
+            {/* Rodapé do registro: cadastrar, editar e lixeira reativa */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
+              <input
+                value={novoNomeRegistro}
+                onChange={(e) => setNovoNomeRegistro(e.target.value)}
+                placeholder={
+                  registroEditandoChave
+                    ? 'Editar nome do item de registro…'
+                    : 'Cadastrar novo item de registro…'
+                }
+                maxLength={60}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    salvarItemRegistro()
+                  }
+                }}
+                className="min-w-36 flex-1 rounded-md border bg-transparent px-2.5 py-1 text-xs"
+                style={{ borderColor: 'var(--color-input)' }}
+              />
+              {registroEditandoChave && (
+                <button
+                  type="button"
+                  onClick={cancelarEdicaoRegistro}
+                  className="rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-black/5"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    color: 'var(--color-muted-foreground)',
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={salvarItemRegistro}
+                disabled={!novoNomeRegistro.trim()}
+                className="rounded-md border px-3 py-1 text-xs font-semibold disabled:opacity-45 transition-all"
+                style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+              >
+                {registroEditandoChave ? 'Salvar' : 'Adicionar'}
+              </button>
+              <button
+                type="button"
+                disabled={flagadosRegistro === 0}
+                onClick={excluirFlagadosRegistro}
+                title={
+                  flagadosRegistro > 0
+                    ? `Excluir ${flagadosRegistro} item(ns) de registro flagado(s)`
+                    : 'Flag uma ou mais opções para excluir'
+                }
+                className={`rounded-md border p-1.5 flex items-center justify-center transition-all ${
+                  flagadosRegistro > 0
+                    ? 'border-red-300 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 cursor-pointer shadow-xs active:scale-95'
+                    : 'border-gray-200 text-gray-400 bg-gray-50/50 opacity-40 cursor-not-allowed'
+                }`}
+                style={
+                  flagadosRegistro > 0
+                    ? {
+                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                        color: '#dc2626',
+                        background: 'rgba(254, 242, 242, 0.8)',
+                      }
+                    : undefined
+                }
+              >
+                <Icone nome="lixeira" className="h-4 w-4" />
+              </button>
             </div>
           </Secao>
 
@@ -276,12 +500,15 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
                     itens={porGrupo.get(grupo) ?? []}
                     selecionados={selecionados}
                     novos={novos.filter((n) => n.grupo === grupo)}
+                    itensEditados={itensCatalogoEditados}
                     aoAlternar={alternarItem}
                     aoDefinirTodos={(ligado) => definirGrupo(grupo, ligado)}
                     aoAdicionar={(item) => setNovos((v) => [...v, item])}
+                    aoSalvarEdicao={salvarEdicaoItemTeste}
                     aoRemoverNovo={(chave) =>
                       setNovos((v) => v.filter((n) => n.chave !== chave))
                     }
+                    aoExcluirFlagados={() => excluirFlagadosGrupo(grupo)}
                   />
                 ))}
               </div>
@@ -399,39 +626,65 @@ function PainelGrupo({
   itens,
   selecionados,
   novos,
+  itensEditados,
   aoAlternar,
   aoDefinirTodos,
   aoAdicionar,
+  aoSalvarEdicao,
   aoRemoverNovo,
+  aoExcluirFlagados,
 }: {
   grupo: GrupoItem
   itens: ItemTeste[]
   selecionados: Set<string>
   novos: ItemNovo[]
+  itensEditados: Map<string, { nome: string; descricaoAcao: string }>
   aoAlternar: (id: string) => void
   aoDefinirTodos: (ligado: boolean) => void
   aoAdicionar: (item: ItemNovo) => void
+  aoSalvarEdicao: (idOuChave: string, ehNovo: boolean, nome: string, acao: string) => void
   aoRemoverNovo: (chave: string) => void
+  aoExcluirFlagados: () => void
 }) {
   const [nome, setNome] = useState('')
   const [acao, setAcao] = useState('')
+  const [itemEditando, setItemEditando] = useState<{ id: string; ehNovo: boolean } | null>(null)
 
   const marcados = itens.filter((i) => selecionados.has(i.id)).length
   const total = marcados + novos.length
+  const temFlagados = marcados + novos.length > 0
 
-  function adicionar() {
+  function submeter() {
     const n = nome.trim()
     if (!n) return
+    const a = acao.trim() || n
+
+    if (itemEditando) {
+      aoSalvarEdicao(itemEditando.id, itemEditando.ehNovo, n, a)
+      cancelarEdicao()
+      return
+    }
+
     aoAdicionar({
       chave: `${grupo}-${Date.now()}-${novos.length}`,
       grupo,
       nome: n,
-      // O certificado imprime a ação realizada em cada item; sem texto, o
-      // próprio nome descreve o que foi feito.
-      descricaoAcao: acao.trim() || n,
+      descricaoAcao: a,
     })
     setNome('')
     setAcao('')
+  }
+
+  function cancelarEdicao() {
+    setItemEditando(null)
+    setNome('')
+    setAcao('')
+  }
+
+  function iniciarEdicao(id: string, ehNovo: boolean, nomeAtual: string, acaoAtual: string) {
+    setItemEditando({ id, ehNovo })
+    setNome(nomeAtual)
+    setAcao(acaoAtual)
   }
 
   return (
@@ -456,42 +709,75 @@ function PainelGrupo({
       {/* Três colunas a partir de lg: são 48 itens ao todo, e em duas o
           formulário virava uma tela e meia de rolagem */}
       <div className="grid gap-x-6 gap-y-1 px-3 py-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {itens.map((item) => (
-          <label
-            key={item.id}
-            className="flex cursor-pointer items-center gap-2 py-0.5 text-sm"
-            title={item.descricaoAcao}
-          >
-            <input
-              type="checkbox"
-              data-item-catalogo={item.id}
-              checked={selecionados.has(item.id)}
-              onChange={() => aoAlternar(item.id)}
-            />
-            <span className="truncate">{item.nome}</span>
-          </label>
-        ))}
+        {itens.map((item) => {
+          const editado = itensEditados.get(item.id)
+          const nomeExibido = editado?.nome ?? item.nome
+          const acaoExibida = editado?.descricaoAcao ?? item.descricaoAcao
+          const marcado = selecionados.has(item.id)
+
+          return (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-1.5 py-0.5 text-sm"
+            >
+              <label
+                className="flex cursor-pointer items-center gap-2 min-w-0 flex-1"
+                title={acaoExibida}
+              >
+                <input
+                  type="checkbox"
+                  data-item-catalogo={item.id}
+                  checked={marcado}
+                  onChange={() => aoAlternar(item.id)}
+                />
+                <span className="truncate">{nomeExibido}</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => iniciarEdicao(item.id, false, nomeExibido, acaoExibida)}
+                title={`Editar "${nomeExibido}"`}
+                className="opacity-40 hover:opacity-100 p-0.5 rounded transition-opacity"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                <Icone nome="lapis" className="h-3 w-3" />
+              </button>
+            </div>
+          )
+        })}
 
         {novos.map((n) => (
-          <div key={n.chave} className="flex items-center gap-2 py-0.5 text-sm">
-            <span
-              className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-              style={{ background: 'var(--gradient-brand-purple)', color: '#fff' }}
-            >
-              novo
-            </span>
-            <span className="truncate" title={n.descricaoAcao}>
-              {n.nome}
-            </span>
-            <button
-              type="button"
-              onClick={() => aoRemoverNovo(n.chave)}
-              aria-label={`Remover ${n.nome}`}
-              className="ml-auto shrink-0 px-1 text-sm hover:opacity-70"
-              style={{ color: 'var(--color-muted-foreground)' }}
-            >
-              ✕
-            </button>
+          <div key={n.chave} className="flex items-center justify-between gap-1.5 py-0.5 text-sm">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span
+                className="rounded px-1.5 py-0.2 text-[9px] font-semibold uppercase shrink-0"
+                style={{ background: 'var(--gradient-brand-purple)', color: '#fff' }}
+              >
+                novo
+              </span>
+              <span className="truncate" title={n.descricaoAcao}>
+                {n.nome}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => iniciarEdicao(n.chave, true, n.nome, n.descricaoAcao)}
+                title={`Editar "${n.nome}"`}
+                className="opacity-40 hover:opacity-100 p-0.5 rounded transition-opacity"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                <Icone nome="lapis" className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => aoRemoverNovo(n.chave)}
+                aria-label={`Remover ${n.nome}`}
+                className="px-1 text-sm hover:opacity-70"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
         ))}
 
@@ -502,46 +788,82 @@ function PainelGrupo({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 border-t px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2.5">
         <input
           value={nome}
           data-novo-item
           onChange={(e) => setNome(e.target.value)}
+          placeholder={itemEditando ? 'Editar nome da funcionalidade…' : 'Nome da funcionalidade…'}
           maxLength={200}
-          // Enter dentro de um input submeteria o formulário inteiro; aqui ele
-          // só adiciona o item, que é o que a tecla significa neste campo.
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              adicionar()
+              submeter()
             }
           }}
-          className="min-w-40 flex-1 rounded-md border bg-transparent px-2.5 py-1.5 text-sm"
+          className="min-w-32 flex-1 rounded-md border bg-transparent px-2.5 py-1 text-xs"
           style={{ borderColor: 'var(--color-input)' }}
         />
         <input
           value={acao}
           data-nova-acao
           onChange={(e) => setAcao(e.target.value)}
+          placeholder="Ação esperada no teste (opcional)…"
           maxLength={500}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
-              adicionar()
+              submeter()
             }
           }}
-          className="min-w-40 flex-1 rounded-md border bg-transparent px-2.5 py-1.5 text-sm"
+          className="min-w-32 flex-1 rounded-md border bg-transparent px-2.5 py-1 text-xs"
           style={{ borderColor: 'var(--color-input)' }}
         />
+        {itemEditando && (
+          <button
+            type="button"
+            onClick={cancelarEdicao}
+            className="rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-black/5 transition-colors"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
+          >
+            Cancelar
+          </button>
+        )}
         <button
           type="button"
           data-adicionar-item
-          onClick={adicionar}
+          onClick={submeter}
           disabled={!nome.trim()}
-          className="rounded-md border px-3 py-1.5 text-sm font-medium disabled:opacity-45"
+          className="rounded-md border px-3 py-1 text-xs font-semibold disabled:opacity-45 transition-all"
           style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
         >
-          Adicionar
+          {itemEditando ? 'Salvar' : 'Adicionar'}
+        </button>
+        <button
+          type="button"
+          disabled={!temFlagados}
+          onClick={aoExcluirFlagados}
+          title={
+            temFlagados
+              ? `Excluir ${marcados + novos.length} funcionalidade(s) flagada(s) deste modelo`
+              : 'Flag uma ou mais funcionalidades para excluir'
+          }
+          className={`rounded-md border p-1.5 flex items-center justify-center transition-all ${
+            temFlagados
+              ? 'border-red-300 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-400 cursor-pointer shadow-xs active:scale-95'
+              : 'border-gray-200 text-gray-400 bg-gray-50/50 opacity-40 cursor-not-allowed'
+          }`}
+          style={
+            temFlagados
+              ? {
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  color: '#dc2626',
+                  background: 'rgba(254, 242, 242, 0.8)',
+                }
+              : undefined
+          }
+        >
+          <Icone nome="lixeira" className="h-4 w-4" />
         </button>
       </div>
     </div>

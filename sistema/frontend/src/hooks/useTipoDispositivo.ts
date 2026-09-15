@@ -10,7 +10,7 @@ export interface TipoDispositivo {
   icone: string
   ordem: number
   ativo: boolean
-  camposFicha: ChaveFicha[]
+  camposFicha: (ChaveFicha | string)[]
   /** Modelos ativos cadastrados neste tipo — o que impede apagar */
   dispositivos: number
   /** Ids dos itens de teste da bateria dele */
@@ -37,7 +37,7 @@ export function useTiposDispositivo() {
 export interface PayloadTipoDispositivo {
   nome: string
   icone: string
-  camposFicha: ChaveFicha[]
+  camposFicha: (ChaveFicha | string)[]
   itensExistentes: string[]
   itensNovos: { grupo: GrupoItem; nome: string; descricaoAcao: string }[]
 }

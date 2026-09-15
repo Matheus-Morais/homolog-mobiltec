@@ -8,6 +8,7 @@ const parceiroInputSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   categoriasPermitidas: z.array(z.string()).default([]),
+  isAdmin: z.boolean().optional(),
 })
 
 const parceiroUpdateSchema = z.object({
@@ -17,6 +18,7 @@ const parceiroUpdateSchema = z.object({
   senha: z.string().min(6).optional(),
   categoriasPermitidas: z.array(z.string()).optional(),
   ativo: z.boolean().optional(),
+  isAdmin: z.boolean().optional(),
 })
 
 const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
@@ -30,7 +32,12 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const parceiros = await fastify.prisma.usuario.findMany({
-        where: { papel: 'PARCEIRO' },
+        where: {
+          OR: [
+            { papel: 'PARCEIRO' },
+            { empresa: { not: null } },
+          ],
+        },
         select: {
           id: true,
           nome: true,
@@ -71,13 +78,16 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       const senhaHash = await bcrypt.hash(body.senha, 10)
       const dominioCorporativo = body.email.split('@')[1]?.toLowerCase() ?? null
 
+      const ehMobiltec = body.empresa.trim().toLowerCase() === 'mobiltec'
+      const deveSerAdmin = ehMobiltec && Boolean(body.isAdmin)
+
       const parceiro = await fastify.prisma.usuario.create({
         data: {
           nome: body.nome.trim(),
           email: body.email.toLowerCase().trim(),
-          cargo: 'Parceiro Homologador',
+          cargo: deveSerAdmin ? 'Administrador' : 'Parceiro Homologador',
           senhaHash,
-          papel: 'PARCEIRO',
+          papel: deveSerAdmin ? 'ADMIN' : 'PARCEIRO',
           empresa: body.empresa.trim(),
           dominioCorporativo,
           categoriasPermitidas: body.categoriasPermitidas,
@@ -127,6 +137,20 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       }
       if (body.ativo !== undefined) {
         dados.ativo = body.ativo
+      }
+      if (body.isAdmin !== undefined) {
+        const usuarioAtual = await fastify.prisma.usuario.findUnique({
+          where: { id },
+          select: { empresa: true },
+        })
+        const empresaAtual = (body.empresa ?? usuarioAtual?.empresa ?? '').trim().toLowerCase()
+        if (empresaAtual === 'mobiltec' && body.isAdmin) {
+          dados.papel = 'ADMIN'
+          dados.cargo = 'Administrador'
+        } else if (body.isAdmin === false) {
+          dados.papel = 'PARCEIRO'
+          dados.cargo = 'Parceiro Homologador'
+        }
       }
 
       try {

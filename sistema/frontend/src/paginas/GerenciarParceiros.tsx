@@ -22,6 +22,7 @@ export function GerenciarParceiros() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('Mobiltec@2026')
   const [categoriasPermitidas, setCategoriasPermitidas] = useState<string[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
 
@@ -78,6 +79,7 @@ export function GerenciarParceiros() {
     setNome('')
     setEmail('')
     setSenha('Mobiltec@2026')
+    setIsAdmin(false)
     setCriandoEmpresa(false)
     setNovaEmpresaNome('')
     setErroNovaEmpresa(null)
@@ -94,6 +96,7 @@ export function GerenciarParceiros() {
     setNome(p.nome)
     setEmail(p.email)
     setSenha('')
+    setIsAdmin(p.papel === 'ADMIN')
     setCriandoEmpresa(false)
     setNovaEmpresaNome('')
     setErroNovaEmpresa(null)
@@ -132,6 +135,9 @@ export function GerenciarParceiros() {
       return
     }
 
+    const ehMobiltec = empresa.trim().toLowerCase() === 'mobiltec'
+    const acessoAdmin = ehMobiltec ? isAdmin : false
+
     try {
       if (parceiroEdicao) {
         await atualizarParceiro.mutateAsync({
@@ -141,6 +147,7 @@ export function GerenciarParceiros() {
           email: email.trim(),
           ...(senha ? { senha } : {}),
           categoriasPermitidas,
+          isAdmin: acessoAdmin,
         })
         setSucesso('Parceiro atualizado com sucesso!')
       } else {
@@ -154,6 +161,7 @@ export function GerenciarParceiros() {
           email: email.trim(),
           senha,
           categoriasPermitidas,
+          isAdmin: acessoAdmin,
         })
         setSucesso('Parceiro cadastrado com sucesso!')
       }
@@ -254,6 +262,18 @@ export function GerenciarParceiros() {
                   >
                     {p.ativo ? 'Ativo' : 'Inativo'}
                   </span>
+                  {p.papel === 'ADMIN' && (
+                    <span
+                      className="text-[11px] font-semibold px-2 py-0.5 rounded-full select-none"
+                      style={{
+                        color: 'var(--color-primary)',
+                        background: 'var(--color-muted)',
+                        border: '1px solid var(--color-primary)',
+                      }}
+                    >
+                      Admin
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-xs truncate" style={{ color: 'var(--color-muted-foreground)' }}>
                   <Icone nome="email" className="h-3.5 w-3.5 shrink-0" />
@@ -452,6 +472,34 @@ export function GerenciarParceiros() {
                   </div>
                 )}
               </div>
+
+              {/* Flag de acesso admin quando a empresa for Mobiltec */}
+              {empresa.trim().toLowerCase() === 'mobiltec' && (
+                <div
+                  className="p-3 rounded-lg border flex items-center justify-between gap-3 transition-colors cursor-pointer"
+                  onClick={() => setIsAdmin((prev) => !prev)}
+                  style={{
+                    borderColor: isAdmin ? 'var(--color-primary)' : 'var(--color-border)',
+                    background: isAdmin ? 'var(--color-muted)' : 'var(--color-background)',
+                  }}
+                >
+                  <div className="min-w-0 flex-1 select-none">
+                    <span className="block text-xs font-bold" style={{ color: 'var(--color-foreground)' }}>
+                      Dar acesso de Administrador
+                    </span>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
+                      Libera todas as permissões de admin (acesso total a configurações, matriz e homologações).
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isAdmin}
+                    onChange={(e) => setIsAdmin(e.target.checked)}
+                    className="h-4 w-4 rounded cursor-pointer shrink-0"
+                    style={{ accentColor: 'var(--color-primary)' }}
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
