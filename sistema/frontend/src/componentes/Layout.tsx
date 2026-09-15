@@ -676,8 +676,11 @@ export function Layout() {
   const { data: todosParceiros = [] } = useParceiros(ehAdmin)
   const { pathname } = useLocation()
 
+  // O selo do menu conta o que espera ação da Mobiltec, e só isso (D436).
+  // `EM_REVISAO` está com o parceiro: contá-lo aqui mantinha o número aceso
+  // sobre uma fila de validação vazia.
   const totalPendentes = todasHomologacoes.filter(
-    (h) => h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO',
+    (h) => h.status === 'AGUARDANDO_ANALISE',
   ).length
 
   const [aberto, setAberto] = useState(() => {

@@ -27,6 +27,10 @@ export function ModalFinalizar({
     Boolean(coluna.homologacao.assinaturaApoio?.includes('Parceiro')),
   )
 
+  // Devolver ajustes não é a mesma coisa que submeter pela primeira vez, e o
+  // texto do modal precisa dizer qual das duas está acontecendo (D434).
+  const ehReenvio = coluna.homologacao.status === 'EM_REVISAO'
+
   const resultados = coluna.homologacao.resultados
   const naoTestados = resultados.filter((r) => r.status === 'NAO_TESTADO').length
   const semJustificativa = resultados.filter(
@@ -105,7 +109,11 @@ export function ModalFinalizar({
       >
         <div className="p-5 border-b">
           <h2 className="text-lg font-semibold">
-            {ehParceiro ? 'Enviar para Validação Mobiltec' : 'Finalizar homologação'}
+            {ehParceiro
+              ? ehReenvio
+                ? 'Reenviar para Validação Mobiltec'
+                : 'Enviar para Validação Mobiltec'
+              : 'Finalizar homologação'}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
             {coluna.homologacao.dispositivo.nomeComercial} · agente{' '}
@@ -120,8 +128,19 @@ export function ModalFinalizar({
                 className="px-3.5 py-3 rounded-md text-sm leading-relaxed"
                 style={{ background: 'var(--color-info-soft)', color: 'var(--color-info-fg)' }}
               >
-                Ao concluir esta etapa, a homologação mudará para <strong>Em Validação</strong>.
-                Um técnico da Mobiltec revisará as notas de observação e emitirá o certificado oficial.
+                {ehReenvio ? (
+                  <>
+                    Os ajustes serão devolvidos à Mobiltec: a homologação volta para{' '}
+                    <strong>Em Validação</strong> e reaparece na fila de análise. A matriz fica
+                    somente-leitura até o retorno.
+                  </>
+                ) : (
+                  <>
+                    Ao concluir esta etapa, a homologação mudará para <strong>Em Validação</strong>.
+                    Um técnico da Mobiltec revisará as notas de observação e emitirá o certificado
+                    oficial.
+                  </>
+                )}
               </div>
 
               <div
@@ -243,7 +262,11 @@ export function ModalFinalizar({
               className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
               style={{ background: 'var(--gradient-brand-purple)' }}
             >
-              {transicao.isPending ? 'Enviando…' : 'Enviar para Validação Mobiltec'}
+              {transicao.isPending
+                ? 'Enviando…'
+                : ehReenvio
+                ? 'Reenviar para Validação Mobiltec'
+                : 'Enviar para Validação Mobiltec'}
             </button>
           ) : (
             <div className="flex gap-2">

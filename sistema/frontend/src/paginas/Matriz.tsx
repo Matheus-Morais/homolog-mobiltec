@@ -23,6 +23,7 @@ import { PainelJustificativa } from '@/componentes/matriz/PainelJustificativa'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { RotuloGrupo } from '@/componentes/matriz/RotuloGrupo'
 import { CelulaFicha } from '@/componentes/matriz/CelulaFicha'
+import { AvisoRevisao } from '@/componentes/homologacao/AvisoRevisao'
 import {
   GRUPO_ORDEM,
   META_STATUS,
@@ -245,6 +246,17 @@ export function Matriz() {
         return true
       }),
     [data, filtroFabricante, filtroModelo, filtroVersaoAgente, filtroSituacao, soRetestados],
+  )
+
+  /**
+   * Modelos devolvidos pela Mobiltec e ainda não reenviados (D435).
+   *
+   * Sai de `colunasVisiveis`, e não de todas: se o parceiro filtrou por
+   * fabricante, o aviso de um modelo que ele não está vendo só atrapalha.
+   */
+  const colunasEmRevisao = useMemo(
+    () => colunasVisiveis.filter((c) => c.revisaoPendente),
+    [colunasVisiveis],
   )
 
   /**
@@ -577,6 +589,27 @@ export function Matriz() {
           style={{ background: 'var(--color-destructive-soft)', color: 'var(--color-destructive-fg)' }}
         >
           {aviso}
+        </div>
+      )}
+
+      {/* Os apontamentos abertos, um por modelo devolvido pela Mobiltec.
+          Ficam acima da planilha, e não na coluna: a coluna é estreita e o
+          parceiro precisa ler o texto inteiro antes de voltar à bancada. */}
+      {colunasEmRevisao.length > 0 && (
+        <div className="mx-8 mt-3 space-y-2 shrink-0">
+          {colunasEmRevisao.map((c) => (
+            <div key={c.homologacao.id}>
+              <p className="mb-1 text-xs font-semibold" style={{ color: 'var(--color-foreground)' }}>
+                {c.homologacao.dispositivo.nomeComercial}
+              </p>
+              <AvisoRevisao
+                motivo={c.revisaoPendente!.motivo}
+                solicitadoEm={c.revisaoPendente!.solicitadoEm}
+                solicitadoPor={c.revisaoPendente!.solicitadoPor}
+                comoAgir={ehParceiro}
+              />
+            </div>
+          ))}
         </div>
       )}
 

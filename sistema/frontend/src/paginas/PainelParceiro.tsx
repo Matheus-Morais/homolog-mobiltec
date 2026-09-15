@@ -6,6 +6,7 @@ import { Icone } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { BadgeHomologado } from '@/componentes/comum/BadgeHomologado'
 import { FotoDispositivo } from '@/componentes/vitrine/FotoDispositivo'
+import { AvisoRevisao } from '@/componentes/homologacao/AvisoRevisao'
 import { ErroApi } from '@/lib/api'
 import type { DispositivoPainelParceiro, StatusHomologacao } from '@/lib/tipos'
 
@@ -409,6 +410,17 @@ function CardDispositivoParceiro({ dispositivo: d }: { dispositivo: DispositivoP
           </div>
         </div>
       </div>
+
+      {/* O apontamento que trouxe o dispositivo de volta para a bancada (D435) */}
+      {d.revisaoPendente && (
+        <div className="px-4 pb-3">
+          <AvisoRevisao
+            motivo={d.revisaoPendente.motivo}
+            solicitadoEm={d.revisaoPendente.solicitadoEm}
+            solicitadoPor={d.revisaoPendente.solicitadoPor}
+          />
+        </div>
+      )}
 
       {/* Observações do Processo (se existirem) */}
       {d.observacoes && (
