@@ -35,6 +35,7 @@
     "verificar:nao-testado": "node scripts/verificar-nao-testado.mjs",
     "verificar:registro": "node scripts/verificar-registro-tipo.mjs",
     "verificar:analise": "node scripts/verificar-analise-bateria.mjs",
+    "verificar:revisao": "node scripts/verificar-revisao-parceiro.mjs",
     "alinhar:itens": "node scripts/alinhar-itens-pos.mjs"
   },
   "dependencies": {
