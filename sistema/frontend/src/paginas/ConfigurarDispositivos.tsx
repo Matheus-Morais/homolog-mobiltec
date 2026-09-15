@@ -302,7 +302,7 @@ export function ConfigurarDispositivos() {
                           <div className="space-y-0.5">
                             {ehParceiro ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800">
-                                Parceiro {empresa}
+                                {empresa || 'Parceiro'}
                               </span>
                             ) : (
                               <span

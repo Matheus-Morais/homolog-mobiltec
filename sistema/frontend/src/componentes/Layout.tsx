@@ -972,7 +972,7 @@ export function Layout() {
                     color: ehParceiro ? 'var(--color-warning-fg)' : 'var(--color-info-fg)',
                   }}
                 >
-                  {ehParceiro ? (usuario?.empresa ? `Parceiro (${usuario.empresa})` : 'Parceiro') : 'Mobiltec'}
+                  {ehParceiro ? (usuario?.empresa || 'Parceiro') : 'Mobiltec'}
                 </span>
               </div>
             </div>

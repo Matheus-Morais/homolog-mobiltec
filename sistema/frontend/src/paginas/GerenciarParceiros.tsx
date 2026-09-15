@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useParceiros, useCriarParceiro, useAtualizarParceiro, useInativarParceiro } from '@/hooks/useParceiros'
 import { useCategorias } from '@/hooks/useVitrine'
-import { Icone, iconeDaCategoria } from '@/componentes/Icone'
+import { Icone } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import type { Parceiro } from '@/lib/tipos'
 
@@ -21,7 +21,6 @@ export function GerenciarParceiros() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('Mobiltec@2026')
-  const [categoriasPermitidas, setCategoriasPermitidas] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
@@ -58,14 +57,6 @@ export function GerenciarParceiros() {
   }, [parceiros, empresasExtras])
 
   const [busca, setBusca] = useState('')
-
-  const mapaNomeCategoria = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const c of categorias) {
-      m.set(c.slug, c.nome)
-    }
-    return m
-  }, [categorias])
 
   const parceirosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -104,8 +95,6 @@ export function GerenciarParceiros() {
     setCriandoEmpresa(false)
     setNovaEmpresaNome('')
     setErroNovaEmpresa(null)
-    // Por padrão marca 'pos' ou a primeira categoria se existir
-    setCategoriasPermitidas(categorias.length > 0 ? [categorias[0].slug] : ['pos'])
     setErro(null)
     setSucesso(null)
     setModalAberto(true)
@@ -121,16 +110,9 @@ export function GerenciarParceiros() {
     setCriandoEmpresa(false)
     setNovaEmpresaNome('')
     setErroNovaEmpresa(null)
-    setCategoriasPermitidas(p.categoriasPermitidas ?? [])
     setErro(null)
     setSucesso(null)
     setModalAberto(true)
-  }
-
-  function alternarCategoria(slug: string) {
-    setCategoriasPermitidas((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
-    )
   }
 
   async function salvar(e: React.FormEvent) {
@@ -151,13 +133,11 @@ export function GerenciarParceiros() {
       return
     }
 
-    if (categoriasPermitidas.length === 0) {
-      setErro('Selecione pelo menos uma categoria que o parceiro poderá homologar.')
-      return
-    }
-
     const ehMobiltec = empresa.trim().toLowerCase() === 'mobiltec'
     const acessoAdmin = ehMobiltec ? isAdmin : false
+    const categoriasParaSalvar = parceiroEdicao?.categoriasPermitidas?.length
+      ? parceiroEdicao.categoriasPermitidas
+      : (categorias.length > 0 ? categorias.map((c) => c.slug) : ['pos', 'coletor', 'totem', 'impressora-termica'])
 
     try {
       if (parceiroEdicao) {
@@ -167,7 +147,7 @@ export function GerenciarParceiros() {
           nome: nome.trim(),
           email: email.trim(),
           ...(senha ? { senha } : {}),
-          categoriasPermitidas,
+          categoriasPermitidas: categoriasParaSalvar,
           isAdmin: acessoAdmin,
         })
         setSucesso('Parceiro atualizado com sucesso!')
@@ -181,7 +161,7 @@ export function GerenciarParceiros() {
           nome: nome.trim(),
           email: email.trim(),
           senha,
-          categoriasPermitidas,
+          categoriasPermitidas: categoriasParaSalvar,
           isAdmin: acessoAdmin,
         })
         setSucesso('Parceiro cadastrado com sucesso!')
@@ -240,7 +220,7 @@ export function GerenciarParceiros() {
               className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border bg-transparent outline-none focus:border-[var(--color-primary)] transition-colors"
               style={{ borderColor: 'var(--color-input)' }}
             />
-            <span className="absolute left-3 top-2 text-slate-400">
+            <span className="absolute left-3 top-2" style={{ color: 'var(--color-primary)' }}>
               <Icone nome="busca" className="h-3.5 w-3.5" />
             </span>
             {busca && (
@@ -314,7 +294,6 @@ export function GerenciarParceiros() {
                   <th className="py-2.5 px-4">Empresa</th>
                   <th className="py-2.5 px-4">Colaborador</th>
                   <th className="py-2.5 px-4">E-mail</th>
-                  <th className="py-2.5 px-4">Categorias Permitidas</th>
                   <th className="py-2.5 px-4">Perfil</th>
                   <th className="py-2.5 px-4">Status</th>
                   <th className="py-2.5 px-4 text-right">Ações</th>
@@ -323,7 +302,7 @@ export function GerenciarParceiros() {
               <tbody className="divide-y divide-slate-100">
                 {parceirosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 italic">
+                    <td colSpan={6} className="py-12 text-center text-slate-400 italic">
                       {busca
                         ? `Nenhum parceiro encontrado com o termo "${busca}".`
                         : 'Nenhum parceiro registrado.'}
@@ -346,22 +325,6 @@ export function GerenciarParceiros() {
                         <div className="flex items-center gap-1.5">
                           <Icone nome="email" className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                           <span className="truncate">{p.email}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {p.categoriasPermitidas && p.categoriasPermitidas.length > 0 ? (
-                            p.categoriasPermitidas.map((catSlug) => (
-                              <span
-                                key={catSlug}
-                                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
-                              >
-                                {mapaNomeCategoria.get(catSlug) || catSlug}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[11px] text-slate-400 italic">Nenhuma</span>
-                          )}
                         </div>
                       </td>
                       <td className="py-2.5 px-4">
@@ -677,47 +640,6 @@ export function GerenciarParceiros() {
                     Padrão sugerido: <code>Mobiltec@2026</code>
                   </p>
                 )}
-              </div>
-
-              {/* Categorias que o parceiro pode homologar */}
-              <div className="pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
-                  O que o parceiro terá acesso a homologar? <span className="text-red-500">*</span>
-                </label>
-                <p className="text-[11px] mb-3" style={{ color: 'var(--color-muted-foreground)' }}>
-                  Selecione as categorias liberadas no menu e na planilha do parceiro:
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {categorias.map((cat) => {
-                    const marcada = categoriasPermitidas.includes(cat.slug)
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => alternarCategoria(cat.slug)}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
-                          marcada ? 'ring-1' : 'opacity-70 hover:opacity-100'
-                        }`}
-                        style={{
-                          borderColor: marcada ? 'var(--color-primary)' : 'var(--color-border)',
-                          background: marcada ? 'var(--color-muted)' : 'var(--color-background)',
-                          color: 'var(--color-foreground)',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={marcada}
-                          onChange={() => {}} // controlado pelo button
-                          className="rounded h-4 w-4 shrink-0"
-                          style={{ accentColor: 'var(--color-primary)' }}
-                        />
-                        <Icone nome={iconeDaCategoria(cat.icone)} className="h-4 w-4 shrink-0" />
-                        <span className="text-xs font-medium truncate">{cat.nome}</span>
-                      </button>
-                    )
-                  })}
-                </div>
               </div>
 
               <div className="pt-4 border-t flex items-center justify-end gap-2 shrink-0" style={{ borderColor: 'var(--color-border)' }}>

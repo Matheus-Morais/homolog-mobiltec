@@ -1006,6 +1006,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D445 | Seletor de Sistema Operacional, rótulo dinâmico da versão, dropdowns customizados com Design System, desobrigação do número de série, badges premium e placeholders nas buscas | Em `ModalNovoModelo.tsx`: adiciona seletor de Sistema Operacional ('Android', 'iOS', 'Microsoft', 'Linux'), ajustando o rótulo da versão dinamicamente ('Versão do Android', 'Versão do iOS', 'Versão do Windows', 'Versão do Linux') e exibindo os cadastros específicos de Android ('Gerenciamento') unicamente quando o SO for Android; substitui os elementos `<select>` nativos do navegador por um componente customizado `SeletorDropdown` alinhado ao Design System (com popover flutuante, bordas sutis, hover roxo de marca e checkmark ativo); remove a obrigatoriedade do campo 'Número de série', permitindo submissão transparente sem exigência; em `ConfigurarDispositivos.tsx`, atualiza o badge do cabeçalho e da coluna de status para uma flag pill clean e premium com dot indicador esmeralda (`bg-emerald-500`), e estiliza o badge 'Mobiltec' na coluna Ambiente/Parceiro com o gradiente oficial roxo (`var(--gradient-brand-purple)`); e nas barras de pesquisa de `Home.tsx`, `PainelParceiro.tsx` e `ConfigurarDispositivos.tsx`, restaura o placeholder informativo ('Pesquise o modelo, versão, fabricante, etc...') com expansão de largura para acomodação limpa do texto. |
 
+---
+
+## Etapa 77 — Remoção do Campo de Categorias Permitidas, Lupa Roxa e Badge com Nome da Empresa (D446)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D446 | Remoção do campo e coluna de Categorias Permitidas no registro de parceiro, lupa de busca roxa e badge do parceiro exibindo unicamente o nome da empresa | Em `GerenciarParceiros.tsx`, remove a coluna 'Categorias Permitidas' da tabela administrativa e a seção correspondente do modal de cadastro/edição de parceiros, liberando o escopo completo de categorias por padrão sem necessidade de seleção manual; altera a cor do ícone de lupa na barra de pesquisa para a cor primária da marca (`var(--color-primary)`); e no cabeçalho superior (`Layout.tsx`), altera o badge de perfil do usuário logado no ambiente do parceiro para renderizar unicamente o nome da sua empresa (ex: `Teste` ou `TNS`), eliminando o prefixo redundante `Parceiro (...)`. |
+
+
 
 
 
