@@ -5,9 +5,21 @@ import { Icone, iconeDaCategoria } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { ErroApi } from '@/lib/api'
 import { BadgeHomologado } from '@/componentes/comum/BadgeHomologado'
-import type { ItemObservacaoGeral } from '@/lib/tipos'
+import { ModalInformacoesHomologacao } from '@/componentes/homologacao/ModalInformacoesHomologacao'
+import { AvisoRevisao } from '@/componentes/homologacao/AvisoRevisao'
 
-type AbaFiltro = 'pendentes' | 'aprovados' | 'todos'
+/**
+ * `pendentes` é a fila de ação do Admin, e só ela: `AGUARDANDO_ANALISE`.
+ *
+ * `EM_REVISAO` ganhou aba própria (D436) porque é o oposto de pendente para
+ * quem olha esta tela — o dispositivo está com o parceiro, e não há o que
+ * aprovar enquanto ele não devolver. Juntos na mesma lista, o contador de
+ * pendências mentia e os botões de aprovação apareciam fora de hora.
+ */
+type AbaFiltro = 'pendentes' | 'em-revisao' | 'aprovados' | 'todos'
+
+/** Piso do motivo da revisão, espelhando a validação da API (D435) */
+const MINIMO_MOTIVO_REVISAO = 10
 
 export function ValidarCertificados() {
   const { data: homologacoes = [], isLoading, isError, error } = useListaHomologacoes()
@@ -15,8 +27,7 @@ export function ValidarCertificados() {
   const [busca, setBusca] = useState('')
   const [homologacaoEmAprovacao, setHomologacaoEmAprovacao] = useState<ItemListaHomologacao | null>(null)
   const [homologacaoEmRevisao, setHomologacaoEmRevisao] = useState<ItemListaHomologacao | null>(null)
-  const [homologacaoObservacoes, setHomologacaoObservacoes] = useState<ItemListaHomologacao | null>(null)
-  const [imagemAmpliada, setImagemAmpliada] = useState<{ url: string; nome: string } | null>(null)
+  const [homologacaoInfo, setHomologacaoInfo] = useState<ItemListaHomologacao | null>(null)
   const [motivoRevisao, setMotivoRevisao] = useState('')
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
@@ -25,10 +36,9 @@ export function ValidarCertificados() {
   const transicao = useTransicaoStatus(idAlvoTransicao)
 
   // Estatísticas e filtragens
-  const { pendentes, aprovados, todos, empresasParceiras } = useMemo(() => {
-    const p = homologacoes.filter(
-      (h) => h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO',
-    )
+  const { pendentes, emRevisao, aprovados, todos, empresasParceiras } = useMemo(() => {
+    const p = homologacoes.filter((h) => h.status === 'AGUARDANDO_ANALISE')
+    const r = homologacoes.filter((h) => h.status === 'EM_REVISAO')
     const a = homologacoes.filter(
       (h) => h.status === 'APROVADO' || h.status === 'PUBLICADO',
     )
@@ -41,6 +51,7 @@ export function ValidarCertificados() {
 
     return {
       pendentes: p,
+      emRevisao: r,
       aprovados: a,
       todos: homologacoes,
       empresasParceiras: Array.from(empresas),
@@ -50,6 +61,7 @@ export function ValidarCertificados() {
   const listaAtual = useMemo(() => {
     let base = todos
     if (aba === 'pendentes') base = pendentes
+    else if (aba === 'em-revisao') base = emRevisao
     else if (aba === 'aprovados') base = aprovados
 
     const termo = busca.trim().toLowerCase()
@@ -71,7 +83,7 @@ export function ValidarCertificados() {
         .toLowerCase()
       return matchTexto.includes(termo)
     })
-  }, [aba, busca, todos, pendentes, aprovados])
+  }, [aba, busca, todos, pendentes, emRevisao, aprovados])
 
   async function confirmarAprovacao() {
     if (!homologacaoEmAprovacao) return
@@ -96,14 +108,30 @@ export function ValidarCertificados() {
     )
   }
 
+  /** Abre o modal de revisão limpo — sem o motivo nem o erro da vez anterior */
+  function abrirRevisao(h: ItemListaHomologacao) {
+    setMotivoRevisao('')
+    setErroAcao(null)
+    setHomologacaoEmRevisao(h)
+  }
+
   async function confirmarRevisao() {
     if (!homologacaoEmRevisao) return
     setErroAcao(null)
 
+    // O motivo é o único canal pelo qual o parceiro descobre o que ajustar
+    // (D435). Sem ele a homologação voltaria para a bancada sem instrução.
+    if (motivoRevisao.trim().length < MINIMO_MOTIVO_REVISAO) {
+      setErroAcao(
+        `Descreva os ajustes solicitados ao parceiro (mínimo de ${MINIMO_MOTIVO_REVISAO} caracteres).`,
+      )
+      return
+    }
+
     transicao.mutate(
       {
         novoStatus: 'EM_REVISAO',
-        motivo: motivoRevisao.trim() || 'Solicitados ajustes técnicos na homologação.',
+        motivo: motivoRevisao.trim(),
       },
       {
         onSuccess: () => {
@@ -182,7 +210,7 @@ export function ValidarCertificados() {
             <span>✓ {sucesso}</span>
             <button
               onClick={() => setSucesso(null)}
-              className="text-xs font-bold hover:opacity-75 ml-4"
+              className="text-xs font-bold hover:opacity-75 ml-4 cursor-pointer"
             >
               ✕
             </button>
@@ -266,7 +294,7 @@ export function ValidarCertificados() {
           <div className="flex items-center gap-1.5 p-1 rounded-lg border bg-muted/30 self-start">
             <button
               onClick={() => setAba('pendentes')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 aba === 'pendentes' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
               }`}
               style={{
@@ -276,8 +304,19 @@ export function ValidarCertificados() {
               Pendentes ({pendentes.length})
             </button>
             <button
+              onClick={() => setAba('em-revisao')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                aba === 'em-revisao' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              style={{
+                background: aba === 'em-revisao' ? 'var(--gradient-brand-purple)' : 'transparent',
+              }}
+            >
+              Em revisão ({emRevisao.length})
+            </button>
+            <button
               onClick={() => setAba('aprovados')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 aba === 'aprovados' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
               }`}
               style={{
@@ -288,7 +327,7 @@ export function ValidarCertificados() {
             </button>
             <button
               onClick={() => setAba('todos')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 aba === 'todos' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
               }`}
               style={{
@@ -338,11 +377,15 @@ export function ValidarCertificados() {
             <h3 className="text-base font-semibold" style={{ color: 'var(--color-foreground)' }}>
               {aba === 'pendentes'
                 ? 'Nenhum certificado pendente de validação'
+                : aba === 'em-revisao'
+                ? 'Nenhum dispositivo em revisão'
                 : 'Nenhuma homologação encontrada'}
             </h3>
             <p className="text-xs sm:text-sm mt-1 max-w-md" style={{ color: 'var(--color-muted-foreground)' }}>
               {aba === 'pendentes'
                 ? 'Quando um parceiro finalizar a bateria de testes de um dispositivo, a solicitação aparecerá imediatamente aqui para revisão e aprovação.'
+                : aba === 'em-revisao'
+                ? 'Aqui ficam os dispositivos devolvidos ao parceiro para ajuste. Assim que ele reenviar, cada um volta sozinho para a aba Pendentes.'
                 : 'Ajuste os filtros ou o termo de busca para visualizar outros registros.'}
             </p>
           </div>
@@ -360,16 +403,29 @@ export function ValidarCertificados() {
 
               const nomeEmpresa = h.responsavel?.empresa || h.dispositivo.empresa || 'Parceiro'
               const nomeResponsavel = h.responsavel?.nome || 'Técnico'
-              const isPendente = h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO'
+              // Pendente é o que espera ação do Admin — e só. Em revisão o
+              // dispositivo está com o parceiro (D436).
+              const isPendente = h.status === 'AGUARDANDO_ANALISE'
+              const isEmRevisao = h.status === 'EM_REVISAO'
               const isAprovado = h.status === 'APROVADO' || h.status === 'PUBLICADO'
+              const revisao = h.historicoStatus?.[0]
 
               return (
                 <div
                   key={h.id}
+                  // Âncora dos roteiros de verificação, como `data-modelo` na
+                  // matriz: sem ela, achar o card pelo texto pega a `div`
+                  // interna do nome e não alcança os botões.
+                  data-card-homologacao={h.id}
+                  data-modelo={h.dispositivo.nomeComercial}
                   className="p-4 sm:p-5 rounded-xl border transition-all hover:shadow-md"
                   style={{
                     background: 'var(--color-card)',
-                    borderColor: isPendente ? 'var(--color-primary)' : 'var(--color-border)',
+                    borderColor: isPendente
+                      ? 'var(--color-primary)'
+                      : isEmRevisao
+                      ? 'var(--color-brand-orange)'
+                      : 'var(--color-border)',
                   }}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -411,18 +467,21 @@ export function ValidarCertificados() {
                             <span
                               className="px-2 py-0.5 rounded-full text-[11px] font-bold"
                               style={{
-                                background: isPendente
-                                  ? 'var(--color-warning-soft)'
-                                  : 'var(--color-muted)',
+                                background:
+                                  isPendente || isEmRevisao
+                                    ? 'var(--color-warning-soft)'
+                                    : 'var(--color-muted)',
                                 color: isPendente
                                   ? 'var(--color-warning-fg)'
+                                  : isEmRevisao
+                                  ? 'var(--color-brand-orange)'
                                   : 'var(--color-muted-foreground)',
                               }}
                             >
-                              {h.status === 'AGUARDANDO_ANALISE'
+                              {isPendente
                                 ? 'Em Validação'
-                                : h.status === 'EM_REVISAO'
-                                ? 'Em Revisão'
+                                : isEmRevisao
+                                ? 'Com o parceiro'
                                 : h.status}
                             </span>
                           )}
@@ -510,56 +569,49 @@ export function ValidarCertificados() {
                           Certificado
                         </Link>
 
-                        {/* Ver Matriz */}
-                        <Link
-                          to={`/matriz/${h.dispositivo.categoria?.slug || 'pos'}`}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors hover:opacity-80"
-                          style={{
-                            borderColor: 'var(--color-border)',
-                            background: 'var(--color-card)',
-                            color: 'var(--color-muted-foreground)',
-                          }}
-                          title="Abrir coluna de testes na matriz"
-                        >
-                          <Icone nome="painel" className="h-3.5 w-3.5" />
-                          Matriz
-                        </Link>
-
-                        {/* Observações e Anexos */}
+                        {/* Ficha completa: unidade testada, resultado item a
+                            item e as observações com os anexos do parceiro.
+                            Em modal, e não em página, para o Admin não perder
+                            a fila ao conferir um dispositivo (D432). */}
                         <button
                           type="button"
-                          onClick={() => setHomologacaoObservacoes(h)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors hover:opacity-80"
+                          onClick={() => setHomologacaoInfo(h)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors hover:opacity-80"
                           style={{
                             borderColor: 'var(--color-border)',
                             background: 'var(--color-muted)',
                             color: 'var(--color-foreground)',
                           }}
-                          title="Visualizar observações e arquivos/logs anexados"
+                          title="Ver ficha técnica, resultado dos testes e observações do parceiro"
                         >
-                          <Icone nome="anexo" className="h-3.5 w-3.5" />
-                          Observações
+                          <Icone nome="painel" className="h-3.5 w-3.5" />
+                          Exibir informações
                         </button>
 
-                        {/* Botão de Validação / Aprovação */}
+                        {/* Botão de Validação / Aprovação.
+                            Só em AGUARDANDO_ANALISE: em revisão o dispositivo
+                            está com o parceiro, e não há o que aprovar até
+                            ele devolver (D436). */}
                         {isPendente && (
                           <>
                             <button
                               type="button"
-                              onClick={() => setHomologacaoEmRevisao(h)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-opacity hover:opacity-80"
+                              onClick={() => abrirRevisao(h)}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all hover:brightness-95 active:scale-95"
                               style={{
-                                borderColor: 'var(--color-border)',
-                                color: 'var(--color-muted-foreground)',
+                                background: 'var(--color-warning-soft)',
+                                borderColor: 'var(--color-brand-orange)',
+                                color: 'var(--color-warning-fg)',
                               }}
+                              title="Devolver ao parceiro com apontamentos para ajuste"
                             >
-                              Revisão
+                              ↩ Enviar para revisão
                             </button>
 
                             <button
                               type="button"
                               onClick={() => setHomologacaoEmAprovacao(h)}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-all hover:opacity-95"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm cursor-pointer transition-all hover:opacity-95"
                               style={{
                                 background: 'var(--gradient-brand-purple)',
                                 boxShadow: '0 2px 6px -1px rgba(126, 32, 101, 0.4)',
@@ -572,6 +624,18 @@ export function ValidarCertificados() {
                       </div>
                     </div>
                   </div>
+
+                  {/* O apontamento que devolveu o dispositivo ao parceiro,
+                      para o Admin lembrar o que pediu quando ele voltar */}
+                  {isEmRevisao && revisao && (
+                    <div className="mt-4">
+                      <AvisoRevisao
+                        motivo={revisao.motivo}
+                        solicitadoEm={revisao.criadoEm}
+                        solicitadoPor={revisao.usuario?.nome}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -630,7 +694,7 @@ export function ValidarCertificados() {
               <button
                 type="button"
                 onClick={() => setHomologacaoEmAprovacao(null)}
-                className="px-3.5 py-1.5 rounded-lg border text-xs font-semibold"
+                className="px-3.5 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer"
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
               >
                 Cancelar
@@ -639,7 +703,7 @@ export function ValidarCertificados() {
                 type="button"
                 disabled={transicao.isPending}
                 onClick={confirmarAprovacao}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--gradient-brand-purple)' }}
               >
                 {transicao.isPending ? 'Validando…' : 'Confirmar Aprovação'}
@@ -668,8 +732,8 @@ export function ValidarCertificados() {
                 Solicitar Ajustes Técnicos
               </h3>
               <p className="text-xs mt-1" style={{ color: 'var(--color-muted-foreground)' }}>
-                A homologação voltará ao status <strong>Em Revisão</strong> para que o parceiro ajuste
-                testes ou envie novas observações.
+                A matriz de testes deste dispositivo será liberada de volta ao parceiro, que
+                refaz os testes necessários e reenvia para validação.
               </p>
             </div>
 
@@ -679,7 +743,7 @@ export function ValidarCertificados() {
                 className="block text-xs font-semibold uppercase tracking-wider"
                 style={{ color: 'var(--color-muted-foreground)' }}
               >
-                Motivo / Apontamentos para o parceiro
+                Apontamentos para o parceiro *
               </label>
               <textarea
                 id="motivo-revisao"
@@ -690,6 +754,10 @@ export function ValidarCertificados() {
                 className="w-full px-3 py-2 text-xs rounded-lg border bg-transparent outline-none focus:ring-1"
                 style={{ borderColor: 'var(--color-input)' }}
               />
+              <p className="text-[11px]" style={{ color: 'var(--color-muted-foreground)' }}>
+                É o que o parceiro vai ler na matriz para saber o que corrigir — mínimo de{' '}
+                {MINIMO_MOTIVO_REVISAO} caracteres.
+              </p>
             </div>
 
             {erroAcao && (
@@ -702,7 +770,7 @@ export function ValidarCertificados() {
               <button
                 type="button"
                 onClick={() => setHomologacaoEmRevisao(null)}
-                className="px-3.5 py-1.5 rounded-lg border text-xs font-semibold"
+                className="px-3.5 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer"
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
               >
                 Cancelar
@@ -711,7 +779,7 @@ export function ValidarCertificados() {
                 type="button"
                 disabled={transicao.isPending}
                 onClick={confirmarRevisao}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white shadow-sm cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--gradient-brand-purple)' }}
               >
                 {transicao.isPending ? 'Enviando…' : 'Enviar para Revisão'}
@@ -721,217 +789,14 @@ export function ValidarCertificados() {
         </div>
       )}
 
-      {/* Modal de Observações e Anexos (para a equipe Mobiltec validar) */}
-      {homologacaoObservacoes && (
-        <ModalVerObservacoes
-          homologacao={homologacaoObservacoes}
-          aoFechar={() => setHomologacaoObservacoes(null)}
-          aoAmpliarImagem={(img) => setImagemAmpliada(img)}
+      {/* Ficha de informações da homologação (D432) */}
+      {homologacaoInfo && (
+        <ModalInformacoesHomologacao
+          homologacaoId={homologacaoInfo.id}
+          aoFechar={() => setHomologacaoInfo(null)}
         />
       )}
 
-      {/* Modal de visualização de imagem ampliada */}
-      {imagemAmpliada && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80"
-          onClick={() => setImagemAmpliada(null)}
-        >
-          <div
-            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-full flex items-center justify-between pb-2 text-white text-xs">
-              <span className="font-medium truncate max-w-md">{imagemAmpliada.nome}</span>
-              <button
-                type="button"
-                onClick={() => setImagemAmpliada(null)}
-                className="px-2 py-1 rounded bg-white/20 hover:bg-white/30 text-white font-bold"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-            <img
-              src={imagemAmpliada.url}
-              alt={imagemAmpliada.nome}
-              className="max-h-[80vh] max-w-full object-contain rounded border border-white/20 shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function parseObservacoes(raw?: string | null): ItemObservacaoGeral[] {
-  if (!raw || !raw.trim()) return []
-  try {
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) return parsed
-  } catch {
-    // plain text fallback
-  }
-  return [
-    {
-      id: 'legado',
-      titulo: 'Observação Geral',
-      texto: raw,
-      autorNome: 'Parceiro',
-      criadoEm: new Date().toISOString(),
-      anexos: [],
-    },
-  ]
-}
-
-function formatarTamanho(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function ModalVerObservacoes({
-  homologacao,
-  aoFechar,
-  aoAmpliarImagem,
-}: {
-  homologacao: ItemListaHomologacao
-  aoFechar: () => void
-  aoAmpliarImagem: (img: { url: string; nome: string }) => void
-}) {
-  const lista = parseObservacoes(homologacao.observacoes)
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,15,18,.45)' }}
-      onClick={aoFechar}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border shadow-xl"
-        style={{ background: 'var(--color-popover)', borderColor: 'var(--color-border)' }}
-      >
-        <div className="p-5 border-b flex items-start justify-between gap-3 shrink-0">
-          <div>
-            <h3 className="text-base font-bold" style={{ color: 'var(--color-foreground)' }}>
-              Observações e Anexos
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-              {homologacao.dispositivo.nomeComercial} · {homologacao.dispositivo.fabricante}{' '}
-              {homologacao.dispositivo.modelo}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={aoFechar}
-            className="p-1 rounded text-muted-foreground hover:text-foreground"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
-          {lista.length === 0 ? (
-            <div
-              className="p-8 text-center rounded-lg border flex flex-col items-center justify-center text-muted-foreground"
-              style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-            >
-              <Icone nome="anexo" className="h-8 w-8 mb-2 opacity-50" />
-              <p className="text-sm font-medium">Nenhuma observação registrada pelo parceiro.</p>
-            </div>
-          ) : (
-            lista.map((obs) => (
-              <div
-                key={obs.id}
-                className="p-4 rounded-lg border space-y-2.5"
-                style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <h4 className="text-sm font-semibold" style={{ color: 'var(--color-foreground)' }}>
-                    {obs.titulo}
-                  </h4>
-                  <span className="text-[11px]" style={{ color: 'var(--color-muted-foreground)' }}>
-                    {new Date(obs.criadoEm).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-
-                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-foreground)' }}>
-                  {obs.texto}
-                </p>
-
-                {obs.anexos && obs.anexos.length > 0 && (
-                  <div className="pt-2 border-t mt-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground">
-                      Anexos ({obs.anexos.length})
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {obs.anexos.map((a) => {
-                        const ehImagem = a.tipo === 'imagem' || /\.(png|jpe?g|webp)$/i.test(a.nome)
-                        if (ehImagem) {
-                          return (
-                            <div
-                              key={a.url}
-                              onClick={() => aoAmpliarImagem({ url: a.url, nome: a.nome })}
-                              className="group relative flex flex-col items-center rounded-lg border overflow-hidden bg-muted/40 cursor-pointer hover:border-primary transition-all"
-                              style={{ width: '100px' }}
-                            >
-                              <img src={a.url} alt={a.nome} className="h-16 w-full object-cover" />
-                              <span className="w-full truncate px-1 py-0.5 text-[9px] text-center font-medium bg-popover">
-                                {a.nome}
-                              </span>
-                              <span className="absolute top-1 right-1 bg-black/60 text-white rounded px-1 text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
-                                Ampliar
-                              </span>
-                            </div>
-                          )
-                        }
-                        return (
-                          <a
-                            key={a.url}
-                            href={a.url}
-                            download={a.nome}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold bg-muted/30 hover:bg-muted transition-colors"
-                            style={{ borderColor: 'var(--color-border)' }}
-                          >
-                            <span className="text-sm">📦</span>
-                            <div className="min-w-0">
-                              <p className="truncate max-w-[140px] font-medium leading-tight">{a.nome}</p>
-                              {a.tamanho && (
-                                <p className="text-[9px] text-muted-foreground">{formatarTamanho(a.tamanho)}</p>
-                              )}
-                            </div>
-                            <Icone nome="baixar" className="h-3 w-3 shrink-0 text-primary" />
-                          </a>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="p-4 border-t flex justify-end shrink-0">
-          <button
-            type="button"
-            onClick={aoFechar}
-            className="px-4 py-1.5 rounded-lg border text-xs font-semibold"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
