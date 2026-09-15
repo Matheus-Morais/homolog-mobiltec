@@ -405,7 +405,18 @@ function CardDispositivoParceiro({
                   <span>✓</span>
                   <span>{confirmarNotificacao.isPending ? 'Confirmando…' : 'Confirmar recebimento (Ciente)'}</span>
                 </button>
-              ) : null}
+              ) : <div />}
+
+              {/* Botão de Ajustar Testes (somente Parceiro) */}
+              {!ehAdmin && (
+                <Link
+                  to={`/matriz/${d.categoriaSlug}`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5"
+                  style={{ background: 'var(--gradient-brand-purple)' }}
+                >
+                  <span>Ajustar teste</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -507,39 +518,41 @@ function CardDispositivoParceiro({
         </div>
       )}
 
-      {/* Ações Rápidas no Rodapé: Diferencia Administrador (Exibir informações) de Parceiro (Bateria de testes) */}
-      <div className="p-3 border-t bg-[var(--color-card)] flex items-center justify-end gap-2 mt-auto">
-        {ehAdmin ? (
-          <button
-            type="button"
-            onClick={() => aoExibirInformacoes(d)}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
-            style={{ background: 'var(--gradient-brand-purple)' }}
-          >
-            <Icone nome="busca" className="h-3.5 w-3.5" />
-            <span>Exibir informações</span>
-          </button>
-        ) : (
-          <Link
-            to={`/matriz/${d.categoriaSlug}`}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5"
-            style={{ background: 'var(--gradient-brand-purple)' }}
-          >
-            <span>{d.status === 'EM_REVISAO' ? 'Ajustar testes na bateria' : 'Bateria de testes'}</span>
-            <span>→</span>
-          </Link>
-        )}
+      {/* Ações Rápidas no Rodapé */}
+      {(ehAdmin || d.status !== 'EM_REVISAO' || (d.homologacaoId && (d.status === 'APROVADO' || d.status === 'PUBLICADO'))) && (
+        <div className="p-3 border-t bg-[var(--color-card)] flex items-center justify-end gap-2 mt-auto">
+          {ehAdmin ? (
+            <button
+              type="button"
+              onClick={() => aoExibirInformacoes(d)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              style={{ background: 'var(--gradient-brand-purple)' }}
+            >
+              <Icone nome="busca" className="h-3.5 w-3.5" />
+              <span>Exibir informações</span>
+            </button>
+          ) : d.status !== 'EM_REVISAO' ? (
+            <Link
+              to={`/matriz/${d.categoriaSlug}`}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5"
+              style={{ background: 'var(--gradient-brand-purple)' }}
+            >
+              <span>Bateria de testes</span>
+              <span>→</span>
+            </Link>
+          ) : null}
 
-        {d.homologacaoId && (d.status === 'APROVADO' || d.status === 'PUBLICADO') && (
-          <Link
-            to={`/homologacoes/${d.homologacaoId}/certificado`}
-            className="px-2.5 py-1.5 rounded-lg border text-xs font-semibold text-[var(--color-primary)] hover:bg-purple-50/50 transition-colors inline-flex items-center gap-1"
-          >
-            <Icone nome="certificado" className="h-3.5 w-3.5" />
-            <span>Certificado</span>
-          </Link>
-        )}
-      </div>
+          {d.homologacaoId && (d.status === 'APROVADO' || d.status === 'PUBLICADO') && (
+            <Link
+              to={`/homologacoes/${d.homologacaoId}/certificado`}
+              className="px-2.5 py-1.5 rounded-lg border text-xs font-semibold text-[var(--color-primary)] hover:bg-purple-50/50 transition-colors inline-flex items-center gap-1"
+            >
+              <Icone nome="certificado" className="h-3.5 w-3.5" />
+              <span>Certificado</span>
+            </Link>
+          )}
+        </div>
+      )}
     </article>
   )
 }
