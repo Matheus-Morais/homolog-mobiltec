@@ -167,6 +167,21 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* O Tailwind 4 tirou `cursor: pointer` do preflight dos botões: o padrão
+     do navegador voltou a ser a seta. Na prática o botão passa a parecer
+     desabilitado, e só ficava com a mão onde alguém lembrou de escrever
+     `cursor-pointer` na classe — foi assim que o botão de revisão da tela de
+     validação chegou a produção parecendo travado. A regra devolve o
+     comportamento de antes, e a exceção `:disabled` continua valendo. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
   button:focus,
   button:focus-visible,
   a:focus,
