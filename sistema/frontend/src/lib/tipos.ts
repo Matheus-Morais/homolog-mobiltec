@@ -275,6 +275,7 @@ export interface DispositivoPainelParceiro {
   status: StatusHomologacao
   homologado: boolean
   observacoes: string | null
+  revisaoPendente: RevisaoPendente | null
   dataInicio: string | null
   dataFim: string | null
   responsavelNome: string
@@ -463,7 +464,31 @@ export interface Homologacao {
   gerente?: Pick<Usuario, 'id' | 'nome' | 'cargo'> | null
   apoio?: Pick<Usuario, 'id' | 'nome' | 'cargo'> | null
   resultados?: Resultado[]
+  historicoStatus?: HistoricoStatus[]
   _count?: { resultados: number; certificados: number }
+}
+
+/** Uma transição de status já ocorrida. Só vem em `GET /homologacoes/:id`. */
+export interface HistoricoStatus {
+  id: string
+  statusAnterior: StatusHomologacao
+  statusNovo: StatusHomologacao
+  /** Obrigatório ao enviar para revisão (D435); opcional nas demais transições */
+  motivo: string | null
+  criadoEm: string
+  usuario?: { nome: string }
+}
+
+/**
+ * Apontamento de revisão em aberto, como vem na coluna da matriz.
+ *
+ * `null` quando a homologação não está em revisão — o aviso na tela some
+ * junto com o motivo que o gerou, assim que o parceiro reenvia.
+ */
+export interface RevisaoPendente {
+  motivo: string | null
+  solicitadoEm: string
+  solicitadoPor: string | null
 }
 
 export interface ContagemStatus {
@@ -515,6 +540,7 @@ export interface ColunaMatriz {
     _count: { certificados: number }
   }
   homologacoesAnteriores: HomologacaoAnterior[]
+  revisaoPendente: RevisaoPendente | null
 }
 
 export interface Matriz {
@@ -609,13 +635,17 @@ export function somenteVersaoAndroid(versaoSo: string): string {
  * @param papel - Papel do usuário logado (opcional).
  *   - Se `undefined` ou Mobiltec (ADMIN/HOMOLOGADOR): estados terminais (`APROVADO`, `PUBLICADO`, `REPROVADO`)
  *     são somente-leitura; estados em andamento (`RASCUNHO`, `AGUARDANDO_ANALISE`, `EM_REVISAO`) permitem edição.
- *   - Se `PARCEIRO`: além dos estados terminais, `AGUARDANDO_ANALISE` e `EM_REVISAO` também são
- *     bloqueados para edição, pois a homologação já foi submetida e está sob custódia da Mobiltec.
- *     O parceiro só pode editar enquanto o status for `RASCUNHO`.
+ *   - Se `PARCEIRO`: além dos estados terminais, `AGUARDANDO_ANALISE` também é bloqueado — a
+ *     homologação está na fila da Mobiltec, e quem a tira de lá é ela, aprovando ou mandando
+ *     para revisão. Em `EM_REVISAO` a custódia volta para o parceiro, que reexecuta os testes
+ *     pendentes e reenvia para validação (D434).
+ *
+ * Espelha `STATUS_EDITAVEIS_PARCEIRO` no backend (`lib/transicoes.ts`) — se uma das duas
+ * listas mudar, a outra tem de mudar junto, ou a tela libera o que a API recusa.
  */
 export function ehSomenteLeitura(status: StatusHomologacao, papel?: PapelUsuario): boolean {
   if (papel === 'LEITOR') return true
   if (status === 'APROVADO' || status === 'PUBLICADO' || status === 'REPROVADO') return true
-  if (papel === 'PARCEIRO' && (status === 'AGUARDANDO_ANALISE' || status === 'EM_REVISAO')) return true
+  if (papel === 'PARCEIRO' && status === 'AGUARDANDO_ANALISE') return true
   return false
 }
