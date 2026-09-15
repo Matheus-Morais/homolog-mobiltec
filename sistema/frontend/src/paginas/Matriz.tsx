@@ -764,7 +764,11 @@ export function Matriz() {
                               ehSomenteLeitura(c.homologacao.status, usuario?.papel)
                                 ? (usuario?.papel === 'ADMIN' ? { rotulo: 'Reabrir', aoClicar: () => setReabrir(c), destaque: true } : null)
                                 : (!ehLeitor ? {
-                                    rotulo: ehParceiro ? 'Enviar para Validação' : 'Finalizar',
+                                    rotulo: ehParceiro
+                                      ? c.homologacao.status === 'EM_REVISAO'
+                                        ? 'Reenviar para Validação'
+                                        : 'Enviar para Validação'
+                                      : 'Finalizar',
                                     aoClicar: () => setFinalizar(c),
                                     destaque: true,
                                   } : null),

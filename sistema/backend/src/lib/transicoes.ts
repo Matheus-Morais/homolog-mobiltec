@@ -36,12 +36,15 @@ export function validarTransicao(
     }
   }
 
-  // Parceiro: regra estrita — só RASCUNHO → AGUARDANDO_ANALISE
+  // Parceiro: pode submeter para Aguardando Análise a partir de RASCUNHO ou EM_REVISAO
   if (papel === 'PARCEIRO') {
-    if (statusAtual !== 'RASCUNHO' || novoStatus !== 'AGUARDANDO_ANALISE') {
+    if (
+      (statusAtual !== 'RASCUNHO' && statusAtual !== 'EM_REVISAO') ||
+      novoStatus !== 'AGUARDANDO_ANALISE'
+    ) {
       return {
         permitida: false,
-        erro: 'Parceiros só possuem permissão para submeter homologações em rascunho para Aguardando Análise.',
+        erro: 'Parceiros só possuem permissão para submeter homologações em rascunho ou em revisão para Aguardando Análise.',
       }
     }
     return { permitida: true }

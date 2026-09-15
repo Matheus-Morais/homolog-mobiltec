@@ -633,13 +633,13 @@ export function somenteVersaoAndroid(versaoSo: string): string {
  * @param papel - Papel do usuário logado (opcional).
  *   - Se `undefined` ou Mobiltec (ADMIN/HOMOLOGADOR): estados terminais (`APROVADO`, `PUBLICADO`, `REPROVADO`)
  *     são somente-leitura; estados em andamento (`RASCUNHO`, `AGUARDANDO_ANALISE`, `EM_REVISAO`) permitem edição.
- *   - Se `PARCEIRO`: além dos estados terminais, `AGUARDANDO_ANALISE` e `EM_REVISAO` também são
- *     bloqueados para edição, pois a homologação já foi submetida e está sob custódia da Mobiltec.
- *     O parceiro só pode editar enquanto o status for `RASCUNHO`.
+ *   - Se `PARCEIRO`: além dos estados terminais, `AGUARDANDO_ANALISE` é bloqueado para edição
+ *     enquanto sob custódia/análise do técnico da Mobiltec. Em `RASCUNHO` e `EM_REVISAO`, o parceiro
+ *     possui permissão plena de edição e reenvio dos testes.
  */
 export function ehSomenteLeitura(status: StatusHomologacao, papel?: PapelUsuario): boolean {
   if (papel === 'LEITOR') return true
   if (status === 'APROVADO' || status === 'PUBLICADO' || status === 'REPROVADO') return true
-  if (papel === 'PARCEIRO' && (status === 'AGUARDANDO_ANALISE' || status === 'EM_REVISAO')) return true
+  if (papel === 'PARCEIRO' && status === 'AGUARDANDO_ANALISE') return true
   return false
 }

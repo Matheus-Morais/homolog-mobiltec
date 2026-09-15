@@ -106,7 +106,11 @@ export function ModalFinalizar({
       >
         <div className="p-5 border-b">
           <h2 className="text-lg font-semibold">
-            {ehParceiro ? 'Enviar para Validação Mobiltec' : 'Finalizar homologação'}
+            {ehParceiro
+              ? coluna.homologacao.status === 'EM_REVISAO'
+                ? 'Reenviar para Validação Mobiltec'
+                : 'Enviar para Validação Mobiltec'
+              : 'Finalizar homologação'}
           </h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
             {coluna.homologacao.dispositivo.nomeComercial} · agente{' '}
@@ -244,7 +248,11 @@ export function ModalFinalizar({
               className="px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50"
               style={{ background: 'var(--gradient-brand-purple)' }}
             >
-              {transicao.isPending ? 'Enviando…' : 'Enviar para Validação Mobiltec'}
+              {transicao.isPending
+                ? 'Enviando…'
+                : coluna.homologacao.status === 'EM_REVISAO'
+                ? 'Reenviar para Validação Mobiltec'
+                : 'Enviar para Validação Mobiltec'}
             </button>
           ) : (
             <div className="flex gap-2">

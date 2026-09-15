@@ -1020,6 +1020,8 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 
 | # | Decisão | Justificativa |
 |---|---|---|
+| D447 | Atualização in-place de nome e descrição de funcionalidades em Configurar Homologação sem alteração de ordem nem reinício de status | Em `FormularioTipo.tsx`, mantém o ID dos itens editados do catálogo na lista `itensExistentesFinais` e despacha os dados renomeados via `itensEditados` (em vez de tratá-los como `itensNovosConvertidos`), evitando que o backend remova o item da bateria e o recrie com novo ID ao final da lista; e em `tipos-dispositivo.ts` (`PATCH` e `POST /tipos-dispositivo`), adiciona suporte ao array `itensEditados` para atualizar `itemTeste.nome` e `itemTeste.descricaoAcao` diretamente no banco sem modificar a tabela pivot `bateriaItem` nem recriar os registros da tabela `resultado` das homologações abertas, garantindo que o status avaliado e a ordem na planilha de testes permaneçam 100% preservados. |
+
 ---
 
 ## Etapa 79 — Redesign Compacto em Validação de Certificados, Contraste de Notificações e Simplificação de Card (D448)
@@ -1043,6 +1045,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | # | Decisão | Justificativa |
 |---|---|---|
 | D450 | Isolamento estrito do painel do parceiro para exibir unicamente dispositivos e homologações da própria empresa | Em `parceiros.ts` (`montarDadosPainel`): remove a cláusula aberta por categoria (`listaCategorias`) que provocava o vazamento de dispositivos da Mobiltec e de terceiros em teste para o painel do parceiro; restringe a consulta e o `include` de homologações aos modelos cadastrados pela empresa do parceiro (`dispositivo.empresa` ou `fabricante`) ou que possuam homologações atribuídas ao parceiro ou a usuários da sua empresa; assegura que o painel do parceiro liste apenas os modelos do seu ambiente e que os modelos e homologações em andamento da Mobiltec sejam acessados exclusivamente através da vitrine geral em *Painel > Mobiltec*. |
+
+---
+
+## Etapa 82 — Liberação de Edição e Reenvio para Validação de Homologações em Revisão (D451)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D451 | Desbloqueio da edição de testes e habilitação de reenvio para validação pela Mobiltec quando a homologação estiver com status EM_REVISAO | Em `transicoes.ts` (`validarTransicao`): autoriza o papel `PARCEIRO` a transicionar de `EM_REVISAO` para `AGUARDANDO_ANALISE` (além da transição padrão de `RASCUNHO`), garantindo que o parceiro possa submeter novamente após corrigir os apontamentos; em `homologacoes.ts` (`PUT /homologacoes/:id/resultados/:itemId`): autoriza o parceiro a atualizar status e observações de itens de teste quando a homologação estiver em `EM_REVISAO`, com validação de titularidade da mesma empresa; em `tipos.ts` (`ehSomenteLeitura`): atualiza a regra para que o parceiro só tenha visualização somente-leitura enquanto a homologação estiver sob custódia da Mobiltec (`AGUARDANDO_ANALISE`) ou em estados finais concluídos (`APROVADO`, `PUBLICADO`, `REPROVADO`), liberando total interatividade de edição em `EM_REVISAO`; e em `ModalFinalizar.tsx` e `Matriz.tsx`: ajusta os botões e títulos de ação dinamicamente para 'Reenviar para Validação Mobiltec' quando o status for `EM_REVISAO`. |
+
 
 
 
