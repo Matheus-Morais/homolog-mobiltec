@@ -265,7 +265,15 @@ Estas não são detalhe de implementação — são o motivo do sistema existir.
 4. **Autosave**, sem botão "salvar" — um `PUT` por mudança de status/observação.
 5. **Atalhos de teclado** `1`–`6` para status, `↑`/`↓` navegar, `Enter` abre observação (spec §10.4).
 6. **`APROVADO` e `PUBLICADO` são somente-leitura** — o backend devolve `403` em qualquer edição de resultado. A UI deve refletir isso, com botão "Reabrir".
-7. **Transições válidas:** `RASCUNHO → EM_REVISAO`, `EM_REVISAO → {APROVADO, RASCUNHO}`, `APROVADO → PUBLICADO`. Qualquer outra dá `422` com a lista de transições permitidas no corpo.
+7. **Transições válidas** — a fonte canônica é `src/lib/transicoes.ts`; qualquer outra combinação dá `422` com a lista permitida no corpo.
+
+   | Papel | De → Para |
+   |---|---|
+   | Mobiltec (ADMIN/HOMOLOGADOR) | `RASCUNHO → {EM_REVISAO, AGUARDANDO_ANALISE}` · `AGUARDANDO_ANALISE → {EM_REVISAO, APROVADO, REPROVADO, RASCUNHO}` · `EM_REVISAO → {APROVADO, REPROVADO, RASCUNHO, AGUARDANDO_ANALISE}` · `APROVADO → {PUBLICADO, RASCUNHO}` · `REPROVADO → RASCUNHO` |
+   | PARCEIRO | `RASCUNHO → AGUARDANDO_ANALISE` (primeira submissão) · `EM_REVISAO → AGUARDANDO_ANALISE` (reenvio após ajustes, D434) |
+   | LEITOR | nenhuma |
+
+7a. **Ciclo de revisão (D434–D436).** `AGUARDANDO_ANALISE → EM_REVISAO` devolve a custódia ao parceiro: ele volta a escrever em ficha, resultados e observações (`STATUS_EDITAVEIS_PARCEIRO = [RASCUNHO, EM_REVISAO]`), e reenvia. Essa transição exige `motivo` com no mínimo 10 caracteres — `422 { erro, campo: "motivo" }` sem ele. O motivo sai em `GET /homologacoes/:id` (`historicoStatus`), em `GET /matriz` e no painel do parceiro (`revisaoPendente`). Sob `AGUARDANDO_ANALISE` o parceiro volta a receber `403` em qualquer escrita.
 8. **`homologado` é decisão manual do admin**, obrigatória ao aprovar — nunca calcular a partir dos status (spec §11.5).
 9. **`NAO_TESTADO` ocupa a linha no certificado, mas com o status em branco.** O documento sempre sai com a estrutura completa do modelo base; a célula vazia é que garante que nada seja atestado. Ele não entra nas divergências (não há o que justificar). Ver D45 — é uma reversão parcial e deliberada da spec §8.3.
 10. **Divergência sem justificativa também sai em branco** (D78). `FALHA`/`NAO_SUPORTADO`/`COM_RESSALVA` só exibem o status no certificado depois que a justificativa existe — antes disso o documento não afirma nada sobre o item.
