@@ -66,9 +66,17 @@ interface Props {
 
 type FiltroItens = 'todos' | 'divergencias' | 'ok' | 'pendentes'
 
+function formatarNomeGrupo(nome: string) {
+  return nome
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/(^\w|\s\w)/g, (m) => m.toUpperCase())
+}
+
 export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoFechar }: Props) {
   const { data: homologacao, isLoading } = useHomologacao(homologacaoId)
-  const [filtroItens, setFiltroItens] = useState<FiltroItens>('todos')
+  const [abaAtiva, setAbaAtiva] = useState<string>('TODOS')
+  const [filtroStatus, setFiltroStatus] = useState<FiltroItens>('todos')
 
   const resultados = homologacao?.resultados ?? []
   const observacoes = useMemo(() => {
@@ -94,28 +102,33 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
     return { total, ok, divergencias, pendentes, naoAplicavel, pct }
   }, [resultados])
 
-  const resultadosFiltrados = useMemo(() => {
-    if (filtroItens === 'divergencias') {
-      return resultados.filter((r) => ['FALHA', 'NAO_SUPORTADO', 'COM_RESSALVA'].includes(r.status))
+  const gruposDisponiveis = useMemo(() => {
+    const mapa = new Map<string, number>()
+    for (const r of resultados) {
+      const g = r.item?.grupo ?? 'OUTROS'
+      mapa.set(g, (mapa.get(g) ?? 0) + 1)
     }
-    if (filtroItens === 'ok') {
-      return resultados.filter((r) => r.status === 'OK')
-    }
-    if (filtroItens === 'pendentes') {
-      return resultados.filter((r) => r.status === 'NAO_TESTADO')
-    }
-    return resultados
-  }, [resultados, filtroItens])
+    return Array.from(mapa.entries()).map(([grupo, total]) => ({
+      id: grupo,
+      nome: formatarNomeGrupo(grupo),
+      total,
+    }))
+  }, [resultados])
 
-  const grupos = useMemo(() => {
-    const mapa = new Map<string, typeof resultadosFiltrados>()
-    for (const res of resultadosFiltrados) {
-      const g = res.item?.grupo ?? 'OUTROS'
-      if (!mapa.has(g)) mapa.set(g, [])
-      mapa.get(g)!.push(res)
+  const itensExibidos = useMemo(() => {
+    let lista = resultados
+    if (abaAtiva !== 'TODOS' && abaAtiva !== 'OBSERVACOES') {
+      lista = lista.filter((r) => (r.item?.grupo ?? 'OUTROS') === abaAtiva)
     }
-    return Array.from(mapa.entries())
-  }, [resultadosFiltrados])
+    if (filtroStatus === 'divergencias') {
+      lista = lista.filter((r) => ['FALHA', 'NAO_SUPORTADO', 'COM_RESSALVA'].includes(r.status))
+    } else if (filtroStatus === 'ok') {
+      lista = lista.filter((r) => r.status === 'OK')
+    } else if (filtroStatus === 'pendentes') {
+      lista = lista.filter((r) => r.status === 'NAO_TESTADO')
+    }
+    return lista
+  }, [resultados, abaAtiva, filtroStatus])
 
   return (
     <div
@@ -198,194 +211,227 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
           </div>
         </div>
 
+        {/* Barra de Abas / Botões Lado a Lado (Clean e Compacto) */}
+        <div className="px-5 pt-3 pb-2 border-b bg-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setAbaAtiva('TODOS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                abaAtiva === 'TODOS'
+                  ? 'text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+              }`}
+              style={abaAtiva === 'TODOS' ? { background: 'var(--gradient-brand-purple)' } : undefined}
+            >
+              Todos ({resultados.length})
+            </button>
+
+            {gruposDisponiveis.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => setAbaAtiva(g.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  abaAtiva === g.id
+                    ? 'text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+                style={abaAtiva === g.id ? { background: 'var(--gradient-brand-purple)' } : undefined}
+              >
+                {g.nome} ({g.total})
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setAbaAtiva('OBSERVACOES')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                abaAtiva === 'OBSERVACOES'
+                  ? 'text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+              }`}
+              style={abaAtiva === 'OBSERVACOES' ? { background: 'var(--gradient-brand-purple)' } : undefined}
+            >
+              <span>💬</span>
+              <span>Observações ({observacoes.length})</span>
+            </button>
+          </div>
+
+          {/* Filtros de Status (exibidos apenas quando estiver na visualização de testes) */}
+          {abaAtiva !== 'OBSERVACOES' && (
+            <div className="flex items-center gap-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setFiltroStatus('todos')}
+                className={`px-2.5 py-1 rounded text-[11px] transition-colors cursor-pointer ${
+                  filtroStatus === 'todos'
+                    ? 'bg-purple-100 text-[var(--color-primary)] font-bold'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroStatus('divergencias')}
+                className={`px-2.5 py-1 rounded text-[11px] transition-colors cursor-pointer ${
+                  filtroStatus === 'divergencias'
+                    ? 'bg-amber-100 text-amber-800 font-bold'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                Divergências ({resumo.divergencias})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroStatus('ok')}
+                className={`px-2.5 py-1 rounded text-[11px] transition-colors cursor-pointer ${
+                  filtroStatus === 'ok'
+                    ? 'bg-emerald-100 text-emerald-800 font-bold'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                OK ({resumo.ok})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroStatus('pendentes')}
+                className={`px-2.5 py-1 rounded text-[11px] transition-colors cursor-pointer ${
+                  filtroStatus === 'pendentes'
+                    ? 'bg-slate-200 text-slate-900 font-bold'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                Pendentes ({resumo.pendentes})
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Conteúdo com Scroll */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto p-5">
           {isLoading ? (
             <div className="py-12">
               <LoadingTela mensagem="Carregando checklist e relatório de testes…" />
             </div>
-          ) : (
-            <>
-              {/* Observações do Processo Registradas */}
-              {observacoes.length > 0 && (
-                <section className="space-y-2.5">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <span>💬</span>
-                    <span>Observações do Processo ({observacoes.length})</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {observacoes.map((obs) => (
-                      <div
-                        key={obs.id}
-                        className="p-3.5 rounded-xl border bg-slate-50/60 shadow-2xs space-y-1.5 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-slate-900">{obs.titulo}</span>
-                          {(obs.autorEmail || obs.autorNome) && (
-                            <span className="text-[10.5px] text-slate-500 font-medium">
-                              Registrado por <strong>{obs.autorEmail || obs.autorNome}</strong>
-                              {obs.data || obs.criadoEm
-                                ? ` em ${new Date(obs.data || obs.criadoEm!).toLocaleDateString('pt-BR')} às ${new Date(obs.data || obs.criadoEm!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                                : ''}
-                            </span>
-                          )}
-                        </div>
-                        {obs.texto && (
-                          <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap pl-3 border-l-2 border-slate-300">
-                            {obs.texto}
-                          </p>
+          ) : abaAtiva === 'OBSERVACOES' ? (
+            /* Visualização Exclusiva de Observações */
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2 border-b pb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <span>💬</span>
+                  <span>Observações Registradas pelo Parceiro ({observacoes.length})</span>
+                </h3>
+              </div>
+
+              {observacoes.length === 0 ? (
+                <div className="py-14 px-4 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center gap-2">
+                  <span className="text-3xl opacity-70">💬</span>
+                  <p className="text-xs font-medium text-slate-600">
+                    O parceiro não registrou nenhuma observação até o momento.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {observacoes.map((obs) => (
+                    <div
+                      key={obs.id}
+                      className="p-3.5 rounded-xl border bg-slate-50/60 shadow-2xs space-y-1.5 text-xs"
+                      style={{ borderColor: 'var(--color-border)' }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-900">{obs.titulo}</span>
+                        {(obs.autorEmail || obs.autorNome) && (
+                          <span className="text-[10.5px] text-slate-500 font-medium">
+                            Registrado por <strong>{obs.autorEmail || obs.autorNome}</strong>
+                            {obs.data || obs.criadoEm
+                              ? ` em ${new Date(obs.data || obs.criadoEm!).toLocaleDateString('pt-BR')} às ${new Date(obs.data || obs.criadoEm!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                              : ''}
+                          </span>
                         )}
                       </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Itens Avaliados na Bateria */}
-              <section className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Checklist de Homologação ({resultados.length} itens)
-                  </h3>
-
-                  <div className="flex items-center gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setFiltroItens('todos')}
-                      className={`px-3 py-1 rounded-md text-[11px] transition-all cursor-pointer ${
-                        filtroItens === 'todos'
-                          ? 'text-white font-semibold shadow-2xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium'
-                      }`}
-                      style={filtroItens === 'todos' ? { background: 'var(--gradient-brand-purple)' } : undefined}
-                    >
-                      Todos ({resultados.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFiltroItens('divergencias')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                        filtroItens === 'divergencias'
-                          ? 'bg-amber-600 text-white font-semibold'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      Divergências ({resumo.divergencias})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFiltroItens('ok')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                        filtroItens === 'ok'
-                          ? 'bg-emerald-600 text-white font-semibold'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      OK ({resumo.ok})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFiltroItens('pendentes')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                        filtroItens === 'pendentes'
-                          ? 'bg-slate-700 text-white font-semibold'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      Pendentes ({resumo.pendentes})
-                    </button>
-                  </div>
+                      {obs.texto && (
+                        <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap pl-3 border-l-2 border-slate-300">
+                          {obs.texto}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
+          ) : (
+            /* Tabela Compacta e Simples de Testes */
+            <div className="rounded-xl border overflow-hidden bg-white shadow-2xs" style={{ borderColor: 'var(--color-border)' }}>
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-50 border-b text-[11px] font-semibold text-slate-500 uppercase tracking-wider" style={{ borderColor: 'var(--color-border)' }}>
+                  <tr>
+                    <th className="py-2.5 px-3.5">Item de Teste</th>
+                    <th className="py-2.5 px-3.5 w-36 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {itensExibidos.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="py-10 text-center text-slate-400 italic">
+                        Nenhum item encontrado com o filtro selecionado.
+                      </td>
+                    </tr>
+                  ) : (
+                    itensExibidos.map((res: any) => (
+                      <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2.5 px-3.5 align-top">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-slate-800">
+                              {res.item?.nome ?? 'Item de teste'}
+                            </span>
+                            {abaAtiva === 'TODOS' && res.item?.grupo && (
+                              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded">
+                                {formatarNomeGrupo(res.item.grupo)}
+                              </span>
+                            )}
+                          </div>
 
-                {resultadosFiltrados.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center italic">
-                    Nenhum item encontrado com o filtro selecionado.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {grupos.map(([nomeGrupo, itensDoGrupo]) => (
-                      <div
-                        key={nomeGrupo}
-                        className="flex flex-col sm:flex-row border rounded-xl overflow-hidden bg-white shadow-2xs"
-                      >
-                        {/* Coluna da Categoria / Grupo (card com fundo branco e texto roxo) */}
-                        <div className="w-full sm:w-44 shrink-0 p-3.5 bg-slate-50/70 border-b sm:border-b-0 sm:border-r border-slate-100 flex sm:flex-col items-center sm:items-start justify-between sm:justify-start gap-2">
-                          <span
-                            className="px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-wider bg-white border border-[rgba(126,32,101,0.25)] text-[var(--color-primary)] shadow-2xs"
-                          >
-                            {nomeGrupo}
-                          </span>
-                          <span className="text-[10.5px] text-slate-400 font-medium">
-                            {itensDoGrupo.length} {itensDoGrupo.length === 1 ? 'item' : 'itens'}
-                          </span>
-                        </div>
-
-                        {/* Coluna dos Testes Compactados e Uniformes */}
-                        <div className="flex-1 min-w-0 divide-y divide-slate-100">
-                          {itensDoGrupo.map((res: any) => (
-                            <div
-                              key={res.id}
-                              className="px-3.5 py-2 text-xs flex flex-col gap-1 hover:bg-slate-50/60 transition-colors"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="font-semibold text-slate-800 truncate" title={res.item?.nome}>
-                                  {res.item?.nome ?? 'Item de teste'}
+                          {/* Justificativa anexada */}
+                          {(res.justificativa || res.justificativaTexto) && (
+                            <div className="mt-1.5 p-2 rounded-lg bg-amber-50/70 border border-amber-200 text-[11px] text-amber-900 space-y-0.5">
+                              <span className="font-bold block">
+                                Justificativa: {res.justificativa?.titulo ?? 'Nota do técnico'}
+                              </span>
+                              <p className="text-amber-800/90 whitespace-pre-wrap">
+                                {res.justificativa?.texto ?? res.justificativaTexto}
+                              </p>
+                              <div className="text-[10px] text-amber-700/80 pt-1 border-t border-amber-200/60 mt-1 flex items-center justify-between">
+                                <span>
+                                  Registrado por: <strong>{res.autorEmail || (homologacao?.responsavel as any)?.email || 'contato@mobiltec.com.br'}</strong>
                                 </span>
-                                <BadgeStatusItem status={res.status} />
-                              </div>
-
-                              {/* Justificativa anexada */}
-                              {(res.justificativa || res.justificativaTexto) && (
-                                <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-200 text-[11px] text-amber-900 space-y-0.5 mt-0.5">
-                                  <span className="font-bold block">
-                                    Justificativa: {res.justificativa?.titulo ?? 'Nota do técnico'}
+                                {res.atualizadoEm && (
+                                  <span>
+                                    {new Date(res.atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
+                                    {new Date(res.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                   </span>
-                                  <p className="text-amber-800/90 whitespace-pre-wrap">
-                                    {res.justificativa?.texto ?? res.justificativaTexto}
-                                  </p>
-                                  {/* Registro sutil de autoria e horário */}
-                                  <div className="text-[10px] text-amber-700/80 pt-1 border-t border-amber-200/60 mt-1 flex items-center justify-between">
-                                    <span>
-                                      Registrado por: <strong>{res.autorEmail || (homologacao?.responsavel as any)?.email || 'contato@mobiltec.com.br'}</strong>
-                                    </span>
-                                    {res.atualizadoEm && (
-                                      <span>
-                                        {new Date(res.atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
-                                        {new Date(res.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Observação técnica adicional */}
-                              {res.observacao && (
-                                <div className="pl-2 border-l-2 border-slate-200 mt-1 space-y-0.5">
-                                  <p className="text-[11px] text-slate-500 italic">
-                                    Obs: {res.observacao}
-                                  </p>
-                                  <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                                    <span>
-                                      Registrado por: <strong>{res.autorEmail || (homologacao?.responsavel as any)?.email || 'contato@mobiltec.com.br'}</strong>
-                                    </span>
-                                    {res.atualizadoEm && (
-                                      <span>
-                                        {new Date(res.atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
-                                        {new Date(res.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
+                          )}
+
+                          {/* Observação técnica adicional do item */}
+                          {res.observacao && (
+                            <div className="mt-1 pl-2 border-l-2 border-slate-200 text-[11px] text-slate-500 italic">
+                              Obs: {res.observacao}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3.5 align-top text-right">
+                          <BadgeStatusItem status={res.status} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

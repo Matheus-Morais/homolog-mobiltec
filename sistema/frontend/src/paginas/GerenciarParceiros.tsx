@@ -57,6 +57,27 @@ export function GerenciarParceiros() {
     return Array.from(mapa.values())
   }, [parceiros, empresasExtras])
 
+  const [busca, setBusca] = useState('')
+
+  const mapaNomeCategoria = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of categorias) {
+      m.set(c.slug, c.nome)
+    }
+    return m
+  }, [categorias])
+
+  const parceirosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    if (!termo) return parceiros
+    return parceiros.filter((p) => {
+      const emp = p.empresa?.toLowerCase() ?? ''
+      const nm = p.nome?.toLowerCase() ?? ''
+      const em = p.email?.toLowerCase() ?? ''
+      return emp.includes(termo) || nm.includes(termo) || em.includes(termo)
+    })
+  }, [parceiros, busca])
+
   function salvarNovaEmpresa() {
     const nomeLimpo = novaEmpresaNome.trim()
     if (!nomeLimpo) {
@@ -204,7 +225,50 @@ export function GerenciarParceiros() {
         </button>
       </div>
 
-      {/* Lista de Parceiros */}
+      {/* Barra de Filtro / Busca */}
+      {!isLoading && parceiros.length > 0 && (
+        <div
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border bg-white shadow-2xs"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <div className="relative flex-1 max-w-md">
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Consultar empresa ou colaborador…"
+              className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border bg-transparent outline-none focus:border-[var(--color-primary)] transition-colors"
+              style={{ borderColor: 'var(--color-input)' }}
+            />
+            <span className="absolute left-3 top-2 text-slate-400">
+              <Icone nome="busca" className="h-3.5 w-3.5" />
+            </span>
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+                className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="text-xs text-slate-500 font-medium shrink-0">
+            {busca ? (
+              <span>
+                {parceirosFiltrados.length} de {parceiros.length} {parceiros.length === 1 ? 'parceiro' : 'parceiros'}
+              </span>
+            ) : (
+              <span>
+                Total: <strong>{parceiros.length}</strong> {parceiros.length === 1 ? 'parceiro' : 'parceiros'} cadastrados
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tabela Estruturada de Parceiros */}
       {isLoading ? (
         <LoadingTela mensagem="Carregando parceiros cadastrados…" />
       ) : parceiros.length === 0 ? (
@@ -236,90 +300,144 @@ export function GerenciarParceiros() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {parceiros.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-xl border px-3.5 py-3 flex items-center justify-between gap-3 transition-all hover:shadow-xs"
-              style={{
-                borderColor: 'var(--color-border)',
-                background: 'var(--color-card)',
-                opacity: p.ativo ? 1 : 0.65,
-              }}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--color-foreground)' }}>
-                    {p.empresa}
-                  </h3>
-                  <span
-                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full select-none"
-                    style={{
-                      color: p.ativo ? 'var(--color-success-fg)' : 'var(--color-muted-foreground)',
-                      background: p.ativo ? 'var(--color-success-soft)' : 'var(--color-muted)',
-                      border: `1px solid ${p.ativo ? 'rgba(22, 163, 74, 0.25)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {p.ativo ? 'Ativo' : 'Inativo'}
-                  </span>
-                  {p.papel === 'ADMIN' && (
-                    <span
-                      className="text-[11px] font-semibold px-2 py-0.5 rounded-full select-none"
-                      style={{
-                        color: 'var(--color-primary)',
-                        background: 'var(--color-muted)',
-                        border: '1px solid var(--color-primary)',
-                      }}
-                    >
-                      Admin
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 mt-1 text-xs truncate" style={{ color: 'var(--color-muted-foreground)' }}>
-                  <Icone nome="email" className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{p.email}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => abrirModalEditar(p)}
-                  className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:bg-black/5"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
-                >
-                  Editar
-                </button>
-                {p.ativo ? (
-                  <button
-                    type="button"
-                    onClick={() => inativarParceiro.mutate(p.id)}
-                    className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:opacity-90"
-                    style={{
-                      borderColor: 'rgba(220, 38, 38, 0.25)',
-                      color: 'var(--color-destructive-fg)',
-                      background: 'var(--color-destructive-soft)',
-                    }}
-                  >
-                    Inativar
-                  </button>
+        <div
+          className="rounded-xl border overflow-hidden bg-white shadow-2xs"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead
+                className="bg-slate-50/90 border-b text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <tr>
+                  <th className="py-2.5 px-4">Empresa</th>
+                  <th className="py-2.5 px-4">Colaborador</th>
+                  <th className="py-2.5 px-4">E-mail</th>
+                  <th className="py-2.5 px-4">Categorias Permitidas</th>
+                  <th className="py-2.5 px-4">Perfil</th>
+                  <th className="py-2.5 px-4">Status</th>
+                  <th className="py-2.5 px-4 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {parceirosFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 italic">
+                      {busca
+                        ? `Nenhum parceiro encontrado com o termo "${busca}".`
+                        : 'Nenhum parceiro registrado.'}
+                    </td>
+                  </tr>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => atualizarParceiro.mutate({ id: p.id, ativo: true })}
-                    className="px-2.5 py-1 text-xs font-medium rounded border transition-colors hover:opacity-90"
-                    style={{
-                      borderColor: 'rgba(22, 163, 74, 0.25)',
-                      color: 'var(--color-success-fg)',
-                      background: 'var(--color-success-soft)',
-                    }}
-                  >
-                    Reativar
-                  </button>
+                  parceirosFiltrados.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="hover:bg-slate-50/70 transition-colors"
+                      style={{ opacity: p.ativo ? 1 : 0.6 }}
+                    >
+                      <td className="py-2.5 px-4 font-bold text-slate-900">
+                        {p.empresa}
+                      </td>
+                      <td className="py-2.5 px-4 font-medium text-slate-800">
+                        {p.nome}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-600">
+                        <div className="flex items-center gap-1.5">
+                          <Icone nome="email" className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{p.email}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <div className="flex flex-wrap gap-1">
+                          {p.categoriasPermitidas && p.categoriasPermitidas.length > 0 ? (
+                            p.categoriasPermitidas.map((catSlug) => (
+                              <span
+                                key={catSlug}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                              >
+                                {mapaNomeCategoria.get(catSlug) || catSlug}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Nenhuma</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        {p.papel === 'ADMIN' ? (
+                          <span
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold select-none text-white shadow-2xs"
+                            style={{ background: 'var(--gradient-brand-purple)' }}
+                          >
+                            Admin
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-slate-100 text-slate-600 select-none">
+                            Parceiro
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold select-none"
+                          style={{
+                            color: p.ativo ? 'var(--color-success-fg)' : 'var(--color-muted-foreground)',
+                            background: p.ativo ? 'var(--color-success-soft)' : 'var(--color-muted)',
+                            border: `1px solid ${p.ativo ? 'rgba(22, 163, 74, 0.25)' : 'var(--color-border)'}`,
+                          }}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${p.ativo ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                          />
+                          <span>{p.ativo ? 'Ativo' : 'Inativo'}</span>
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEditar(p)}
+                            className="px-2.5 py-1 text-xs font-semibold rounded border transition-colors hover:bg-slate-100 cursor-pointer"
+                            style={{ borderColor: 'var(--color-border)', color: 'var(--color-foreground)' }}
+                          >
+                            Editar
+                          </button>
+                          {p.ativo ? (
+                            <button
+                              type="button"
+                              onClick={() => inativarParceiro.mutate(p.id)}
+                              className="px-2.5 py-1 text-xs font-semibold rounded border transition-colors hover:opacity-90 cursor-pointer"
+                              style={{
+                                borderColor: 'rgba(220, 38, 38, 0.25)',
+                                color: 'var(--color-destructive-fg)',
+                                background: 'var(--color-destructive-soft)',
+                              }}
+                            >
+                              Inativar
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => atualizarParceiro.mutate({ id: p.id, ativo: true })}
+                              className="px-2.5 py-1 text-xs font-semibold rounded border transition-colors hover:opacity-90 cursor-pointer"
+                              style={{
+                                borderColor: 'rgba(22, 163, 74, 0.25)',
+                                color: 'var(--color-success-fg)',
+                                background: 'var(--color-success-soft)',
+                              }}
+                            >
+                              Reativar
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </div>
-            </div>
-          ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

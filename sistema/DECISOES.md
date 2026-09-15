@@ -990,6 +990,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D443 | Remoção da Mobiltec no submenu Parceiros e consolidação dos dispositivos de categorias permitidas no Painel do Parceiro | No menu lateral (`Layout.tsx`), filtra a empresa Mobiltec da lista desdobrável de parceiros para admins (`empresasParceirasUnicas`), mantendo o link principal 'Mobiltec' unicamente no topo de 'Painel'; e no backend (`parceiros.ts`), ajusta `montarDadosPainel` para consolidar as `categoriasPermitidas` de todos os usuários da empresa parceira (e explicitamente 'pos' para TNS), expandindo a query `dispositivo.findMany` para incluir todos os dispositivos das categorias permitidas além daqueles explicitamente associados por empresa ou responsabilidade, garantindo que ao clicar em qualquer parceiro (ex: TNS com seus 32 dispositivos) o administrador visualize o ambiente completo e coerente de testes daquela organização. |
 
+---
+
+## Etapa 75 — Modal de Informações em Abas com Tabela Compacta e Gestão Estruturada de Parceiros com Busca (D444)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D444 | Modal de Informações com abas em botões horizontais, tabela compacta de testes/observações e tabela de parceiros com filtro em tempo real | Em `ModalInformacoesHomologacao.tsx`, substitui os blocos verticais grandes e o card fixo de observações por uma barra de botões/abas dispostos lado a lado ('Todos', 'Telemetria', 'Coleta', 'Comandos', 'Perfis' e 'Observações'); ao selecionar uma categoria de teste, renderiza uma tabela compacta e limpa contendo Nome do Teste e Status (com justificativa técnica discreta quando houver); ao clicar em 'Observações', alterna exclusivamente para a visualização de observações com mensagem amigável quando vazia ('O parceiro não registrou nenhuma observação até o momento'); e em `GerenciarParceiros.tsx`, substitui o grid de cards por uma tabela administrativa estruturada e compacta acompanhada de input de busca e filtro em tempo real por empresa ou colaborador. |
+
+
 
 
 
