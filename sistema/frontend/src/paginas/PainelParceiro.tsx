@@ -378,11 +378,11 @@ function CardDispositivoParceiro({
             </div>
 
             {/* Status / Ação de Confirmação (Ciente) */}
-            <div className="pt-2 border-t border-[var(--color-border)]/50 flex items-center justify-between gap-2 flex-wrap text-[11px]">
+            <div className="pt-2 border-t border-[var(--color-border)]/50 flex items-center justify-between gap-2 text-[11px]">
               {revisao.confirmada ? (
-                <div className="flex items-center gap-1.5 text-[var(--color-muted-foreground)] text-[11px]">
+                <div className="flex items-center gap-1.5 text-[var(--color-muted-foreground)] text-[11px] min-w-0">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block shrink-0 shadow-xs" />
-                  <span>
+                  <span className="truncate">
                     Confirmado por <strong className="text-[var(--color-foreground)]">{revisao.confirmadaPor ?? 'Parceiro'}</strong>
                     {revisao.confirmadaEm
                       ? ` em ${new Date(revisao.confirmadaEm).toLocaleDateString('pt-BR', {
@@ -411,7 +411,7 @@ function CardDispositivoParceiro({
               {!ehAdmin && (
                 <Link
                   to={`/matriz/${d.categoriaSlug}`}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 shadow-xs inline-flex items-center gap-1.5 shrink-0"
                   style={{ background: 'var(--gradient-brand-purple)' }}
                 >
                   <span>Ajustar teste</span>
