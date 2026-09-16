@@ -117,13 +117,28 @@ export function ConfigurarDispositivos() {
                 <span>Total:</span>
                 <strong className="font-bold">{homologacoes.length}</strong>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-200/90 bg-emerald-50/90 text-emerald-700 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200/60" />
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold select-none"
+                style={{
+                  color: 'var(--color-success-fg, #166534)',
+                  background: 'var(--color-success-soft, #f0fdf4)',
+                  border: '1px solid rgba(22, 163, 74, 0.25)',
+                }}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                 <span>Aprovados:</span>
                 <strong className="font-bold">{totalAprovados + totalPublicados}</strong>
               </span>
               {totalReprovados > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-red-200 bg-red-50 text-red-800 dark:bg-red-950/40 dark:border-red-800/60 dark:text-red-300">
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold select-none"
+                  style={{
+                    color: 'var(--color-destructive-fg, #991b1b)',
+                    background: 'var(--color-destructive-soft, #fef2f2)',
+                    border: '1px solid rgba(220, 38, 38, 0.25)',
+                  }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                   <span>Reprovados:</span>
                   <strong className="font-bold">{totalReprovados}</strong>
                 </span>
@@ -249,7 +264,6 @@ export function ConfigurarDispositivos() {
                 <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
                   {filtrados.map((h: any) => {
                     const empresa = (h.responsavel?.empresa || h.dispositivo?.empresa || 'Mobiltec').trim()
-                    const ehParceiro = empresa.toLowerCase() !== 'mobiltec'
                     const nomeComercial = h.dispositivo?.nomeComercial || `${h.dispositivo?.fabricante} ${h.dispositivo?.modelo}`
                     const dataFormatada = h.dataFim
                       ? new Date(h.dataFim).toLocaleDateString('pt-BR')
@@ -300,23 +314,14 @@ export function ConfigurarDispositivos() {
                         {/* Ambiente / Parceiro */}
                         <td className="px-4 py-3.5">
                           <div className="space-y-0.5">
-                            {ehParceiro ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-800">
-                                {empresa || 'Parceiro'}
-                              </span>
-                            ) : (
-                              <span
-                                className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide text-white shadow-xs"
-                                style={{
-                                  background: 'var(--gradient-brand-purple)',
-                                  boxShadow: '0 2px 6px rgba(110, 34, 107, 0.25)',
-                                }}
-                              >
-                                Mobiltec
-                              </span>
-                            )}
+                            <span
+                              className="font-semibold text-xs leading-snug"
+                              style={{ color: 'var(--color-primary)' }}
+                            >
+                              {empresa}
+                            </span>
                             {h.responsavel?.nome && (
-                              <p className="text-[10px] text-[var(--color-muted-foreground)]">
+                              <p className="text-[10px]" style={{ color: 'var(--color-muted-foreground)' }}>
                                 Resp.: {h.responsavel.nome}
                               </p>
                             )}
@@ -341,19 +346,40 @@ export function ConfigurarDispositivos() {
                         {/* Status */}
                         <td className="px-4 py-3.5">
                           {h.status === 'APROVADO' ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border border-emerald-200/80 bg-emerald-50/90 text-emerald-700 shadow-2xs dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200/60" />
-                              Aprovado
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold select-none"
+                              style={{
+                                color: 'var(--color-success-fg, #166534)',
+                                background: 'var(--color-success-soft, #f0fdf4)',
+                                border: '1px solid rgba(22, 163, 74, 0.25)',
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              <span>Aprovado</span>
                             </span>
                           ) : h.status === 'PUBLICADO' ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border border-sky-200/80 bg-sky-50/90 text-sky-700 shadow-2xs dark:bg-sky-950/40 dark:border-sky-800/60 dark:text-sky-300">
-                              <span className="h-1.5 w-1.5 rounded-full bg-sky-500 ring-2 ring-sky-200/60" />
-                              Publicado
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold select-none"
+                              style={{
+                                color: 'var(--color-info-fg, #1e40af)',
+                                background: 'var(--color-info-soft, #eff6ff)',
+                                border: '1px solid rgba(37, 99, 235, 0.25)',
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                              <span>Publicado</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border border-red-200/80 bg-red-50/90 text-red-700 shadow-2xs dark:bg-red-950/40 dark:border-red-800/60 dark:text-red-300">
-                              <span className="h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-red-200/60" />
-                              Reprovado
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold select-none"
+                              style={{
+                                color: 'var(--color-destructive-fg, #991b1b)',
+                                background: 'var(--color-destructive-soft, #fef2f2)',
+                                border: '1px solid rgba(220, 38, 38, 0.25)',
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                              <span>Reprovado</span>
                             </span>
                           )}
                         </td>

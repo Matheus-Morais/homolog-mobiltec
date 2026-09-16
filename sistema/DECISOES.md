@@ -1086,6 +1086,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D455 | Criação dinâmica de novas baterias de testes, reordenação sequencial de blocos e remoção de subtítulo nos formulários de tipos de dispositivo | No banco (`schema.prisma` / Postgres): converte a coluna `ItemTeste.grupo` de enum estático para `text` (`String @default("TELEMETRIA")`) e adiciona `gruposOrdem String[]` e `gruposTitulos Json` na tabela `Categoria`, permitindo que novas baterias sejam adicionadas livremente sem alterar o schema relacional; no backend (`tipos-dispositivo.ts`, `matriz.ts`, `certificado.ts`): estende endpoints de criação e edição para persistir ordem e títulos customizados das baterias, ordena itens e resultados pela ordem definida pela categoria e adapta a geração do certificado oficial PDF/HTML para paginar e renderizar dinamicamente grupos extras; no frontend (`FormularioTipo.tsx`, `Matriz.tsx`, `DetalheDispositivo.tsx`, `ModalInformacoesHomologacao.tsx`, `RotuloGrupo.tsx`): remove o subtítulo explicativo sob os títulos "Registrar tipo de dispositivo" e "Editar", adiciona o botão compacto "Nova bateria" com formulário inline de título e itens, introduz seletores e botões de reordenação (▲ ▼) para os blocos e testes (inclusive o bloco Registro), e reflete dinamicamente a ordem e rótulos personalizados das baterias tanto na planilha quanto nos relatórios e menus. |
 
+---
+
+## Etapa 87 — Redesign Clean de Ambiente/Parceiro e Badges de Status na Tela Configurar Dispositivos (D456)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D456 | Remoção de flag de fundo na coluna Ambiente/Parceiro e adoção do design clean tipo 'Ativo' para os status na tela Configurar Dispositivos | Em `ConfigurarDispositivos.tsx`: remove qualquer badge/pílula/card com fundo na coluna 'Ambiente / Parceiro' (eliminando blocos escuros/âmbar e renderizando estritamente o nome do ambiente/empresa em fonte roxa oficial `var(--color-primary)` com indicação de responsável discreta abaixo); e substitui os badges de status opacos com fundo cinza-esverdeado (tanto no resumo métrico do cabeçalho quanto na coluna 'Status') pelo design clean idêntico ao componente de referência da flag 'Ativo' (pílula `rounded-full`, fundo verde ultraclaro `var(--color-success-soft)` `#f0fdf4`, borda suave `rgba(22, 163, 74, 0.25)`, indicador dot verde vibrante `bg-emerald-500` e tipografia nítida semibold em verde esmeralda `var(--color-success-fg)` `#166534`, além de variantes correspondentes para Publicado e Reprovado). |
+
 
 
 
