@@ -1070,6 +1070,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D453 | Inclusão de dispositivos da categoria PoS para o ambiente TNS e redesign da modal de testes com cards por grupo temático, cabeçalhos roxos e status em linha única | Em `parceiros.ts` (`montarDadosPainel`): restaura a associação da categoria PoS (`categoria: { slug: 'pos' }`) e o fallback de homologações para parceiros do ambiente TNS (`empresa: 'TNS'/'TNSI'` ou `email: 'hgomes@tnsi.com'`), garantindo que administradores visualizem os 31 dispositivos PoS no painel do parceiro TNS sem comprometer o isolamento estrito de parceiros mono-empresa (como 'Teste'); e em `ModalInformacoesHomologacao.tsx`: elimina o card estático "Bateria de Testes", agrupando dinamicamente os itens por categoria temática (Telemetria, Coleta, etc.) com cabeçalho em roxo oficial (`var(--color-primary)` com texto branco), cabeçalho de colunas com cinza mais escuro contrastante (`bg-slate-200 border-slate-300` com tipografia em negrito), e formatação compacta do badge de status com `whitespace-nowrap` e `leading-none`, impedindo que "Não Testado" quebre em múltiplas linhas. |
 
+---
+
+## Etapa 85 — Isolamento Estrito do Escopo PoS Exclusivo para TNS (D454)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D454 | Restrição da exceção PoS unicamente à organização TNS, preservando isolamento estrito para os demais parceiros | Em `parceiros.ts` (`montarDadosPainel`): ajusta `ehTNS` para avaliar estritamente a identidade da empresa (`empresa: 'TNS'/'TNSI'`) ou e-mail corporativo (`@tnsi.com`), removendo a checagem aberta por `categoriasPermitidas`; assegura que os 32 dispositivos PoS do catálogo Mobiltec/TNS sejam compartilhados única e exclusivamente entre o catálogo público da Mobiltec e o ambiente TNS, garantindo que qualquer outro parceiro cadastrado (como 'Teste') visualize 100% estritamente apenas os seus próprios dispositivos sem qualquer vazamento de modelos PoS. |
+
+
 
 
 

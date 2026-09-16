@@ -300,10 +300,12 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
   const empresa = parceiro.empresa?.trim()
 
   const ehTNS =
-    empresa?.toLowerCase() === 'tns' ||
-    empresa?.toLowerCase() === 'tnsi' ||
-    parceiro.email?.toLowerCase() === 'hgomes@tnsi.com' ||
-    (Array.isArray(parceiro.categoriasPermitidas) && parceiro.categoriasPermitidas.includes('pos'))
+    Boolean(empresa && (empresa.toLowerCase() === 'tns' || empresa.toLowerCase() === 'tnsi')) ||
+    Boolean(
+      parceiro.email &&
+        (parceiro.email.toLowerCase() === 'hgomes@tnsi.com' ||
+          parceiro.email.toLowerCase().endsWith('@tnsi.com')),
+    )
 
   // Escopo estrito do parceiro:
   // Dispositivos cadastrados pela empresa do parceiro, com fabricante igual à empresa,
