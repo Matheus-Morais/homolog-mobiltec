@@ -171,6 +171,20 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: [{ grupo: 'asc' }, { ordem: 'asc' }],
     })
 
+    const gruposOrdemMap = new Map<string, number>()
+    if (categoria.gruposOrdem && categoria.gruposOrdem.length > 0) {
+      categoria.gruposOrdem.forEach((g, idx) => gruposOrdemMap.set(g, idx))
+    } else {
+      ;['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS'].forEach((g, idx) => gruposOrdemMap.set(g, idx))
+    }
+
+    itens.sort((a, b) => {
+      const gA = gruposOrdemMap.has(a.grupo) ? gruposOrdemMap.get(a.grupo)! : 999
+      const gB = gruposOrdemMap.has(b.grupo) ? gruposOrdemMap.get(b.grupo)! : 999
+      if (gA !== gB) return gA - gB
+      return a.ordem - b.ordem
+    })
+
     // Os resultados acompanham as linhas: se sobrasse resultado de item fora
     // da bateria, ele contaria no medidor de divergências e no checklist de
     // finalizar sem ter linha onde ser resolvido.

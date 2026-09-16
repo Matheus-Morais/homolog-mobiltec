@@ -14,7 +14,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { GrupoItem, StatusResultado } from '@prisma/client'
+import { StatusResultado } from '@prisma/client'
 import { FUNDO_CERTIFICADO_DATA_URI } from '../assets/fundoBase64.js'
 
 // ------------------------------------------------------------
@@ -159,10 +159,10 @@ const exigeJustificativaCert = (s: StatusResultado) => STATUS_DIVERGENTES.includ
 /** Status que geram uma entrada em "Análise das Divergências" (spec §5) */
 const STATUS_DIVERGENTES: StatusResultado[] = ['FALHA', 'NAO_SUPORTADO', 'COM_RESSALVA']
 
-const ORDEM_GRUPOS: GrupoItem[] = ['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS']
+const ORDEM_GRUPOS: string[] = ['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS']
 
 /** Título e cabeçalhos de coluna por grupo, como no template original */
-const CABECALHO_GRUPO: Record<GrupoItem, { titulo: string; colunas: [string, string, string] }> = {
+const CABECALHO_GRUPO: Record<string, { titulo: string; colunas: [string, string, string] }> = {
   TELEMETRIA: {
     titulo: 'Telemetria e Monitoramento',
     colunas: ['Item de Teste', 'Ação Realizada', 'Status'],
@@ -179,6 +179,22 @@ const CABECALHO_GRUPO: Record<GrupoItem, { titulo: string; colunas: [string, str
     titulo: 'Perfis e Políticas MDM',
     colunas: ['Política', 'Restrição Aplicada', 'Status'],
   },
+}
+
+function getCabecalhoGrupo(
+  grupo: string,
+  titulosCustomizados?: Record<string, string>,
+): { titulo: string; colunas: [string, string, string] } {
+  if (titulosCustomizados && titulosCustomizados[grupo]) {
+    return { titulo: titulosCustomizados[grupo], colunas: ['Item de Teste', 'Ação Realizada', 'Status'] }
+  }
+  if (CABECALHO_GRUPO[grupo]) {
+    return CABECALHO_GRUPO[grupo]
+  }
+  return {
+    titulo: grupo,
+    colunas: ['Item de Teste', 'Ação Realizada', 'Status'],
+  }
 }
 
 // ------------------------------------------------------------
@@ -205,7 +221,7 @@ interface ItemRenderizado {
 }
 
 interface BlocoGrupo {
-  grupo: GrupoItem
+  grupo: string
   itens: ItemRenderizado[]
   /** true quando o grupo continua de uma página anterior */
   continuacao: boolean
@@ -216,7 +232,7 @@ interface BlocoGrupo {
  * páginas; quando isso acontece, o título dele se repete na página seguinte —
  * é o que o template original faz com "Coleta de Informações".
  */
-function paginarMatriz(grupos: { grupo: GrupoItem; itens: ItemRenderizado[] }[]): BlocoGrupo[][] {
+function paginarMatriz(grupos: { grupo: string; itens: ItemRenderizado[] }[]): BlocoGrupo[][] {
   const paginas: BlocoGrupo[][] = []
   let paginaAtual: BlocoGrupo[] = []
   let disponivel = ALTURA_UTIL - ALTURA_ABERTURA
@@ -276,8 +292,8 @@ interface Divergencia {
  */
 function montarDivergencias(
   resultados: ResultadoCertificado[],
-): { grupo: GrupoItem; divergencias: Divergencia[] }[] {
-  const porGrupo = new Map<GrupoItem, Map<string, Divergencia>>()
+): { grupo: string; divergencias: Divergencia[] }[] {
+  const porGrupo = new Map<string, Map<string, Divergencia>>()
 
   for (const r of resultados) {
     if (!STATUS_DIVERGENTES.includes(r.status)) continue
@@ -304,7 +320,12 @@ function montarDivergencias(
     porGrupo.set(r.item.grupo, doGrupo)
   }
 
-  return ORDEM_GRUPOS.filter((g) => porGrupo.has(g)).map((g) => ({
+  const ordem = [...ORDEM_GRUPOS]
+  for (const g of porGrupo.keys()) {
+    if (!ordem.includes(g)) ordem.push(g)
+  }
+
+  return ordem.filter((g) => porGrupo.has(g)).map((g) => ({
     grupo: g,
     divergencias: [...porGrupo.get(g)!.values()],
   }))
@@ -426,7 +447,7 @@ export interface ResultadoCertificado {
   status: StatusResultado
   justificativaId: string | null
   justificativaTexto: string | null
-  item: { nome: string; descricaoAcao: string; grupo: GrupoItem; ordem: number }
+  item: { nome: string; descricaoAcao: string; grupo: string; ordem: number }
   justificativa: { titulo: string; texto: string; fontes: unknown } | null
 }
 
@@ -507,9 +528,31 @@ export function gerarCertificadoHtml(
       ? `<button class="editar" data-tipo="${esc(tipo)}" data-chave="${esc(chave)}" title="Editar este texto">✎</button>`
       : ''
 
+  const cat = (h.dispositivo as any)?.categoria
+  const titulosCustomizados: Record<string, string> = (cat?.gruposTitulos as Record<string, string>) || {}
+  const gruposOrdemCat: string[] = (cat?.gruposOrdem as string[]) || []
+
+  const gruposEncontrados = new Set(h.resultados.map((r) => r.item.grupo))
+  const ordemDesejada: string[] = []
+  for (const g of gruposOrdemCat) {
+    if (gruposEncontrados.has(g)) {
+      ordemDesejada.push(g)
+      gruposEncontrados.delete(g)
+    }
+  }
+  for (const g of ORDEM_GRUPOS) {
+    if (gruposEncontrados.has(g)) {
+      ordemDesejada.push(g)
+      gruposEncontrados.delete(g)
+    }
+  }
+  for (const g of gruposEncontrados) {
+    ordemDesejada.push(g)
+  }
+
   // A matriz traz TODOS os itens da bateria, preenchidos ou não — o documento
   // sempre segue a estrutura completa do modelo base.
-  const gruposMatriz = ORDEM_GRUPOS.map((g) => ({
+  const gruposMatriz = ordemDesejada.map((g) => ({
     grupo: g,
     itens: h.resultados
       .filter((r) => r.item.grupo === g)
@@ -573,7 +616,7 @@ export function gerarCertificadoHtml(
     <h2 class="titulo-centro">Matriz de Resultados Técnicos</h2>`
 
   const tabelaGrupo = (bloco: BlocoGrupo) => {
-    const { titulo, colunas } = CABECALHO_GRUPO[bloco.grupo]
+    const { titulo, colunas } = getCabecalhoGrupo(bloco.grupo, titulosCustomizados)
     const linhas = bloco.itens
       .map(
         (i) =>
@@ -621,7 +664,7 @@ export function gerarCertificadoHtml(
         } else {
           atualizados.push({
             id: `div-${Date.now()}-${x.itemIds[0]}`,
-            titulo: CABECALHO_GRUPO[d.grupo].titulo,
+            titulo: getCabecalhoGrupo(d.grupo, titulosCustomizados).titulo,
             subtitulo: nomes,
             texto: x.texto,
           })
@@ -654,7 +697,7 @@ export function gerarCertificadoHtml(
   } else if (divergencias.length > 0) {
     let ultimoTitulo = ''
     for (const d of divergencias) {
-      const tituloGrupo = CABECALHO_GRUPO[d.grupo].titulo
+      const tituloGrupo = getCabecalhoGrupo(d.grupo, titulosCustomizados).titulo
       for (const x of d.divergencias) {
         itensDivergencia.push({
           titulo: tituloGrupo,

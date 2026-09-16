@@ -30,12 +30,12 @@ import {
   ehSomenteLeitura,
   exigeJustificativa,
   linhasDaFicha,
+  obterRotuloGrupo,
   versaoAndroidNumero,
 } from '@/lib/tipos'
 import type {
   BateriaTeste,
   ColunaMatriz,
-  GrupoItem,
   ItemTeste,
   StatusResultado,
 } from '@/lib/tipos'
@@ -93,16 +93,7 @@ const ALTURA_ACAO = 'h-6'
  * Um tipo registrado pelo técnico pode não ter item nenhum num tópico — nesse
  * caso a seção some do menu em vez de abrir uma planilha vazia.
  */
-const SECOES = [
-  { chave: 'registro', rotulo: 'Registro' },
-  { chave: 'TELEMETRIA', rotulo: 'Monitoramento' },
-  { chave: 'COLETA', rotulo: 'Informações' },
-  { chave: 'COMANDOS', rotulo: 'Comandos' },
-  { chave: 'PERFIS', rotulo: 'Perfil' },
-  { chave: 'todos', rotulo: 'Todos' },
-] as const
-
-type Secao = (typeof SECOES)[number]['chave']
+type Secao = string
 
 const ROTULO_FILTRO_LINHAS: Record<FiltroLinhas, string> = {
   todas: 'Todos os itens',
@@ -195,12 +186,40 @@ export function Matriz() {
    */
   const linhasFicha = useMemo(() => linhasDaFicha(data?.categoria.camposFicha), [data])
 
-  /** Só as seções que têm linhas aqui — um tipo pode não usar todos os tópicos */
+  /** Só as seções que têm linhas aqui — na ordem da categoria ou padrão, com suporte a novas baterias */
   const secoesVisiveis = useMemo(() => {
     const comItens = new Set((data?.itens ?? []).map((i) => i.grupo))
-    return SECOES.filter(
-      (s) => s.chave === 'registro' || s.chave === 'todos' || comItens.has(s.chave as GrupoItem),
-    )
+    const ordemGrupos = (data?.categoria.gruposOrdem && data.categoria.gruposOrdem.length > 0)
+      ? data.categoria.gruposOrdem
+      : GRUPO_ORDEM
+
+    const lista: { chave: string; rotulo: string }[] = []
+    
+    // Se "REGISTRO" faz parte da ordem definida pelo usuário
+    const temRegistroNaOrdem = ordemGrupos.includes('REGISTRO')
+    if (!temRegistroNaOrdem) {
+      lista.push({ chave: 'registro', rotulo: 'Registro' })
+    }
+
+    for (const g of ordemGrupos) {
+      if (g === 'REGISTRO') {
+        lista.push({ chave: 'registro', rotulo: 'Registro' })
+      } else if (comItens.has(g)) {
+        const rotulo = data?.categoria.gruposTitulos?.[g] ?? obterRotuloGrupo(g)
+        lista.push({ chave: g, rotulo })
+      }
+    }
+
+    // Grupos com itens não previstos no array de ordem
+    for (const g of comItens) {
+      if (!ordemGrupos.includes(g) && g !== 'REGISTRO') {
+        const rotulo = data?.categoria.gruposTitulos?.[g] ?? obterRotuloGrupo(g)
+        lista.push({ chave: g, rotulo })
+      }
+    }
+
+    lista.push({ chave: 'todos', rotulo: 'Todos' })
+    return lista
   }, [data])
 
   /** Quantos modelos já passaram por reteste — rótulo do botão */
@@ -274,10 +293,10 @@ export function Matriz() {
     return contagem
   }, [colunasVisiveis])
 
-  // Itens agrupados, na ordem do certificado
+  // Itens agrupados, na ordem do certificado / categoria
   const grupos = useMemo(() => {
     if (!data) return []
-    const porGrupo = new Map<GrupoItem, ItemTeste[]>()
+    const porGrupo = new Map<string, ItemTeste[]>()
     for (const item of data.itens) {
       const lista = porGrupo.get(item.grupo) ?? []
       lista.push(item)
@@ -301,8 +320,22 @@ export function Matriz() {
       })
     }
 
-    return GRUPO_ORDEM.filter((g) => porGrupo.has(g))
-      .map((g) => ({ grupo: g, itens: (porGrupo.get(g) ?? []).filter(linhaPassa) }))
+    const ordemGrupos = (data.categoria.gruposOrdem && data.categoria.gruposOrdem.length > 0)
+      ? data.categoria.gruposOrdem.filter((g) => g !== 'REGISTRO')
+      : GRUPO_ORDEM
+
+    const todosGrupos = [
+      ...ordemGrupos,
+      ...Array.from(porGrupo.keys()).filter((g) => !ordemGrupos.includes(g)),
+    ]
+
+    return todosGrupos
+      .filter((g) => porGrupo.has(g))
+      .map((g) => ({
+        grupo: g,
+        titulo: data.categoria.gruposTitulos?.[g],
+        itens: (porGrupo.get(g) ?? []).filter(linhaPassa),
+      }))
       .filter((g) => g.itens.length > 0)
   }, [data, filtroLinhas, colunasVisiveis])
 
@@ -872,7 +905,7 @@ export function Matriz() {
                         {/* `height: 100%` não resolve dentro de td com rowspan — mas a
                             célula é sticky, logo é bloco de contenção: inset-0 preenche. */}
                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                          <RotuloGrupo grupo={grupo} />
+                          <RotuloGrupo grupo={grupo} titulo={data?.categoria.gruposTitulos?.[grupo]} />
                         </div>
                       </td>
                     )}

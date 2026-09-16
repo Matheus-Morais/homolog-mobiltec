@@ -8,33 +8,33 @@ import {
   type TipoDispositivo,
 } from '@/hooks/useTipoDispositivo'
 import { Icone, ICONES_TIPO, type NomeIcone } from '@/componentes/Icone'
-import { FICHA_FIXA, GRUPO_ORDEM, LINHAS_FICHA, ROTULO_GRUPO } from '@/lib/tipos'
-import type { ChaveFicha, GrupoItem, ItemTeste } from '@/lib/tipos'
+import { FICHA_FIXA, LINHAS_FICHA } from '@/lib/tipos'
+import type { ChaveFicha, ItemTeste } from '@/lib/tipos'
 
 /** Item escrito na hora pelo técnico, ainda sem id no banco */
 interface ItemNovo {
   /** Chave local só para a lista do formulário */
   chave: string
-  grupo: GrupoItem
+  grupo: string
   nome: string
   descricaoAcao: string
 }
 
+interface BateriaConfig {
+  chave: string
+  titulo: string
+  customizada: boolean
+}
+
+const BATERIAS_PADRAO: BateriaConfig[] = [
+  { chave: 'TELEMETRIA', titulo: 'Telemetria e Monitoramento', customizada: false },
+  { chave: 'COLETA', titulo: 'Coleta de Informações', customizada: false },
+  { chave: 'COMANDOS', titulo: 'Comandos Remotos', customizada: false },
+  { chave: 'PERFIS', titulo: 'Perfis e Políticas MDM', customizada: false },
+]
+
 /**
  * O formulário de um tipo de dispositivo — o mesmo para criar e para editar.
- *
- * A planilha de homologação sempre teve a mesma forma — ficha em cima, quatro
- * tópicos de teste embaixo — mas o conteúdo era fixo no banco: três tipos,
- * todos herdando as mesmas 48 linhas. Aqui o técnico monta o seu: escolhe as
- * linhas da ficha que fazem sentido (impressora não tem IMEI), marca item a
- * item o que vai ser testado em cada tópico e, se faltar alguma coisa, escreve
- * o item e diz a que tópico ele pertence.
- *
- * O que sai daqui é uma categoria com bateria própria. Só os modelos
- * cadastrados neste tipo herdam essa bateria — os outros tipos não são tocados.
- *
- * Criar e editar são os mesmos campos; mantê-los em dois componentes garantiria
- * que um dia divergissem. O que muda é o destino e o que acontece depois.
  */
 export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
   const navegar = useNavigate()
@@ -46,6 +46,155 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
   const [nome, setNome] = useState(tipo?.nome ?? '')
   const [icone, setIcone] = useState<NomeIcone>((tipo?.icone as NomeIcone) ?? 'credit-card')
   const [erro, setErro] = useState<string | null>(null)
+
+  // Gestão de títulos amigáveis das baterias (padrões e novas)
+  const [bateriasTitulos, setBateriasTitulos] = useState<Record<string, string>>(() => {
+    const mapa: Record<string, string> = {
+      TELEMETRIA: 'Telemetria e Monitoramento',
+      COLETA: 'Coleta de Informações',
+      COMANDOS: 'Comandos Remotos',
+      PERFIS: 'Perfis e Políticas MDM',
+    }
+    if (tipo?.gruposTitulos) {
+      Object.assign(mapa, tipo.gruposTitulos)
+    }
+    return mapa
+  })
+
+  // Baterias adicionadas dinamicamente
+  const [bateriasExtras, setBateriasExtras] = useState<BateriaConfig[]>(() => {
+    if (!tipo) return []
+    const chavesPadrao = new Set(['REGISTRO', 'TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS'])
+    const extras: BateriaConfig[] = []
+    const chavesSalvas = new Set([
+      ...(tipo.gruposOrdem ?? []).filter((c) => !chavesPadrao.has(c)),
+      ...Object.keys(tipo.gruposTitulos ?? {}).filter((c) => !chavesPadrao.has(c)),
+    ])
+    for (const k of chavesSalvas) {
+      extras.push({
+        chave: k,
+        titulo: tipo.gruposTitulos?.[k] ?? k,
+        customizada: true,
+      })
+    }
+    return extras
+  })
+
+  // Ordenação dos blocos: Registro e cada Bateria de testes
+  const [ordemBlocos, setOrdemBlocos] = useState<string[]>(() => {
+    const padraoInicial = ['REGISTRO', 'TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS']
+    if (!tipo?.gruposOrdem || tipo.gruposOrdem.length === 0) {
+      return padraoInicial
+    }
+    const lista = [...tipo.gruposOrdem]
+    if (!lista.includes('REGISTRO')) {
+      lista.unshift('REGISTRO')
+    }
+    for (const b of ['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS']) {
+      if (!lista.includes(b)) lista.push(b)
+    }
+    return lista
+  })
+
+  // Sincroniza grupos extras ao carregar itens do catálogo
+  const todasBaterias = useMemo(() => {
+    const conhecidas = new Set<string>()
+    const lista: BateriaConfig[] = []
+
+    for (const b of BATERIAS_PADRAO) {
+      conhecidas.add(b.chave)
+      lista.push({ ...b, titulo: bateriasTitulos[b.chave] ?? b.titulo })
+    }
+
+    for (const b of bateriasExtras) {
+      if (!conhecidas.has(b.chave)) {
+        conhecidas.add(b.chave)
+        lista.push({ ...b, titulo: bateriasTitulos[b.chave] ?? b.titulo })
+      }
+    }
+
+    for (const it of catalogo ?? []) {
+      if (it.grupo && !conhecidas.has(it.grupo)) {
+        conhecidas.add(it.grupo)
+        lista.push({
+          chave: it.grupo,
+          titulo: bateriasTitulos[it.grupo] ?? it.grupo,
+          customizada: true,
+        })
+      }
+    }
+
+    return lista
+  }, [bateriasTitulos, bateriasExtras, catalogo])
+
+  // Formulário rápido para adicionar nova bateria
+  const [criandoNovaBateria, setCriandoNovaBateria] = useState(false)
+  const [tituloNovaBateria, setTituloNovaBateria] = useState('')
+
+  function salvarNovaBateria() {
+    const t = tituloNovaBateria.trim()
+    if (!t) return
+    const chave = `bateria_${Date.now()}`
+    setBateriasTitulos((prev) => ({ ...prev, [chave]: t }))
+    setBateriasExtras((prev) => [...prev, { chave, titulo: t, customizada: true }])
+    setOrdemBlocos((prev) => [...prev, chave])
+    setTituloNovaBateria('')
+    setCriandoNovaBateria(false)
+  }
+
+  function cancelarNovaBateria() {
+    setTituloNovaBateria('')
+    setCriandoNovaBateria(false)
+  }
+
+  function removerBateria(chave: string) {
+    setBateriasExtras((prev) => prev.filter((b) => b.chave !== chave))
+    setOrdemBlocos((prev) => prev.filter((k) => k !== chave))
+    setNovos((prev) => prev.filter((n) => n.grupo !== chave))
+    setMarcados((atual) => {
+      const proximo = new Set(atual ?? (catalogo ?? []).map((i) => i.id))
+      for (const item of porGrupo.get(chave) ?? []) {
+        proximo.delete(item.id)
+      }
+      return proximo
+    })
+  }
+
+  function moverOrdem(chave: string, novaPosicao: number) {
+    setOrdemBlocos((prev) => {
+      const atualIdx = prev.indexOf(chave)
+      if (atualIdx === -1) return prev
+      const proximo = [...prev]
+      proximo.splice(atualIdx, 1)
+      const pos = Math.max(0, Math.min(novaPosicao - 1, proximo.length))
+      proximo.splice(pos, 0, chave)
+      return proximo
+    })
+  }
+
+  function subirOrdem(chave: string) {
+    setOrdemBlocos((prev) => {
+      const idx = prev.indexOf(chave)
+      if (idx <= 0) return prev
+      const proximo = [...prev]
+      const temp = proximo[idx - 1]
+      proximo[idx - 1] = proximo[idx]
+      proximo[idx] = temp
+      return proximo
+    })
+  }
+
+  function descerOrdem(chave: string) {
+    setOrdemBlocos((prev) => {
+      const idx = prev.indexOf(chave)
+      if (idx === -1 || idx >= prev.length - 1) return prev
+      const proximo = [...prev]
+      const temp = proximo[idx + 1]
+      proximo[idx + 1] = proximo[idx]
+      proximo[idx] = temp
+      return proximo
+    })
+  }
 
   // Criando, tudo marcado: os tipos que existem usam a ficha inteira e as 48
   // linhas de teste, então o caminho curto é partir desse padrão e tirar o que
@@ -96,13 +245,16 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
     Map<string, { nome: string; descricaoAcao: string }>
   >(new Map())
 
-  /** Itens do catálogo agrupados por tópico */
+  /** Itens do catálogo agrupados por tópico/bateria */
   const porGrupo = useMemo(() => {
-    const mapa = new Map<GrupoItem, ItemTeste[]>()
-    for (const g of GRUPO_ORDEM) mapa.set(g, [])
-    for (const item of catalogo ?? []) mapa.get(item.grupo)?.push(item)
+    const mapa = new Map<string, ItemTeste[]>()
+    for (const b of todasBaterias) mapa.set(b.chave, [])
+    for (const item of catalogo ?? []) {
+      if (!mapa.has(item.grupo)) mapa.set(item.grupo, [])
+      mapa.get(item.grupo)?.push(item)
+    }
     return mapa
-  }, [catalogo])
+  }, [catalogo, todasBaterias])
 
   // `marcados` nasce nulo porque o catálogo chega depois da primeira pintura;
   // até lá, "todos marcados" é o conjunto inteiro que acabou de carregar.
@@ -164,7 +316,7 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
     setMarcados(proximo)
   }
 
-  function definirGrupo(grupo: GrupoItem, ligado: boolean) {
+  function definirGrupo(grupo: string, ligado: boolean) {
     const proximo = new Set(selecionados)
     for (const item of porGrupo.get(grupo) ?? []) {
       if (ligado) proximo.add(item.id)
@@ -196,7 +348,7 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
     }
   }
 
-  function excluirFlagadosGrupo(grupo: GrupoItem) {
+  function excluirFlagadosGrupo(grupo: string) {
     setMarcados((atual) => {
       const proximo = new Set(atual ?? (catalogo ?? []).map((i) => i.id))
       for (const item of porGrupo.get(grupo) ?? []) {
@@ -232,6 +384,8 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
       camposFicha: todasLinhasRegistro
         .map((l) => l.chave)
         .filter((c) => campos.has(c) || FICHA_FIXA.includes(c as ChaveFicha)),
+      gruposOrdem: ordemBlocos,
+      gruposTitulos: bateriasTitulos,
       itensExistentes: itensExistentesFinais,
       itensNovos: novos.map(({ grupo, nome, descricaoAcao }) => ({ grupo, nome, descricaoAcao })),
       itensEditados: itensEditadosFinais,
@@ -262,6 +416,16 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
   const salvando = registrar.isPending || editar.isPending
   const podeEnviar = nome.trim().length >= 2 && totalItens > 0 && !salvando
 
+  const totalOrdens = ordemBlocos.length
+
+  const bateriasOrdenadas = useMemo(() => {
+    return [...todasBaterias].sort((a, b) => {
+      const idxA = ordemBlocos.indexOf(a.chave)
+      const idxB = ordemBlocos.indexOf(b.chave)
+      return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB)
+    })
+  }, [todasBaterias, ordemBlocos])
+
   return (
     <form onSubmit={enviar} className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto px-8 py-6">
@@ -270,22 +434,6 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
             <h2 className="text-lg font-semibold">
               {editando ? `Editar "${tipo.nome}"` : 'Registrar tipo de dispositivo'}
             </h2>
-            <p className="mt-1 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
-              {editando ? (
-                <>
-                  As homologações ainda abertas deste tipo acompanham a bateria: item marcado agora
-                  nasce pendente nelas, item desmarcado sai — mas o que já foi avaliado fica.
-                  Homologação finalizada não é tocada, e o endereço da planilha (
-                  <code>/matriz/{tipo.slug}</code>) não muda com o nome.
-                </>
-              ) : (
-                <>
-                  O tipo entra no menu à esquerda com a planilha dele. A forma é sempre a mesma —
-                  ficha em cima, os quatro tópicos de teste embaixo —; o que muda é o que você marca
-                  aqui, e só os modelos cadastrados neste tipo herdam essa bateria.
-                </>
-              )}
-            </p>
           </header>
 
           {/* ---------------- 1. Identidade do tipo ---------------- */}
@@ -342,6 +490,11 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
             numero={2}
             titulo="Itens do registro"
             resumo={`${totalFicha} de ${todasLinhasRegistro.length} linhas`}
+            ordem={ordemBlocos.indexOf('REGISTRO') + 1}
+            totalOrdens={totalOrdens}
+            aoMudarOrdem={(nova) => moverOrdem('REGISTRO', nova)}
+            aoSubir={() => subirOrdem('REGISTRO')}
+            aoDescer={() => descerOrdem('REGISTRO')}
           >
             <p className="mb-3 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
               As linhas do topo da planilha, onde fica a ficha da unidade testada. Fabricante,
@@ -463,7 +616,7 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
                         background: 'rgba(254, 242, 242, 0.8)',
                       }
                     : undefined
-                }
+                  }
               >
                 <Icone nome="lixeira" className="h-4 w-4" />
               </button>
@@ -476,10 +629,75 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
             titulo="Bateria de testes"
             resumo={`${totalItens} ${totalItens === 1 ? 'item' : 'itens'}`}
           >
-            <p className="mb-3 text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
-              Os quatro tópicos existem em todo tipo de dispositivo; o que você escolhe é o que cai
-              dentro de cada um. Faltando alguma coisa, escreva o item no tópico a que ele pertence.
-            </p>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
+                Selecione os itens a serem testados em cada bateria e defina a ordem de apresentação.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCriandoNovaBateria(true)}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-all hover:opacity-90 active:scale-95 cursor-pointer"
+                style={{ background: 'var(--gradient-brand-purple)' }}
+              >
+                <span>+</span>
+                <span>Nova bateria</span>
+              </button>
+            </div>
+
+            {criandoNovaBateria && (
+              <div
+                className="mb-4 rounded-lg border p-4 space-y-3"
+                style={{ background: 'var(--color-muted)', borderColor: 'var(--color-primary)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
+                    Cadastrar Nova Bateria de Testes
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={cancelarNovaBateria}
+                    className="text-xs hover:opacity-75 cursor-pointer"
+                    style={{ color: 'var(--color-muted-foreground)' }}
+                  >
+                    ✕ Fechar
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={tituloNovaBateria}
+                    onChange={(e) => setTituloNovaBateria(e.target.value)}
+                    placeholder="Título da bateria (ex: Testes de Rede, Comunicação, etc.)…"
+                    maxLength={60}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        salvarNovaBateria()
+                      }
+                    }}
+                    className="min-w-64 flex-1 rounded-md border bg-transparent px-3 py-1.5 text-sm"
+                    style={{ borderColor: 'var(--color-input)' }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={salvarNovaBateria}
+                    disabled={!tituloNovaBateria.trim()}
+                    className="rounded-md px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-40 transition-all cursor-pointer"
+                    style={{ background: 'var(--gradient-brand-purple)' }}
+                  >
+                    Adicionar bateria
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelarNovaBateria}
+                    className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-black/5 transition-colors cursor-pointer"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted-foreground)' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {isLoading ? (
               <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
@@ -487,24 +705,35 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
               </p>
             ) : (
               <div className="space-y-3">
-                {GRUPO_ORDEM.map((grupo) => (
-                  <PainelGrupo
-                    key={grupo}
-                    grupo={grupo}
-                    itens={porGrupo.get(grupo) ?? []}
-                    selecionados={selecionados}
-                    novos={novos.filter((n) => n.grupo === grupo)}
-                    itensEditados={itensCatalogoEditados}
-                    aoAlternar={alternarItem}
-                    aoDefinirTodos={(ligado) => definirGrupo(grupo, ligado)}
-                    aoAdicionar={(item) => setNovos((v) => [...v, item])}
-                    aoSalvarEdicao={salvarEdicaoItemTeste}
-                    aoRemoverNovo={(chave) =>
-                      setNovos((v) => v.filter((n) => n.chave !== chave))
-                    }
-                    aoExcluirFlagados={() => excluirFlagadosGrupo(grupo)}
-                  />
-                ))}
+                {bateriasOrdenadas.map((bateria) => {
+                  const ordemAtual = ordemBlocos.indexOf(bateria.chave) + 1
+                  return (
+                    <PainelGrupo
+                      key={bateria.chave}
+                      grupo={bateria.chave}
+                      titulo={bateria.titulo}
+                      ordem={ordemAtual > 0 ? ordemAtual : totalOrdens}
+                      totalOrdens={totalOrdens}
+                      customizada={bateria.customizada}
+                      itens={porGrupo.get(bateria.chave) ?? []}
+                      selecionados={selecionados}
+                      novos={novos.filter((n) => n.grupo === bateria.chave)}
+                      itensEditados={itensCatalogoEditados}
+                      aoAlternar={alternarItem}
+                      aoDefinirTodos={(ligado) => definirGrupo(bateria.chave, ligado)}
+                      aoAdicionar={(item) => setNovos((v) => [...v, item])}
+                      aoSalvarEdicao={salvarEdicaoItemTeste}
+                      aoRemoverNovo={(chave) =>
+                        setNovos((v) => v.filter((n) => n.chave !== chave))
+                      }
+                      aoExcluirFlagados={() => excluirFlagadosGrupo(bateria.chave)}
+                      aoMudarOrdem={(nova) => moverOrdem(bateria.chave, nova)}
+                      aoSubir={() => subirOrdem(bateria.chave)}
+                      aoDescer={() => descerOrdem(bateria.chave)}
+                      aoRemoverBateria={() => removerBateria(bateria.chave)}
+                    />
+                  )
+                })}
               </div>
             )}
           </Secao>
@@ -583,27 +812,81 @@ function Secao({
   numero,
   titulo,
   resumo,
+  ordem,
+  totalOrdens,
+  aoMudarOrdem,
+  aoSubir,
+  aoDescer,
   children,
 }: {
   numero: number
   titulo: string
   resumo?: string
+  ordem?: number
+  totalOrdens?: number
+  aoMudarOrdem?: (n: number) => void
+  aoSubir?: () => void
+  aoDescer?: () => void
   children: React.ReactNode
 }) {
   return (
     <section className="rounded-xl border p-5" style={{ background: 'var(--color-card)' }}>
-      <div className="mb-3 flex items-baseline gap-2">
-        <span
-          className="text-sm font-semibold"
-          style={{ color: 'var(--color-primary)' }}
-        >
-          {numero}.
-        </span>
-        <h3 className="text-sm font-semibold">{titulo}</h3>
-        {resumo && (
-          <span className="ml-auto text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-            {resumo}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <span
+            className="text-sm font-semibold"
+            style={{ color: 'var(--color-primary)' }}
+          >
+            {numero}.
           </span>
+          <h3 className="text-sm font-semibold">{titulo}</h3>
+          {resumo && (
+            <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+              {resumo}
+            </span>
+          )}
+        </div>
+        {ordem !== undefined && totalOrdens !== undefined && aoMudarOrdem && (
+          <div
+            className="flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs font-semibold"
+            style={{
+              background: 'var(--color-muted)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-foreground)',
+            }}
+          >
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Ordem:</span>
+            <select
+              value={ordem}
+              onChange={(e) => aoMudarOrdem(Number(e.target.value))}
+              className="rounded border bg-transparent px-1 py-0.5 text-xs font-bold cursor-pointer"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              {Array.from({ length: totalOrdens }, (_, i) => i + 1).map((num) => (
+                <option key={num} value={num}>
+                  {num}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={ordem === 1}
+              onClick={aoSubir}
+              title="Mover para cima"
+              className="hover:opacity-75 disabled:opacity-30 px-0.5 cursor-pointer"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              disabled={ordem === totalOrdens}
+              onClick={aoDescer}
+              title="Mover para baixo"
+              className="hover:opacity-75 disabled:opacity-30 px-0.5 cursor-pointer"
+            >
+              ▼
+            </button>
+          </div>
         )}
       </div>
       {children}
@@ -617,6 +900,10 @@ function Secao({
  */
 function PainelGrupo({
   grupo,
+  titulo,
+  ordem,
+  totalOrdens,
+  customizada,
   itens,
   selecionados,
   novos,
@@ -627,8 +914,16 @@ function PainelGrupo({
   aoSalvarEdicao,
   aoRemoverNovo,
   aoExcluirFlagados,
+  aoMudarOrdem,
+  aoSubir,
+  aoDescer,
+  aoRemoverBateria,
 }: {
-  grupo: GrupoItem
+  grupo: string
+  titulo: string
+  ordem: number
+  totalOrdens: number
+  customizada?: boolean
   itens: ItemTeste[]
   selecionados: Set<string>
   novos: ItemNovo[]
@@ -639,6 +934,10 @@ function PainelGrupo({
   aoSalvarEdicao: (idOuChave: string, ehNovo: boolean, nome: string, acao: string) => void
   aoRemoverNovo: (chave: string) => void
   aoExcluirFlagados: () => void
+  aoMudarOrdem: (n: number) => void
+  aoSubir: () => void
+  aoDescer: () => void
+  aoRemoverBateria?: () => void
 }) {
   const [nome, setNome] = useState('')
   const [acao, setAcao] = useState('')
@@ -690,13 +989,57 @@ function PainelGrupo({
         className="flex flex-wrap items-center gap-2 rounded-t-lg border-b px-3 py-2"
         style={{ background: 'var(--gradient-brand-purple)', color: '#fff' }}
       >
-        <span className="text-sm font-semibold">{ROTULO_GRUPO[grupo]}</span>
+        <div className="flex items-center gap-1.5 rounded bg-white/20 px-2 py-0.5 text-xs font-semibold text-white">
+          <span className="opacity-90">Ordem:</span>
+          <select
+            value={ordem}
+            onChange={(e) => aoMudarOrdem(Number(e.target.value))}
+            className="rounded border border-white/40 bg-transparent px-1 py-0.5 text-xs font-bold text-white cursor-pointer outline-none"
+          >
+            {Array.from({ length: totalOrdens }, (_, i) => i + 1).map((num) => (
+              <option key={num} value={num} className="text-black">
+                {num}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={ordem === 1}
+            onClick={aoSubir}
+            title="Mover para cima"
+            className="hover:opacity-75 disabled:opacity-30 px-0.5 cursor-pointer"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            disabled={ordem === totalOrdens}
+            onClick={aoDescer}
+            title="Mover para baixo"
+            className="hover:opacity-75 disabled:opacity-30 px-0.5 cursor-pointer"
+          >
+            ▼
+          </button>
+        </div>
+
+        <span className="text-sm font-semibold">{titulo}</span>
         <span className="text-xs text-white/70">
           {total} de {itens.length + novos.length}
         </span>
-        <div className="ml-auto flex gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
           <BotaoLeve marca="todos" rotulo="Todos" aoClicar={() => aoDefinirTodos(true)} />
           <BotaoLeve marca="nenhum" rotulo="Nenhum" aoClicar={() => aoDefinirTodos(false)} />
+          {customizada && aoRemoverBateria && (
+            <button
+              type="button"
+              onClick={aoRemoverBateria}
+              title={`Remover bateria "${titulo}"`}
+              className="rounded border px-2 py-0.5 text-xs text-white bg-red-500/30 hover:bg-red-500/50 transition-colors"
+              style={{ borderColor: 'rgba(255,255,255,.38)' }}
+            >
+              Excluir bateria
+            </button>
+          )}
         </div>
       </div>
 

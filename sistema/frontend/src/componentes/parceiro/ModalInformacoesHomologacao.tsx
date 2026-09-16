@@ -4,8 +4,12 @@ import { useHomologacao } from '@/hooks/useHomologacao'
 import { Icone } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { BadgeHomologado } from '@/componentes/comum/BadgeHomologado'
-import type { DispositivoPainelParceiro, StatusHomologacao, StatusResultado, GrupoItem } from '@/lib/tipos'
-import { ROTULO_GRUPO, ROTULO_GRUPO_CURTO, COLUNAS_GRUPO, GRUPO_ORDEM } from '@/lib/tipos'
+import type { DispositivoPainelParceiro, StatusHomologacao, StatusResultado } from '@/lib/tipos'
+import {
+  GRUPO_ORDEM,
+  obterColunasGrupo,
+  obterRotuloGrupoCurto,
+} from '@/lib/tipos'
 
 interface ItemObservacaoProcessada {
   id: string
@@ -335,13 +339,13 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                       className="border-b px-3 py-2.5 font-bold text-xs tracking-wider uppercase text-center text-white" 
                       style={{ background: 'var(--color-primary, #7e2065)', color: '#ffffff' }}
                     >
-                      {grupoKey === 'OUTROS' ? 'Outros' : (ROTULO_GRUPO_CURTO[grupoKey as GrupoItem] ?? ROTULO_GRUPO[grupoKey as GrupoItem] ?? grupoKey)}
+                      {grupoKey === 'OUTROS' ? 'Outros' : obterRotuloGrupoCurto(grupoKey)}
                     </div>
                     <table className="w-full text-left border-collapse text-xs">
                       <thead className="border-b border-slate-300 bg-slate-200">
                         <tr>
                           <th className="py-2 px-3 font-bold text-slate-700 text-[11px] tracking-wider uppercase w-full">
-                            {grupoKey === 'OUTROS' ? 'Item de Teste' : (COLUNAS_GRUPO[grupoKey as GrupoItem]?.[0] ?? 'Item de Teste')}
+                            {grupoKey === 'OUTROS' ? 'Item de Teste' : obterColunasGrupo(grupoKey)[0]}
                           </th>
                           <th className="py-2 px-3 font-bold text-slate-700 text-[11px] tracking-wider uppercase text-right whitespace-nowrap">Status</th>
                         </tr>

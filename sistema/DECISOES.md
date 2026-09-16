@@ -1078,6 +1078,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D454 | Restrição da exceção PoS unicamente à organização TNS, preservando isolamento estrito para os demais parceiros | Em `parceiros.ts` (`montarDadosPainel`): ajusta `ehTNS` para avaliar estritamente a identidade da empresa (`empresa: 'TNS'/'TNSI'`) ou e-mail corporativo (`@tnsi.com`), removendo a checagem aberta por `categoriasPermitidas`; assegura que os 32 dispositivos PoS do catálogo Mobiltec/TNS sejam compartilhados única e exclusivamente entre o catálogo público da Mobiltec e o ambiente TNS, garantindo que qualquer outro parceiro cadastrado (como 'Teste') visualize 100% estritamente apenas os seus próprios dispositivos sem qualquer vazamento de modelos PoS. |
 
+---
+
+## Etapa 86 — Baterias Dinâmicas de Teste, Reordenação de Blocos e Limpeza do Subtítulo no Registro/Edição de Tipos (D455)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D455 | Criação dinâmica de novas baterias de testes, reordenação sequencial de blocos e remoção de subtítulo nos formulários de tipos de dispositivo | No banco (`schema.prisma` / Postgres): converte a coluna `ItemTeste.grupo` de enum estático para `text` (`String @default("TELEMETRIA")`) e adiciona `gruposOrdem String[]` e `gruposTitulos Json` na tabela `Categoria`, permitindo que novas baterias sejam adicionadas livremente sem alterar o schema relacional; no backend (`tipos-dispositivo.ts`, `matriz.ts`, `certificado.ts`): estende endpoints de criação e edição para persistir ordem e títulos customizados das baterias, ordena itens e resultados pela ordem definida pela categoria e adapta a geração do certificado oficial PDF/HTML para paginar e renderizar dinamicamente grupos extras; no frontend (`FormularioTipo.tsx`, `Matriz.tsx`, `DetalheDispositivo.tsx`, `ModalInformacoesHomologacao.tsx`, `RotuloGrupo.tsx`): remove o subtítulo explicativo sob os títulos "Registrar tipo de dispositivo" e "Editar", adiciona o botão compacto "Nova bateria" com formulário inline de título e itens, introduz seletores e botões de reordenação (▲ ▼) para os blocos e testes (inclusive o bloco Registro), e reflete dinamicamente a ordem e rótulos personalizados das baterias tanto na planilha quanto nos relatórios e menus. |
+
 
 
 

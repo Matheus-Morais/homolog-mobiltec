@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Categoria, ChaveFicha, GrupoItem, ItemTeste } from '@/lib/tipos'
+import type { Categoria, ChaveFicha, ItemTeste } from '@/lib/tipos'
 
 /** Um tipo como a tela de manutenção o vê: com a bateria e a contagem de uso */
 export interface TipoDispositivo {
@@ -11,6 +11,8 @@ export interface TipoDispositivo {
   ordem: number
   ativo: boolean
   camposFicha: (ChaveFicha | string)[]
+  gruposOrdem?: string[]
+  gruposTitulos?: Record<string, string>
   /** Modelos ativos cadastrados neste tipo — o que impede apagar */
   dispositivos: number
   /** Ids dos itens de teste da bateria dele */
@@ -38,8 +40,10 @@ export interface PayloadTipoDispositivo {
   nome: string
   icone: string
   camposFicha: (ChaveFicha | string)[]
+  gruposOrdem?: string[]
+  gruposTitulos?: Record<string, string>
   itensExistentes: string[]
-  itensNovos: { grupo: GrupoItem; nome: string; descricaoAcao: string }[]
+  itensNovos: { grupo: string; nome: string; descricaoAcao: string; ordem?: number }[]
   itensEditados?: { id: string; nome: string; descricaoAcao?: string }[]
 }
 

@@ -13,7 +13,7 @@
  */
 import { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { GrupoItem, StatusResultado } from '@prisma/client'
+import { StatusResultado } from '@prisma/client'
 
 const GRUPOS = ['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS'] as const
 
@@ -58,6 +58,8 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       ordem: c.ordem,
       ativo: c.ativo,
       camposFicha: c.camposFicha,
+      gruposOrdem: c.gruposOrdem,
+      gruposTitulos: c.gruposTitulos as Record<string, string>,
       dispositivos: c._count.dispositivos,
       // Uma categoria tem uma bateria na prática; a união cobre as antigas,
       // que a semente podia ter deixado com mais de uma.
@@ -74,15 +76,20 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       icone: z.string().trim().min(1).max(40),
       /** Chaves de LINHAS_FICHA; vazio = a ficha inteira */
       camposFicha: z.array(z.string().min(1).max(40)).default([]),
+      /** Ordem dos tópicos/baterias configurados */
+      gruposOrdem: z.array(z.string().min(1).max(100)).default([]),
+      /** Títulos amigáveis para as baterias */
+      gruposTitulos: z.record(z.string()).default({}),
       /** Itens do catálogo que entram na bateria deste tipo */
       itensExistentes: z.array(z.string().uuid()).default([]),
       /** Itens que o técnico escreveu na hora, já alocados num tópico */
       itensNovos: z
         .array(
           z.object({
-            grupo: z.enum(GRUPOS),
+            grupo: z.string().trim().min(1).max(100),
             nome: z.string().trim().min(1).max(200),
             descricaoAcao: z.string().trim().min(1).max(500),
+            ordem: z.number().int().optional(),
           }),
         )
         .default([]),
@@ -128,15 +135,7 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Ordem dentro do grupo: o item novo entra depois do último que já existe
     // ali, para não se intercalar no meio de uma sequência conhecida.
-    const ultimaOrdem = new Map<GrupoItem, number>()
-    for (const g of GRUPOS) {
-      const u = await fastify.prisma.itemTeste.findFirst({
-        where: { grupo: g },
-        orderBy: { ordem: 'desc' },
-        select: { ordem: true },
-      })
-      ultimaOrdem.set(g, u?.ordem ?? 0)
-    }
+    const ultimaOrdem = new Map<string, number>()
 
     const criado = await fastify.prisma.$transaction(async (tx) => {
       const categoria = await tx.categoria.create({
@@ -146,6 +145,8 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
           icone: body.icone,
           ordem: (ultima?.ordem ?? 0) + 1,
           camposFicha: body.camposFicha,
+          gruposOrdem: body.gruposOrdem,
+          gruposTitulos: body.gruposTitulos,
         },
       })
 
@@ -161,14 +162,23 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
 
       const idsNovos: string[] = []
       for (const novo of body.itensNovos) {
-        const proxima = (ultimaOrdem.get(novo.grupo) ?? 0) + 1
+        let proxima = ultimaOrdem.get(novo.grupo)
+        if (proxima === undefined) {
+          const u = await tx.itemTeste.findFirst({
+            where: { grupo: novo.grupo },
+            orderBy: { ordem: 'desc' },
+            select: { ordem: true },
+          })
+          proxima = u?.ordem ?? 0
+        }
+        proxima += 1
         ultimaOrdem.set(novo.grupo, proxima)
         const item = await tx.itemTeste.create({
           data: {
             grupo: novo.grupo,
             nome: novo.nome,
             descricaoAcao: novo.descricaoAcao,
-            ordem: proxima,
+            ordem: novo.ordem ?? proxima,
           },
         })
         idsNovos.push(item.id)
@@ -210,14 +220,17 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       nome: z.string().trim().min(2).max(60).optional(),
       icone: z.string().trim().min(1).max(40).optional(),
       camposFicha: z.array(z.string().min(1).max(40)).optional(),
+      gruposOrdem: z.array(z.string().min(1).max(100)).optional(),
+      gruposTitulos: z.record(z.string()).optional(),
       ativo: z.boolean().optional(),
       itensExistentes: z.array(z.string().uuid()).optional(),
       itensNovos: z
         .array(
           z.object({
-            grupo: z.enum(GRUPOS),
+            grupo: z.string().trim().min(1).max(100),
             nome: z.string().trim().min(1).max(200),
             descricaoAcao: z.string().trim().min(1).max(500),
+            ordem: z.number().int().optional(),
           }),
         )
         .default([]),
@@ -270,6 +283,8 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
           ...(body.nome !== undefined ? { nome: body.nome } : {}),
           ...(body.icone !== undefined ? { icone: body.icone } : {}),
           ...(body.camposFicha !== undefined ? { camposFicha: body.camposFicha } : {}),
+          ...(body.gruposOrdem !== undefined ? { gruposOrdem: body.gruposOrdem } : {}),
+          ...(body.gruposTitulos !== undefined ? { gruposTitulos: body.gruposTitulos } : {}),
           ...(body.ativo !== undefined ? { ativo: body.ativo } : {}),
         },
       })
@@ -298,22 +313,28 @@ const tiposDispositivoRoutes: FastifyPluginAsync = async (fastify) => {
         bateriaId = nova.id
       }
 
-      const ultimaOrdem = new Map<GrupoItem, number>()
-      for (const g of GRUPOS) {
-        const u = await tx.itemTeste.findFirst({
-          where: { grupo: g },
-          orderBy: { ordem: 'desc' },
-          select: { ordem: true },
-        })
-        ultimaOrdem.set(g, u?.ordem ?? 0)
-      }
+      const ultimaOrdem = new Map<string, number>()
 
       const idsNovos: string[] = []
       for (const novo of body.itensNovos) {
-        const proxima = (ultimaOrdem.get(novo.grupo) ?? 0) + 1
+        let proxima = ultimaOrdem.get(novo.grupo)
+        if (proxima === undefined) {
+          const u = await tx.itemTeste.findFirst({
+            where: { grupo: novo.grupo },
+            orderBy: { ordem: 'desc' },
+            select: { ordem: true },
+          })
+          proxima = u?.ordem ?? 0
+        }
+        proxima += 1
         ultimaOrdem.set(novo.grupo, proxima)
         const item = await tx.itemTeste.create({
-          data: { grupo: novo.grupo, nome: novo.nome, descricaoAcao: novo.descricaoAcao, ordem: proxima },
+          data: {
+            grupo: novo.grupo,
+            nome: novo.nome,
+            descricaoAcao: novo.descricaoAcao,
+            ordem: novo.ordem ?? proxima,
+          },
         })
         idsNovos.push(item.id)
       }
