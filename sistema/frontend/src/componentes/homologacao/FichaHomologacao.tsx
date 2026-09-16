@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { FotoDispositivo } from '@/componentes/vitrine/FotoDispositivo'
 import { DicaJustificativa } from '@/componentes/DicaJustificativa'
 import { Icone } from '@/componentes/Icone'
+import { comporDetalhesResultado } from '@/lib/detalhesResultado'
+import type { SecaoDetalheResultado } from '@/lib/detalhesResultado'
 import {
   COLUNAS_GRUPO,
   GRUPO_ORDEM,
@@ -31,8 +33,7 @@ interface LinhaResultado {
   nome: string
   acao: string
   status: StatusResultado
-  justificativa: string | null
-  observacao: string | null
+  detalhes: SecaoDetalheResultado[]
 }
 
 /**
@@ -43,8 +44,8 @@ interface LinhaResultado {
  * duas coisas de graça.
  *
  * A coluna do status é fixa e serve de âncora à direita; as outras duas
- * ficam em `auto`, sizing por conteúdo. Com a justificativa fora da tabela
- * (virou balão no `?`), sobra largura para os quatro grupos caberem dois a
+ * ficam em `auto`, sizing por conteúdo. Com os detalhes fora da tabela
+ * (viraram balão no `?`), sobra largura para os quatro grupos caberem dois a
  * dois.
  */
 const LARGURA_STATUS = '7rem'
@@ -168,8 +169,7 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
       // A coluna do meio do certificado: o que foi feito para avaliar o item
       acao: r.item.descricaoAcao,
       status: r.status,
-      justificativa: r.justificativaTexto ?? r.justificativa?.texto ?? null,
-      observacao: r.observacao,
+      detalhes: comporDetalhesResultado(r),
     }))
 
     return GRUPO_ORDEM.map((g) => ({
@@ -203,10 +203,9 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
               {ROTULO_GRUPO[grupo]}
             </div>
 
-            {/* As mesmas três colunas do certificado. A justificativa saiu
-                da tabela e virou balão no `?` ao lado do status: ela é
-                exceção, e como coluna cobrava 38% da largura em todas as
-                linhas para servir a poucas. */}
+            {/* As mesmas três colunas do certificado. Os detalhes saíram da
+                tabela e viraram balão no `?` ao lado do status: como coluna,
+                cobravam 38% da largura em todas as linhas para servir a poucas. */}
             {/* Linhas baixas (`py-1.5`, `leading-snug`): na largura toda
                 nada quebra, então a altura do card é só a soma das linhas
                 — e são 48 itens somando os quatro grupos. */}
@@ -241,7 +240,6 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
               </thead>
               <tbody>
                 {itens.map((l) => {
-                  const nota = l.justificativa ?? l.observacao
                   return (
                     <tr key={l.nome} className="border-t align-top">
                       <td className="py-1.5 pl-4 pr-3 font-medium whitespace-nowrap">{l.nome}</td>
@@ -254,9 +252,9 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
                       <td className="py-1.5 pr-4">
                         {/* O "?" vem antes da pastilha: assim a coluna de
                             status continua terminando sempre no mesmo x,
-                            com ou sem justificativa. */}
+                            com ou sem detalhes. */}
                         <span className="flex items-center justify-end gap-1.5">
-                          {nota && <DicaJustificativa texto={nota} />}
+                          {l.detalhes.length > 0 && <DicaJustificativa secoes={l.detalhes} />}
                           <span
                             className="inline-block rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap"
                             style={{

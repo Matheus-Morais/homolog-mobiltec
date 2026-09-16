@@ -892,3 +892,12 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | D435 | Motivo da revisão obrigatório (mínimo 10 caracteres) em `AGUARDANDO_ANALISE → EM_REVISAO`, e exposto ao parceiro na matriz, na ficha e no painel via `AvisoRevisao` | O motivo já era gravado em `HistoricoStatus.motivo` desde sempre e **nunca era lido em lugar nenhum**: o dispositivo voltava para a bancada sem dizer o que ajustar, e o ciclo do Item 3 não fecharia. A exigência vale só na devolução real — `RASCUNHO → EM_REVISAO` é escala interna do "Finalizar" da Mobiltec a caminho de `APROVADO` (`ModalFinalizar`), onde não há parceiro a quem instruir |
 | D436 | A aba "Pendentes" da tela de validação passa a conter apenas `AGUARDANDO_ANALISE`; `EM_REVISAO` ganha aba própria, sem botões de aprovação | Item 3 pede que o dispositivo "volte a aparecer" para o Admin ao ser reenviado — o que pressupõe que ele saia enquanto está com o parceiro. Antes as duas situações compartilhavam a fila: o contador de pendências mentia e "Aprovar & Emitir" aparecia sobre um dispositivo que a Mobiltec nem tinha em mãos |
 | D437 | Regra global `button:not(:disabled) { cursor: pointer }` em `index.css` | Pedido do usuário (Item 2). Causa raiz: o Tailwind 4 removeu `cursor: pointer` do preflight dos botões, então o cursor só aparecia onde alguém escreveu `cursor-pointer` na classe. O botão de revisão chegou a produção com a seta do sistema e a paleta `muted-foreground`, parecendo desabilitado. A regra devolve o comportamento anterior para toda a aplicação; `:disabled` vira `not-allowed` |
+
+---
+
+## Etapa 62 — Ajustes no fluxo de revisão de dispositivos
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D438 | A custódia de `EM_REVISAO` definida na D434 também abrange a foto do dispositivo | O parceiro atribuído à homologação pode substituir a foto em `RASCUNHO` ou `EM_REVISAO`; em `AGUARDANDO_ANALISE` e nos estados finais a ação continua bloqueada na interface e com HTTP 403 na API. A autorização deve considerar o vínculo do usuário com a homologação editável do dispositivo, e não apenas a existência de qualquer homologação histórica aprovada para o mesmo modelo |
+| D439 | Observação da funcionalidade e justificativa técnica são informações independentes na ficha compartilhada | O `ResultadoHomologacao` não pode escolher uma com `justificativa ?? observacao`: quando ambas existem, deve expor as duas com rótulos distintos e manter cada observação vinculada à linha da respectiva funcionalidade, inclusive no modal “Exibir informações” do Admin |

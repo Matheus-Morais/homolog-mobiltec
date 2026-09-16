@@ -1,20 +1,24 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { ancorarMenu } from '@/lib/ancorarMenu'
+import type { SecaoDetalheResultado } from '@/lib/detalhesResultado'
 
 /**
- * Ponto de interrogação ao lado do status: passa o mouse e a justificativa
- * aparece num balão.
+ * Ponto de interrogação ao lado do status: passa o mouse e os detalhes da
+ * funcionalidade aparecem num balão.
  *
- * Ela morava numa coluna própria da tabela de resultados, que ocupava 38% da
- * largura para servir a poucas linhas — as justificativas são exceção, não
- * regra. Fora da tabela, sobra espaço para os quatro grupos caberem dois a
- * dois.
+ * Esse conteúdo morava numa coluna própria da tabela de resultados, que
+ * ocupava 38% da largura para servir a poucas linhas. Fora da tabela, sobra
+ * espaço para os quatro grupos caberem dois a dois.
  *
  * O balão é `position: fixed` pelo mesmo motivo dos menus da matriz: o card
  * do grupo tem `overflow-hidden` e recortaria um balão posicionado dentro
  * dele. `ancorarMenu` cuida de virar para cima quando não couber embaixo.
  */
-export function DicaJustificativa({ texto }: { texto: string }) {
+export function DicaJustificativa({
+  secoes,
+}: {
+  secoes: readonly SecaoDetalheResultado[]
+}) {
   const [aberto, setAberto] = useState(false)
   const [posicao, setPosicao] = useState<{ x: number; y: number } | null>(null)
   const refGatilho = useRef<HTMLButtonElement>(null)
@@ -51,7 +55,7 @@ export function DicaJustificativa({ texto }: { texto: string }) {
         type="button"
         // `button` e não `span`: assim chega pelo teclado e o balão abre no
         // foco, não só no hover.
-        aria-label="Ver justificativa"
+        aria-label="Ver detalhes da funcionalidade"
         aria-expanded={aberto}
         title=""
         onMouseEnter={abrir}
@@ -86,7 +90,14 @@ export function DicaJustificativa({ texto }: { texto: string }) {
             background: 'var(--color-brand-purple)',
           }}
         >
-          {texto}
+          <dl className="space-y-2">
+            {secoes.map((secao) => (
+              <div key={secao.rotulo}>
+                <dt className="font-semibold">{secao.rotulo}</dt>
+                <dd className="mt-0.5 whitespace-pre-wrap">{secao.texto}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       )}
     </>

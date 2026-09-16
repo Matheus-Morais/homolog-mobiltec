@@ -28,7 +28,7 @@ import { LoadingTela } from '@/componentes/LoadingTela'
 export function DetalheDispositivo() {
   const { id = '' } = useParams<{ id: string }>()
   const consulta = useHomologacao(id)
-  const { ehMobiltec, ehParceiro } = useAuth()
+  const { usuario, ehMobiltec, ehParceiro } = useAuth()
 
   const [baixando, setBaixando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
@@ -36,8 +36,14 @@ export function DetalheDispositivo() {
 
   const homologacao = consulta.data
 
+  const parceiroAtribuido =
+    ehParceiro &&
+    usuario !== null &&
+    (homologacao?.responsavelId === usuario.id || homologacao?.apoioId === usuario.id)
+  const homologacaoEditavelPeloParceiro =
+    homologacao?.status === 'RASCUNHO' || homologacao?.status === 'EM_REVISAO'
   const podeEditarFoto =
-    ehMobiltec || (ehParceiro && homologacao?.status === 'RASCUNHO' && !homologacao?.homologado)
+    ehMobiltec || (parceiroAtribuido && homologacaoEditavelPeloParceiro)
 
   // O apontamento em aberto, quando a homologação está esperando ajuste. É o
   // que diz ao parceiro o que a Mobiltec pediu (D435).
