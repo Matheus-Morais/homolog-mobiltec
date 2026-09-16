@@ -609,6 +609,14 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     const nomeDisp = homologacao.dispositivo?.nomeComercial || 'Dispositivo'
 
     try {
+      if (novoStatus === StatusHomologacao.EM_REVISAO || novoStatus === StatusHomologacao.APROVADO || novoStatus === StatusHomologacao.REPROVADO) {
+        // Ao aprovar ou solicitar revisão, encerra qualquer notificação anterior de submissão para análise
+        await fastify.prisma.notificacao.updateMany({
+          where: { homologacaoId: id, tipo: 'SUBMETIDO' },
+          data: { lida: true },
+        })
+      }
+
       if (novoStatus === StatusHomologacao.EM_REVISAO && empresaParceiro) {
         await fastify.prisma.notificacao.create({
           data: {

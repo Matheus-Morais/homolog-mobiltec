@@ -27,6 +27,7 @@ import { CelulaFicha } from '@/componentes/matriz/CelulaFicha'
 import {
   GRUPO_ORDEM,
   META_STATUS,
+  ROTULO_GRUPO,
   ehSomenteLeitura,
   exigeJustificativa,
   linhasDaFicha,
@@ -45,7 +46,7 @@ import type {
 const LARGURA_ITEM = 184
 // Largura das colunas de modelo: comporta as três ações lado a lado no cabeçalho
 const LARGURA_COLUNA = 196
-const LARGURA_RAIL = 28
+const LARGURA_RAIL = 32
 
 type FiltroLinhas = 'todas' | 'faltam' | 'divergencias' | 'sem-justificativa'
 /** '' = todas as situações */
@@ -888,61 +889,79 @@ export function Matriz() {
             {/* Corpo: um bloco por grupo, com o rail vertical da planilha */}
             {grupos
               .filter(({ grupo }) => secao === 'todos' || secao === grupo)
-              .map(({ grupo, itens }) => (
-              <tbody key={grupo} data-grupo={grupo}>
-                {itens.map((item, i) => (
-                  <tr key={item.id} data-item={item.nome}>
-                    {railVisivel && i === 0 && (
-                      <td
-                        rowSpan={itens.length}
-                        className="sticky left-0 z-10 border p-0"
-                        style={{
-                          background: GRADIENTE_RAIL_VERTICAL,
-                          borderColor: 'rgba(255,255,255,.14)',
-                          color: '#fff',
-                        }}
+              .map(({ grupo, titulo, itens }) => {
+                const nomeGrupo = (titulo || (ROTULO_GRUPO as Record<string, string>)[grupo] || grupo).trim()
+                // Altura mínima para renderizar o título completo na vertical sem corte (8px por caractere + margem)
+                const alturaNecessariaTitulo = Math.max(72, nomeGrupo.length * 8.2 + 24)
+                // Distribui essa altura entre os itens da bateria para que o layout se adapte naturalmente
+                const alturaLinha = Math.max(38, Math.ceil(alturaNecessariaTitulo / Math.max(1, itens.length)))
+
+                return (
+                  <tbody key={grupo} data-grupo={grupo}>
+                    {itens.map((item, i) => (
+                      <tr
+                        key={item.id}
+                        data-item={item.nome}
+                        style={{ height: `${alturaLinha}px` }}
                       >
-                        {/* `height: 100%` não resolve dentro de td com rowspan — mas a
-                            célula é sticky, logo é bloco de contenção: inset-0 preenche. */}
-                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                          <RotuloGrupo grupo={grupo} titulo={data?.categoria.gruposTitulos?.[grupo]} />
-                        </div>
-                      </td>
-                    )}
+                        {railVisivel && i === 0 && (
+                          <td
+                            rowSpan={itens.length}
+                            className="sticky left-0 z-10 border p-0"
+                            style={{
+                              background: GRADIENTE_RAIL_VERTICAL,
+                              borderColor: 'rgba(255,255,255,.14)',
+                              color: '#fff',
+                            }}
+                          >
+                            {/* `height: 100%` não resolve dentro de td com rowspan — mas a
+                                célula é sticky, logo é bloco de contenção: inset-0 preenche. */}
+                            <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                              <RotuloGrupo grupo={grupo} titulo={titulo} />
+                            </div>
+                          </td>
+                        )}
 
-                    <th
-                      className="sticky z-10 border px-3 py-2 text-left font-medium"
-                      style={{ left: recuoItem, background: 'var(--color-card)' }}
-                      title={item.descricaoAcao}
-                    >
-                      <span className={item.ativo ? '' : 'line-through opacity-60'}>
-                        {item.nome}
-                      </span>
-                    </th>
+                        <th
+                          className="sticky z-10 border px-3 py-2 text-left font-medium align-middle"
+                          style={{
+                            left: recuoItem,
+                            background: 'var(--color-card)',
+                            height: `${alturaLinha}px`,
+                          }}
+                          title={item.descricaoAcao}
+                        >
+                          <span className={item.ativo ? '' : 'line-through opacity-60'}>
+                            {item.nome}
+                          </span>
+                        </th>
 
-                    {colunas.map((c) => (
-                      <td key={c.homologacao.id} className="border p-0">
-                        <CelulaStatus
-                          resultado={c.homologacao.resultadosPorItem[item.id]}
-                          somenteLeitura={ehSomenteLeitura(c.homologacao.status, usuario?.papel)}
-                          aoEscolher={(s) => aplicarStatus(c, item, s)}
-                          aoAbrirObservacao={() => setObservacao({ coluna: c, item })}
-                          aoAbrirJustificativa={() =>
-                            setPainel({
-                              coluna: c,
-                              item,
-                              // Justificar não muda o status: o painel reaplica
-                              // o que já está lá, agora com a explicação junto
-                              status: c.homologacao.resultadosPorItem[item.id]?.status ?? 'FALHA',
-                            })
-                          }
-                        />
-                      </td>
+                        {colunas.map((c) => (
+                          <td
+                            key={c.homologacao.id}
+                            className="border p-0 align-middle"
+                            style={{ height: `${alturaLinha}px` }}
+                          >
+                            <CelulaStatus
+                              resultado={c.homologacao.resultadosPorItem[item.id]}
+                              somenteLeitura={ehSomenteLeitura(c.homologacao.status, usuario?.papel)}
+                              aoEscolher={(s) => aplicarStatus(c, item, s)}
+                              aoAbrirObservacao={() => setObservacao({ coluna: c, item })}
+                              aoAbrirJustificativa={() =>
+                                setPainel({
+                                  coluna: c,
+                                  item,
+                                  status: c.homologacao.resultadosPorItem[item.id]?.status ?? 'FALHA',
+                                })
+                              }
+                            />
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            ))}
+                  </tbody>
+                )
+              })}
           </table>
         </div>
       )}

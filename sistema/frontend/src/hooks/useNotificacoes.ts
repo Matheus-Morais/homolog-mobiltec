@@ -43,7 +43,24 @@ export function useMarcarTodasLidas() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => api.post<{ ok: boolean }>('/notificacoes/marcar-todas-lidas'),
-    onSuccess: () => {
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ['notificacoes'] })
+      const anterior = qc.getQueryData<RespostaNotificacoes>(['notificacoes'])
+      if (anterior) {
+        qc.setQueryData<RespostaNotificacoes>(['notificacoes'], {
+          ...anterior,
+          naoLidas: 0,
+          notificacoes: anterior.notificacoes.map((n) => ({ ...n, lida: true })),
+        })
+      }
+      return { anterior }
+    },
+    onError: (_, __, context) => {
+      if (context?.anterior) {
+        qc.setQueryData(['notificacoes'], context.anterior)
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['notificacoes'] })
     },
   })

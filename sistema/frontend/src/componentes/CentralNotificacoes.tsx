@@ -19,10 +19,33 @@ export function CentralNotificacoes() {
   const marcarLida = useMarcarNotificacaoLida()
   const marcarTodasLidas = useMarcarTodasLidas()
 
+  const [alertaVistoLocal, setAlertaVistoLocal] = useState(false)
+
   const notificacoes = data?.notificacoes ?? []
   const naoLidas = data?.naoLidas ?? 0
   const pendentesConfirmacao = data?.pendentesConfirmacao ?? 0
-  const totalAlerta = pendentesConfirmacao > 0 ? pendentesConfirmacao : naoLidas
+  const totalAlerta = alertaVistoLocal ? 0 : naoLidas
+
+  // Se surgirem novas notificações não lidas enquanto fechado, restabelece o sinalizador
+  useEffect(() => {
+    if (naoLidas > 0 && !aberto) {
+      setAlertaVistoLocal(false)
+    }
+  }, [naoLidas, aberto])
+
+  const alternarAberto = () => {
+    setAberto((v) => {
+      const proximo = !v
+      if (proximo) {
+        // Clicou no sino para abrir: a bolinha some de imediato e marca como lida
+        setAlertaVistoLocal(true)
+        if (naoLidas > 0) {
+          marcarTodasLidas.mutate()
+        }
+      }
+      return proximo
+    })
+  }
 
   // Fechar ao clicar fora ou teclar Escape
   useEffect(() => {
@@ -60,7 +83,7 @@ export function CentralNotificacoes() {
       <button
         ref={refBotao}
         type="button"
-        onClick={() => setAberto((v) => !v)}
+        onClick={alternarAberto}
         title={totalAlerta > 0 ? `${totalAlerta} aviso(s) e atualizações` : 'Notificações'}
         aria-expanded={aberto}
         aria-label="Abrir central de notificações"
@@ -72,7 +95,7 @@ export function CentralNotificacoes() {
           <span
             className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-xs"
             style={{
-              background: pendentesConfirmacao > 0 ? '#b45309' : 'var(--gradient-brand-purple)',
+              background: 'var(--gradient-brand-purple)',
             }}
           >
             {totalAlerta > 9 ? '9+' : totalAlerta}
@@ -102,17 +125,6 @@ export function CentralNotificacoes() {
                 </span>
               )}
             </div>
-
-            {naoLidas > 0 && (
-              <button
-                type="button"
-                onClick={() => marcarTodasLidas.mutate()}
-                disabled={marcarTodasLidas.isPending}
-                className="text-[11px] font-medium text-[var(--color-primary)] hover:underline cursor-pointer"
-              >
-                Marcar lidas
-              </button>
-            )}
           </div>
 
           {/* Lista de Notificações */}

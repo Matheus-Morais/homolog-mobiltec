@@ -75,6 +75,11 @@ export function useTransicaoStatus(homologacaoId: string) {
       // o que a prévia desenha e se o painel aceita edição
       qc.invalidateQueries({ queryKey: ['certificado'] })
       qc.invalidateQueries({ queryKey: ['analise-divergencias'] })
+      qc.invalidateQueries({ queryKey: ['homologacoes'] })
+      qc.invalidateQueries({ queryKey: ['notificacoes'] })
+      qc.invalidateQueries({ queryKey: ['painel-parceiro'] })
+      qc.invalidateQueries({ queryKey: ['parceiros'] })
+      qc.invalidateQueries({ queryKey: ['dispositivos'] })
     },
   })
 }

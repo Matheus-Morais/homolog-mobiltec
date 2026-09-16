@@ -147,6 +147,15 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
     setCriandoNovaBateria(false)
   }
 
+  function editarTituloBateria(chave: string, novoTitulo: string) {
+    const t = novoTitulo.trim()
+    if (!t) return
+    setBateriasTitulos((prev) => ({ ...prev, [chave]: t }))
+    setBateriasExtras((prev) =>
+      prev.map((b) => (b.chave === chave ? { ...b, titulo: t } : b)),
+    )
+  }
+
   function removerBateria(chave: string) {
     setBateriasExtras((prev) => prev.filter((b) => b.chave !== chave))
     setOrdemBlocos((prev) => prev.filter((k) => k !== chave))
@@ -730,6 +739,7 @@ export function FormularioTipo({ tipo }: { tipo?: TipoDispositivo }) {
                       aoMudarOrdem={(nova) => moverOrdem(bateria.chave, nova)}
                       aoSubir={() => subirOrdem(bateria.chave)}
                       aoDescer={() => descerOrdem(bateria.chave)}
+                      aoEditarTitulo={(novoTitulo) => editarTituloBateria(bateria.chave, novoTitulo)}
                       aoRemoverBateria={() => removerBateria(bateria.chave)}
                     />
                   )
@@ -917,6 +927,7 @@ function PainelGrupo({
   aoMudarOrdem,
   aoSubir,
   aoDescer,
+  aoEditarTitulo,
   aoRemoverBateria,
 }: {
   grupo: string
@@ -937,11 +948,14 @@ function PainelGrupo({
   aoMudarOrdem: (n: number) => void
   aoSubir: () => void
   aoDescer: () => void
+  aoEditarTitulo?: (novoTitulo: string) => void
   aoRemoverBateria?: () => void
 }) {
   const [nome, setNome] = useState('')
   const [acao, setAcao] = useState('')
   const [itemEditando, setItemEditando] = useState<{ id: string; ehNovo: boolean } | null>(null)
+  const [editandoTitulo, setEditandoTitulo] = useState(false)
+  const [tituloTemp, setTituloTemp] = useState(titulo)
 
   const marcados = itens.filter((i) => selecionados.has(i.id)).length
   const total = marcados + novos.length
@@ -1022,10 +1036,77 @@ function PainelGrupo({
           </button>
         </div>
 
-        <span className="text-sm font-semibold">{titulo}</span>
-        <span className="text-xs text-white/70">
-          {total} de {itens.length + novos.length}
-        </span>
+        {editandoTitulo ? (
+          <div className="flex items-center gap-1.5 flex-1 min-w-[220px] max-w-lg">
+            <input
+              value={tituloTemp}
+              onChange={(e) => setTituloTemp(e.target.value)}
+              maxLength={60}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  if (tituloTemp.trim()) {
+                    aoEditarTitulo?.(tituloTemp.trim())
+                    setEditandoTitulo(false)
+                  }
+                } else if (e.key === 'Escape') {
+                  setEditandoTitulo(false)
+                  setTituloTemp(titulo)
+                }
+              }}
+              className="flex-1 rounded border border-white/40 bg-white/20 px-2 py-0.5 text-xs font-semibold text-white outline-none focus:bg-white/30 focus:border-white transition-colors"
+              placeholder="Título da bateria..."
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (tituloTemp.trim()) {
+                  aoEditarTitulo?.(tituloTemp.trim())
+                  setEditandoTitulo(false)
+                }
+              }}
+              disabled={!tituloTemp.trim()}
+              title="Salvar novo título"
+              className="rounded bg-emerald-600 hover:bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white transition-colors cursor-pointer disabled:opacity-40"
+            >
+              ✓
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditandoTitulo(false)
+                setTituloTemp(titulo)
+              }}
+              title="Cancelar edição"
+              className="rounded bg-white/20 hover:bg-white/30 px-2 py-0.5 text-xs text-white transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm font-semibold break-words leading-tight" title={titulo}>
+              {titulo}
+            </span>
+            {aoEditarTitulo && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTituloTemp(titulo)
+                  setEditandoTitulo(true)
+                }}
+                title={`Editar título da bateria "${titulo}"`}
+                className="p-1 rounded text-white/70 hover:text-white hover:bg-white/20 transition-colors cursor-pointer shrink-0"
+              >
+                <Icone nome="lapis" className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <span className="text-xs text-white/70 shrink-0">
+              {total} de {itens.length + novos.length}
+            </span>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-1.5">
           <BotaoLeve marca="todos" rotulo="Todos" aoClicar={() => aoDefinirTodos(true)} />
           <BotaoLeve marca="nenhum" rotulo="Nenhum" aoClicar={() => aoDefinirTodos(false)} />

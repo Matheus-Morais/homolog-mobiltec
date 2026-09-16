@@ -8,6 +8,7 @@ import type { DispositivoPainelParceiro, StatusHomologacao, StatusResultado } fr
 import {
   GRUPO_ORDEM,
   obterColunasGrupo,
+  obterRotuloGrupo,
   obterRotuloGrupoCurto,
 } from '@/lib/tipos'
 
@@ -339,7 +340,7 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
                       className="border-b px-3 py-2.5 font-bold text-xs tracking-wider uppercase text-center text-white" 
                       style={{ background: 'var(--color-primary, #7e2065)', color: '#ffffff' }}
                     >
-                      {grupoKey === 'OUTROS' ? 'Outros' : obterRotuloGrupoCurto(grupoKey)}
+                      {grupoKey === 'OUTROS' ? 'Outros' : (obterRotuloGrupo(grupoKey) || obterRotuloGrupoCurto(grupoKey))}
                     </div>
                     <table className="w-full text-left border-collapse text-xs">
                       <thead className="border-b border-slate-300 bg-slate-200">

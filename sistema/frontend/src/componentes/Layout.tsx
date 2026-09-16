@@ -311,12 +311,14 @@ function MenuPaineis({
   ehParceiro,
   usuario,
   revisoesPendentes = 0,
+  homologacoesPendentes = [],
 }: {
   aberto: boolean
   ehAdmin: boolean
   ehParceiro: boolean
   usuario: any
   revisoesPendentes?: number
+  homologacoesPendentes?: any[]
 }) {
   const { pathname } = useLocation()
   const { data: parceiros = [] } = useParceiros(ehAdmin)
@@ -467,7 +469,7 @@ function MenuPaineis({
         }}
       >
         <Icone nome="painel" className="h-[18px] w-[18px] shrink-0" />
-        {!aberto && ehParceiro && revisoesPendentes > 0 && (
+        {!aberto && ((ehParceiro && revisoesPendentes > 0) || (ehAdmin && homologacoesPendentes.length > 0)) && (
           <span
             className="absolute top-1 right-1 h-2 w-2 rounded-full ring-2 shadow-xs"
             style={{ background: '#F59E0B' }}
@@ -482,6 +484,14 @@ function MenuPaineis({
                 style={{ background: '#F59E0B' }}
               >
                 {revisoesPendentes}
+              </span>
+            )}
+            {ehAdmin && homologacoesPendentes.length > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs"
+                style={{ background: 'var(--gradient-brand-purple)' }}
+              >
+                {homologacoesPendentes.length}
               </span>
             )}
             <svg
@@ -565,7 +575,15 @@ function MenuPaineis({
                     }`}
                   >
                     <span className="truncate">Parceiros</span>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {homologacoesPendentes.length > 0 && (
+                        <span
+                          className="px-1.5 py-0.2 rounded-full text-[10px] font-bold text-white"
+                          style={{ background: 'var(--gradient-brand-purple)' }}
+                        >
+                          {homologacoesPendentes.length}
+                        </span>
+                      )}
                       <svg
                         viewBox="0 0 16 16"
                         className="h-3 w-3 shrink-0 transition-transform duration-200 opacity-70"
@@ -594,22 +612,36 @@ function MenuPaineis({
                           Nenhum parceiro cadastrado
                         </span>
                       ) : (
-                        empresasParceirasUnicas.map((p) => (
-                          <NavLink
-                            key={p.empresa}
-                            to={`/paineis/parceiro/${p.id}`}
-                            className={({ isActive }) =>
-                              `btn-menu-subitem flex items-center truncate rounded-md px-2 py-1 text-[12px] font-medium leading-tight outline-none focus:outline-none focus-visible:outline-none ${
-                                isActive
-                                  ? 'bg-[var(--color-muted)] text-[var(--color-primary)] font-semibold'
-                                  : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-                              }`
-                            }
-                            title={p.empresa}
-                          >
-                            <span className="truncate">{p.empresa}</span>
-                          </NavLink>
-                        ))
+                        empresasParceirasUnicas.map((p) => {
+                          const pendenciasParceiro = homologacoesPendentes.filter((h) => {
+                            const emp = (h.responsavel?.empresa || h.dispositivo?.empresa || '').trim().toLowerCase()
+                            return emp === p.empresa.trim().toLowerCase()
+                          }).length
+
+                          return (
+                            <NavLink
+                              key={p.empresa}
+                              to={`/paineis/parceiro/${p.id}`}
+                              className={({ isActive }) =>
+                                `btn-menu-subitem flex items-center justify-between truncate rounded-md px-2 py-1 text-[12px] font-medium leading-tight outline-none focus:outline-none focus-visible:outline-none ${
+                                  isActive
+                                    ? 'bg-[var(--color-muted)] text-[var(--color-primary)] font-semibold'
+                                    : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+                                }`
+                              }
+                              title={p.empresa}
+                            >
+                              <span className="truncate">{p.empresa}</span>
+                              {pendenciasParceiro > 0 && (
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0 shadow-xs ml-1"
+                                  style={{ background: 'var(--gradient-brand-purple)' }}
+                                  title={`${pendenciasParceiro} homologação(ões) aguardando validação`}
+                                />
+                              )}
+                            </NavLink>
+                          )
+                        })
                       )}
                     </div>
                   )}
@@ -737,52 +769,10 @@ export function Layout() {
   const revisoesPendentes = ehParceiro ? (notificacoesData?.pendentesConfirmacao ?? 0) : 0
 
   const homologacoesPendentes = useMemo(() => {
-    return todasHomologacoes.filter(
-      (h) => h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO',
-    )
+    return todasHomologacoes.filter((h) => h.status === 'AGUARDANDO_ANALISE')
   }, [todasHomologacoes])
 
-  const CHAVE_VISTOS = 'homolog.validacao-vistos'
-  const [vistosIds, setVistosIds] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem(CHAVE_VISTOS)
-      return raw ? JSON.parse(raw) : []
-    } catch {
-      return []
-    }
-  })
-
-  // Se o admin acessar a rota de validação de certificados, marca todas as pendências atuais como vistas
-  useEffect(() => {
-    if (pathname === '/parceiros/validar-certificados' && homologacoesPendentes.length > 0) {
-      const idsAtuais = homologacoesPendentes.map((h) => h.id)
-      const todosJaVistos = idsAtuais.every((id) => vistosIds.includes(id))
-      if (!todosJaVistos) {
-        const novoConjunto = Array.from(new Set([...vistosIds, ...idsAtuais]))
-        setVistosIds(novoConjunto)
-        try {
-          localStorage.setItem(CHAVE_VISTOS, JSON.stringify(novoConjunto))
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-  }, [pathname, homologacoesPendentes, vistosIds])
-
-  function marcarPendenciasVistas() {
-    const idsAtuais = homologacoesPendentes.map((h) => h.id)
-    const novoConjunto = Array.from(new Set([...vistosIds, ...idsAtuais]))
-    setVistosIds(novoConjunto)
-    try {
-      localStorage.setItem(CHAVE_VISTOS, JSON.stringify(novoConjunto))
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const totalPendentes = ehAdmin
-    ? homologacoesPendentes.filter((h) => !vistosIds.includes(h.id)).length
-    : 0
+  const totalPendentes = ehAdmin ? homologacoesPendentes.length : 0
 
   const [aberto, setAberto] = useState(() => {
     try {
@@ -922,6 +912,7 @@ export function Layout() {
               ehParceiro={ehParceiro}
               usuario={usuario}
               revisoesPendentes={revisoesPendentes}
+              homologacoesPendentes={homologacoesPendentes}
             />
 
             {/* Menu Homologações — os dispositivos registrados ficam aqui */}
@@ -970,11 +961,6 @@ export function Layout() {
                     filhos={opcoesParceiros}
                     aberto={aberto}
                     totalPendentes={totalPendentes}
-                    aoClicarItem={(f) => {
-                      if (f.para.includes('validar-certificados')) {
-                        marcarPendenciasVistas()
-                      }
-                    }}
                   />
                 )}
               </div>

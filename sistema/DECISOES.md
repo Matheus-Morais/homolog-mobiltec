@@ -1094,6 +1094,23 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D456 | Remoção de flag de fundo na coluna Ambiente/Parceiro e adoção do design clean tipo 'Ativo' para os status na tela Configurar Dispositivos | Em `ConfigurarDispositivos.tsx`: remove qualquer badge/pílula/card com fundo na coluna 'Ambiente / Parceiro' (eliminando blocos escuros/âmbar e renderizando estritamente o nome do ambiente/empresa em fonte roxa oficial `var(--color-primary)` com indicação de responsável discreta abaixo); e substitui os badges de status opacos com fundo cinza-esverdeado (tanto no resumo métrico do cabeçalho quanto na coluna 'Status') pelo design clean idêntico ao componente de referência da flag 'Ativo' (pílula `rounded-full`, fundo verde ultraclaro `var(--color-success-soft)` `#f0fdf4`, borda suave `rgba(22, 163, 74, 0.25)`, indicador dot verde vibrante `bg-emerald-500` e tipografia nítida semibold em verde esmeralda `var(--color-success-fg)` `#166534`, além de variantes correspondentes para Publicado e Reprovado). |
 
+---
+
+## Etapa 88 — Exibição Completa de Título de Baterias e Edição de Títulos Existentes (D457)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D457 | Exibição vertical integral de títulos longos em baterias com poucos itens e funcionalidade de renomeação de baterias cadastradas | Em `RotuloGrupo.tsx`: elimina o truncamento com reticências e o fallback para a sigla 'BAT', permitindo que títulos extensos de baterias sejam exibidos integralmente no rail lateral; em `Matriz.tsx`: introduz cálculo dinâmico de altura mínima de linha por grupo (`alturaNecessariaTitulo`) baseado no comprimento do título (`caracteres * 8.5px`) distribuído entre a quantidade de itens da bateria, adaptando o layout para acomodar títulos longos mesmo em baterias com apenas 1 ou 2 funcionalidades; em `FormularioTipo.tsx`: adiciona a função `editarTituloBateria` com botão de edição rápida (ícone de lápis) no cabeçalho de cada bloco de testes, permitindo ao administrador renomear títulos de baterias existentes mantendo funcionalidades e posições intactas; e em `ModalInformacoesHomologacao.tsx`: unifica a obtenção do rótulo completo via `obterRotuloGrupo`. |
+
+---
+
+## Etapa 89 — Alertas do Sino Instantâneos e Ocultação de Bolinha ao Aprovar/Revisar (D458)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D458 | Ocultação imediata do alerta no sino ao clicar, remoção do botão 'Marcar como lida' e eliminação da bolinha de validação no painel ao aprovar ou enviar para revisão até nova interação | Em `CentralNotificacoes.tsx`: ao clicar no sino, limpa o sinalizador visual instantaneamente (`alertaVistoLocal = true`) e dispara `marcarTodasLidas.mutate()`, eliminando o badge de alerta no primeiro milissegundo do clique do usuário (tanto admin quanto parceiro); remove o botão redundante 'Marcar lidas' do cabeçalho da central e preserva integralmente a ação de 'Confirmar recebimento' para notificações de revisão; em `useNotificacoes.ts`: implementa mutação otimista em `useMarcarTodasLidas` para zerar `naoLidas` imediatamente no cache TanStack Query; em `homologacoes.ts` (backend): ao transicionar uma homologação para `APROVADO`, `EM_REVISAO` ou `REPROVADO`, encerra e marca automaticamente como lida qualquer notificação anterior de `SUBMETIDO` associada; em `useHomologacao.ts`: expande o `onSuccess` de `useTransicaoStatus` para invalidar `homologacoes`, `notificacoes` e `painel-parceiro`; em `Layout.tsx`: restringe `homologacoesPendentes` estritamente a `h.status === 'AGUARDANDO_ANALISE'` (descartando `EM_REVISAO`, que fica sob custódia do parceiro), removendo a bolinha do admin no exato instante em que ele aprova ou envia para revisão, reaparecendo unicamente quando o parceiro voltar a interagir e reenviar a homologação; e em `ValidarCertificados.tsx`: ajusta as métricas e cria a aba 'Em Revisão' para separar o que aguarda validação do admin do que está sob ajuste do parceiro. |
+
+
 
 
 

@@ -7,7 +7,7 @@ import { ErroApi } from '@/lib/api'
 import { BadgeHomologado } from '@/componentes/comum/BadgeHomologado'
 import { ModalInformacoesHomologacao } from '@/componentes/parceiro/ModalInformacoesHomologacao'
 
-type AbaFiltro = 'pendentes' | 'aprovados' | 'todos'
+type AbaFiltro = 'pendentes' | 'revisao' | 'aprovados' | 'todos'
 
 export function ValidarCertificados() {
   const { data: homologacoes = [], isLoading, isError, error } = useListaHomologacoes()
@@ -24,10 +24,9 @@ export function ValidarCertificados() {
   const transicao = useTransicaoStatus(idAlvoTransicao)
 
   // Estatísticas e filtragens
-  const { pendentes, aprovados, todos, empresasParceiras } = useMemo(() => {
-    const p = homologacoes.filter(
-      (h) => h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO',
-    )
+  const { pendentes, emRevisao, aprovados, todos, empresasParceiras } = useMemo(() => {
+    const p = homologacoes.filter((h) => h.status === 'AGUARDANDO_ANALISE')
+    const rev = homologacoes.filter((h) => h.status === 'EM_REVISAO')
     const a = homologacoes.filter(
       (h) => h.status === 'APROVADO' || h.status === 'PUBLICADO',
     )
@@ -40,6 +39,7 @@ export function ValidarCertificados() {
 
     return {
       pendentes: p,
+      emRevisao: rev,
       aprovados: a,
       todos: homologacoes,
       empresasParceiras: Array.from(empresas),
@@ -49,6 +49,7 @@ export function ValidarCertificados() {
   const listaAtual = useMemo(() => {
     let base = todos
     if (aba === 'pendentes') base = pendentes
+    else if (aba === 'revisao') base = emRevisao
     else if (aba === 'aprovados') base = aprovados
 
     const termo = busca.trim().toLowerCase()
@@ -279,7 +280,18 @@ export function ValidarCertificados() {
                 background: aba === 'pendentes' ? 'var(--gradient-brand-purple)' : 'transparent',
               }}
             >
-              Pendentes ({pendentes.length})
+              Aguardando Validação ({pendentes.length})
+            </button>
+            <button
+              onClick={() => setAba('revisao')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                aba === 'revisao' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              style={{
+                background: aba === 'revisao' ? 'var(--gradient-brand-purple)' : 'transparent',
+              }}
+            >
+              Em Revisão ({emRevisao.length})
             </button>
             <button
               onClick={() => setAba('aprovados')}
@@ -343,11 +355,15 @@ export function ValidarCertificados() {
             <h3 className="text-base font-semibold" style={{ color: 'var(--color-foreground)' }}>
               {aba === 'pendentes'
                 ? 'Nenhum certificado pendente de validação'
+                : aba === 'revisao'
+                ? 'Nenhuma homologação em revisão técnica no momento'
                 : 'Nenhuma homologação encontrada'}
             </h3>
             <p className="text-xs sm:text-sm mt-1 max-w-md" style={{ color: 'var(--color-muted-foreground)' }}>
               {aba === 'pendentes'
                 ? 'Quando um parceiro finalizar a bateria de testes de um dispositivo, a solicitação aparecerá imediatamente aqui para revisão e aprovação.'
+                : aba === 'revisao'
+                ? 'Homologações devolvidas aos parceiros com solicitação de ajustes técnicos aparecerão aqui enquanto os parceiros corrigem.'
                 : 'Ajuste os filtros ou o termo de busca para visualizar outros registros.'}
             </p>
           </div>
