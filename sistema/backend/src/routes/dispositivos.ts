@@ -199,6 +199,10 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(413).send({ erro: 'Arquivo muito grande. O limite é 8 MB.' })
     }
 
+    if (arquivo.file.truncated || conteudo.length > 8 * 1024 * 1024) {
+      return reply.status(413).send({ erro: 'Arquivo muito grande. O limite é 8 MB.' })
+    }
+
     const fotoUrl = await salvarFotoDispositivo(id, extensao, conteudo, arquivo.mimetype)
 
     return fastify.prisma.dispositivo.update({
