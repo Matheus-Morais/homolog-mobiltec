@@ -76,25 +76,64 @@ export function useTransicaoStatus(homologacaoId: string) {
       // o que a prévia desenha e se o painel aceita edição
       qc.invalidateQueries({ queryKey: ['certificado'] })
       qc.invalidateQueries({ queryKey: ['analise-divergencias'] })
+      qc.invalidateQueries({ queryKey: ['homologacoes'] })
+      qc.invalidateQueries({ queryKey: ['notificacoes'] })
+      qc.invalidateQueries({ queryKey: ['painel-parceiro'] })
+      qc.invalidateQueries({ queryKey: ['parceiros'] })
+      qc.invalidateQueries({ queryKey: ['dispositivos'] })
     },
   })
 }
 
-export function useReabrir(homologacaoId: string) {
+export function useReabrir(homologacaoId?: string) {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (motivo: string) =>
-      api.post<{ mensagem: string; logId: string }>(`/homologacoes/${homologacaoId}/reabrir`, { motivo }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: chaves.homologacao(homologacaoId) })
-      qc.invalidateQueries({ queryKey: chaves.dashboard(homologacaoId) })
+    mutationFn: (param: string | { id?: string; motivo: string }) => {
+      const targetId = typeof param === 'string' ? homologacaoId : (param.id || homologacaoId)
+      const motivo = typeof param === 'string' ? param : param.motivo
+      if (!targetId) throw new Error('ID da homologação é obrigatório')
+      return api.post<{ mensagem: string; logId: string }>(`/homologacoes/${targetId}/reabrir`, { motivo })
+    },
+    onSuccess: (_, variables) => {
+      const targetId = typeof variables === 'string' ? homologacaoId : (variables.id || homologacaoId)
+      if (targetId) {
+        qc.invalidateQueries({ queryKey: chaves.homologacao(targetId) })
+        qc.invalidateQueries({ queryKey: chaves.dashboard(targetId) })
+      }
       qc.invalidateQueries({ queryKey: ['matriz'] })
-      // Aprovar congela o certificado e reabrir o descongela — os dois mudam
-      // o que a prévia desenha e se o painel aceita edição
       qc.invalidateQueries({ queryKey: ['certificado'] })
       qc.invalidateQueries({ queryKey: ['analise-divergencias'] })
+      qc.invalidateQueries({ queryKey: ['homologacoes'] })
+      qc.invalidateQueries({ queryKey: ['dispositivos'] })
+      qc.invalidateQueries({ queryKey: ['painel-parceiro'] })
+      qc.invalidateQueries({ queryKey: ['parceiros'] })
+      qc.invalidateQueries({ queryKey: ['homologacoes-finalizadas'] })
     },
+  })
+}
+
+export function useRemoverHomologacao() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (homologacaoId: string) =>
+      api.delete<{ mensagem: string }>(`/homologacoes/${homologacaoId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['matriz'] })
+      qc.invalidateQueries({ queryKey: ['homologacoes'] })
+      qc.invalidateQueries({ queryKey: ['dispositivos'] })
+      qc.invalidateQueries({ queryKey: ['painel-parceiro'] })
+      qc.invalidateQueries({ queryKey: ['parceiros'] })
+      qc.invalidateQueries({ queryKey: ['homologacoes-finalizadas'] })
+    },
+  })
+}
+
+export function useHomologacoesFinalizadas() {
+  return useQuery({
+    queryKey: ['homologacoes-finalizadas'],
+    queryFn: () => api.get<any[]>('/homologacoes', { finalizados: 'true' }),
   })
 }
 

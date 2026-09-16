@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ancorarMenu } from '@/lib/ancorarMenu'
 
 export interface OpcaoFiltro {
@@ -7,12 +7,13 @@ export interface OpcaoFiltro {
 }
 
 /**
- * Dropdown da barra de filtros.
+ * Dropdown da barra de filtros com busca digitável em tempo real.
  *
  * Existe em vez de um `<select>` nativo por um motivo só: o nativo mostra o
  * texto da opção selecionada quando fechado, então "Todos os fabricantes"
  * ocuparia a barra inteira no estado padrão. Aqui o botão fechado mostra o
- * rótulo curto ("Fabricante") e a lista aberta mostra o texto completo.
+ * rótulo curto ("Fabricante") e a lista aberta mostra o texto completo e
+ * permite filtrar digitando pelo teclado.
  */
 export function SeletorFiltro({
   rotuloCurto,
@@ -30,10 +31,12 @@ export function SeletorFiltro({
   opcoes: OpcaoFiltro[]
 }) {
   const [aberto, setAberto] = useState(false)
+  const [busca, setBusca] = useState('')
   const [posicao, setPosicao] = useState<{ x: number; y: number; largura: number } | null>(null)
   const refRaiz = useRef<HTMLDivElement>(null)
   const refMenu = useRef<HTMLDivElement>(null)
   const refBotao = useRef<HTMLButtonElement>(null)
+  const refInputBusca = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!aberto) return
@@ -54,6 +57,17 @@ export function SeletorFiltro({
       document.removeEventListener('mousedown', aoClicarFora)
       document.removeEventListener('keydown', aoTeclar)
       window.removeEventListener('resize', fechar)
+    }
+  }, [aberto])
+
+  // Foco automático no input de busca ao abrir o dropdown
+  useEffect(() => {
+    if (aberto) {
+      setBusca('')
+      const timer = setTimeout(() => {
+        refInputBusca.current?.focus()
+      }, 40)
+      return () => clearTimeout(timer)
     }
   }, [aberto])
 
@@ -84,14 +98,30 @@ export function SeletorFiltro({
       // Largura explícita é obrigatória: sem ela, um elemento `fixed` ocupa
       // todo o espaço da esquerda até a borda da janela, e os itens `w-full`
       // esticam junto. O menu acompanha o botão, com um mínimo para caber
-      // "Todos os fabricantes (12)".
-      const largura = Math.max(r.width, 208)
+      // o input e "Todos os fabricantes (12)".
+      const largura = Math.max(r.width, 224)
       // Não deixa vazar pela direita da janela
       const x = Math.min(r.left, window.innerWidth - largura - 8)
       setPosicao({ x: Math.max(8, x), y: r.bottom + 4, largura })
     }
     setAberto(true)
   }
+
+  const opcoesFiltradas = useMemo(() => {
+    const t = busca.trim()
+    if (!t) return [{ valor: '', rotulo: rotuloTodos }, ...opcoes]
+
+    const normalizar = (str: string) =>
+      str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const tNorm = normalizar(t)
+
+    const filtradas = opcoes.filter((o) => normalizar(o.rotulo).includes(tNorm))
+
+    if (normalizar(rotuloTodos).includes(tNorm)) {
+      return [{ valor: '', rotulo: rotuloTodos }, ...filtradas]
+    }
+    return filtradas
+  }, [busca, opcoes, rotuloTodos])
 
   const ativo = valor !== ''
   const selecionada = opcoes.find((o) => o.valor === valor)
@@ -128,39 +158,98 @@ export function SeletorFiltro({
         <div
           ref={refMenu}
           role="listbox"
-          className="fixed z-[100] max-h-80 overflow-y-auto rounded-lg border shadow-lg py-1"
+          className="fixed z-[100] max-h-80 overflow-y-auto rounded-lg border shadow-lg flex flex-col"
           style={{
             left: posicao.x,
             top: posicao.y,
             width: posicao.largura,
             background: 'var(--color-popover)',
+            borderColor: 'var(--color-border)',
           }}
         >
-          {[{ valor: '', rotulo: rotuloTodos }, ...opcoes].map((o) => {
-            const marcada = o.valor === valor
-            return (
-              <button
-                key={o.valor || '__todos'}
-                type="button"
-                role="option"
-                aria-selected={marcada}
-                onClick={() => {
-                  aoMudar(o.valor)
-                  setAberto(false)
+          {/* Campo de busca digitável no topo */}
+          <div
+            className="p-2 border-b sticky top-0 z-10 shrink-0"
+            style={{
+              background: 'var(--color-popover)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <div className="relative flex items-center">
+              <input
+                ref={refInputBusca}
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (opcoesFiltradas.length > 0) {
+                      aoMudar(opcoesFiltradas[0].valor)
+                      setAberto(false)
+                    }
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    setAberto(false)
+                  }
                 }}
-                className="w-full px-3 py-1.5 text-left text-sm truncate transition-colors hover:opacity-80"
-                style={{
-                  background: marcada ? 'var(--color-muted)' : 'transparent',
-                  fontWeight: marcada ? 600 : 400,
-                  color: marcada ? 'var(--color-primary)' : 'inherit',
-                }}
-              >
-                {o.rotulo}
-              </button>
-            )
-          })}
+                className="w-full pl-7 pr-6 py-1.5 text-xs rounded-md border bg-muted/40 text-foreground focus:bg-background focus:ring-1 focus:ring-primary outline-none transition-all"
+                style={{ borderColor: 'var(--color-border)' }}
+              />
+              <span className="absolute left-2 text-[11px] text-muted-foreground pointer-events-none select-none">
+                🔍
+              </span>
+              {busca && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBusca('')
+                    refInputBusca.current?.focus()
+                  }}
+                  className="absolute right-2 text-muted-foreground hover:text-foreground text-xs p-0.5 rounded cursor-pointer transition-colors"
+                  title="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Lista de opções */}
+          <div className="py-1 overflow-y-auto flex-1">
+            {opcoesFiltradas.length === 0 ? (
+              <div className="py-4 px-3 text-center text-xs text-muted-foreground italic">
+                Nenhum {rotuloCurto.toLowerCase()} encontrado
+              </div>
+            ) : (
+              opcoesFiltradas.map((o) => {
+                const marcada = o.valor === valor
+                return (
+                  <button
+                    key={o.valor || '__todos'}
+                    type="button"
+                    role="option"
+                    aria-selected={marcada}
+                    onClick={() => {
+                      aoMudar(o.valor)
+                      setAberto(false)
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm truncate transition-colors hover:opacity-80 cursor-pointer"
+                    style={{
+                      background: marcada ? 'var(--color-muted)' : 'transparent',
+                      fontWeight: marcada ? 600 : 400,
+                      color: marcada ? 'var(--color-primary)' : 'inherit',
+                    }}
+                  >
+                    {o.rotulo}
+                  </button>
+                )
+              })
+            )}
+          </div>
         </div>
       )}
     </div>
   )
 }
+

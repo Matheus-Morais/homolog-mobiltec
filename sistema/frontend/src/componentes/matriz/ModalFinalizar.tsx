@@ -51,8 +51,9 @@ export function ModalFinalizar({
 
   function enviarParaAnalise() {
     setErro(null)
+    const empresaDoUsuario = usuario?.empresa?.trim() || 'Parceiro'
     const assinaturaApoioCalculada = comoApoio
-      ? `${usuario?.nome ?? 'Parceiro'} — Parceiro`
+      ? `${usuario?.nome ?? 'Parceiro'} — ${empresaDoUsuario}`
       : null
     transicao.mutate(
       {
@@ -170,7 +171,7 @@ export function ModalFinalizar({
                 {comoApoio && (
                   <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
                     Será exibido no certificado na seção de Apoio Técnico como:{' '}
-                    <strong>{usuario?.nome || 'Parceiro'} — Parceiro</strong>
+                    <strong>{usuario?.nome || 'Parceiro'} — {usuario?.empresa?.trim() || 'Parceiro'}</strong>
                   </p>
                 )}
               </div>

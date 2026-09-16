@@ -5,11 +5,11 @@ import { Icone } from '@/componentes/Icone'
 import { comporDetalhesResultado } from '@/lib/detalhesResultado'
 import type { SecaoDetalheResultado } from '@/lib/detalhesResultado'
 import {
-  COLUNAS_GRUPO,
   GRUPO_ORDEM,
   META_STATUS,
   ROTULO_GERENCIAMENTO,
-  ROTULO_GRUPO,
+  obterColunasGrupo,
+  obterRotuloGrupo,
   somenteVersaoAndroid,
 } from '@/lib/tipos'
 import type { GrupoItem, Homologacao, StatusResultado } from '@/lib/tipos'
@@ -172,10 +172,15 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
       detalhes: comporDetalhesResultado(r),
     }))
 
-    return GRUPO_ORDEM.map((g) => ({
-      grupo: g,
-      itens: linhas.filter((l) => l.grupo === g),
-    })).filter((g) => g.itens.length > 0)
+    const gruposPresentes = Array.from(new Set(linhas.map((l) => l.grupo)))
+    const todosGrupos = [
+      ...GRUPO_ORDEM,
+      ...gruposPresentes.filter((g) => !GRUPO_ORDEM.includes(g as any)),
+    ]
+
+    return todosGrupos
+      .map((g) => ({ grupo: g, itens: linhas.filter((l) => l.grupo === g) }))
+      .filter((g) => g.itens.length > 0)
   }, [homologacao])
 
   return (
@@ -200,7 +205,7 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
                 letterSpacing: '0.08em',
               }}
             >
-              {ROTULO_GRUPO[grupo]}
+              {obterRotuloGrupo(grupo)}
             </div>
 
             {/* As mesmas três colunas do certificado. Os detalhes saíram da
@@ -229,13 +234,20 @@ export function ResultadoHomologacao({ homologacao }: { homologacao: Homologacao
                   {/* O nome do item tem prioridade de largura: é o que
                       identifica a linha. Quem cede e quebra é a ação, que
                       é descrição. */}
-                  <th className="py-1.5 pl-4 pr-3 font-semibold whitespace-nowrap">
-                    {COLUNAS_GRUPO[grupo][0]}
-                  </th>
-                  <th className="py-1.5 pr-3 font-semibold">{COLUNAS_GRUPO[grupo][1]}</th>
-                  <th className="py-1.5 pr-4 text-right font-semibold">
-                    {COLUNAS_GRUPO[grupo][2]}
-                  </th>
+                  {(() => {
+                    const colunas = obterColunasGrupo(grupo)
+                    return (
+                      <>
+                        <th className="py-1.5 pl-4 pr-3 font-semibold whitespace-nowrap">
+                          {colunas[0]}
+                        </th>
+                        <th className="py-1.5 pr-3 font-semibold">{colunas[1]}</th>
+                        <th className="py-1.5 pr-4 text-right font-semibold">
+                          {colunas[2]}
+                        </th>
+                      </>
+                    )
+                  })()}
                 </tr>
               </thead>
               <tbody>

@@ -19,7 +19,10 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /matriz
   // ============================================================
   fastify.get('/matriz', { onRequest: [fastify.autenticar] }, async (request, reply) => {
-    const { categoriaSlug = 'pos' } = request.query as { categoriaSlug?: string }
+    const { categoriaSlug = 'pos', empresa: empresaFiltro } = request.query as {
+      categoriaSlug?: string
+      empresa?: string
+    }
 
     const categoria = await fastify.prisma.categoria.findUnique({
       where: { slug: categoriaSlug },
@@ -51,15 +54,39 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
       categoriaSlug === 'pos'
 
     if (ehParceiro && !ehExcecaoHgomesPos) {
-      const empresa = usuarioParceiro?.empresa
+      const empresa = usuarioParceiro?.empresa?.trim()
       if (empresa) {
         whereHomologacao.OR = [
-          { dispositivo: { empresa } },
-          { responsavel: { empresa } },
+          { dispositivo: { empresa: { equals: empresa, mode: 'insensitive' } } },
+          { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } },
           { responsavelId: request.user.id },
         ]
       } else {
         whereHomologacao.responsavelId = request.user.id
+      }
+    } else if (!ehParceiro) {
+      // ADMIN: Isolamento entre planilhas
+      if (empresaFiltro && empresaFiltro.trim() && empresaFiltro.trim().toLowerCase() !== 'mobiltec') {
+        whereHomologacao.OR = [
+          { dispositivo: { empresa: { equals: empresaFiltro.trim(), mode: 'insensitive' } } },
+          { responsavel: { empresa: { equals: empresaFiltro.trim(), mode: 'insensitive' } } },
+        ]
+      } else {
+        // Planilha interna da Mobiltec: EXCLUSIVAMENTE dispositivos Mobiltec (não misturar com parceiros)
+        whereHomologacao.AND = [
+          {
+            OR: [
+              { dispositivo: { empresa: null } },
+              { dispositivo: { empresa: { equals: 'Mobiltec', mode: 'insensitive' } } },
+            ],
+          },
+          {
+            OR: [
+              { responsavel: { empresa: null } },
+              { responsavel: { empresa: { equals: 'Mobiltec', mode: 'insensitive' } } },
+            ],
+          },
+        ]
       }
     }
 
@@ -77,6 +104,8 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
             observacao: true,
             justificativaId: true,
             justificativaTexto: true,
+            autorEmail: true,
+            atualizadoEm: true,
             justificativa: { select: { id: true, titulo: true, texto: true } },
           },
         },
@@ -167,6 +196,20 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
       orderBy: [{ grupo: 'asc' }, { ordem: 'asc' }],
     })
 
+    const gruposOrdemMap = new Map<string, number>()
+    if (categoria.gruposOrdem && categoria.gruposOrdem.length > 0) {
+      categoria.gruposOrdem.forEach((g, idx) => gruposOrdemMap.set(g, idx))
+    } else {
+      ;['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS'].forEach((g, idx) => gruposOrdemMap.set(g, idx))
+    }
+
+    itens.sort((a, b) => {
+      const gA = gruposOrdemMap.has(a.grupo) ? gruposOrdemMap.get(a.grupo)! : 999
+      const gB = gruposOrdemMap.has(b.grupo) ? gruposOrdemMap.get(b.grupo)! : 999
+      if (gA !== gB) return gA - gB
+      return a.ordem - b.ordem
+    })
+
     // Os resultados acompanham as linhas: se sobrasse resultado de item fora
     // da bateria, ele contaria no medidor de divergências e no checklist de
     // finalizar sem ter linha onde ser resolvido.
@@ -186,38 +229,78 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================================
   fastify.post('/matriz/modelo', { onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR', 'PARCEIRO'])] }, async (request, reply) => {
     const schema = z.object({
-      categoriaId: z.string().uuid(),
+      categoriaId: z.string(),
       // Dispositivo
-      fabricante: z.string().min(1).max(100),
-      modelo: z.string().min(1).max(100),
-      nomeComercial: z.string().min(1).max(200),
-      linkFabricante: z.string().url().optional().nullable(),
+      fabricante: z.string().optional().default('Fabricante').transform(s => s?.trim() || 'Fabricante'),
+      modelo: z.string().optional().default('Modelo').transform(s => s?.trim() || 'Modelo'),
+      nomeComercial: z.string().optional().nullable().transform(s => s?.trim() || undefined),
+      linkFabricante: z.string().optional().nullable().transform(s => s?.trim() || null),
       // Homologação inicial
-      bateriaId: z.string().uuid(),
-      numeroSerie: z.string().min(1),
-      imei1: z.string().optional().nullable(),
-      imei2: z.string().optional().nullable(),
-      versaoSo: z.string().min(1),
-      gerenciamento: z.enum(['ANDROID_LEGADO', 'ANDROID_ENTERPRISE']),
-      tipoAgente: z.string().min(1),
-      versaoAgente: z.string().min(1),
-      versaoPos: z.string().optional().nullable(),
-      ferramenta: z.string().optional().nullable(),
-      metodoInscricao: z.string().min(1),
-      assinaturaAgente: z.boolean().default(false),
-      precisaAssinaturaDev: z.boolean().default(false),
-      dataInicio: z.string().transform(s => new Date(s)),
+      bateriaId: z.string().optional().nullable(),
+      numeroSerie: z.string().optional().default('Sem informação').transform(s => s?.trim() || 'Sem informação'),
+      imei1: z.string().optional().nullable().transform(s => s?.trim() || null),
+      imei2: z.string().optional().nullable().transform(s => s?.trim() || null),
+      versaoSo: z.string().optional().default('Android').transform(s => s?.trim() || 'Android'),
+      gerenciamento: z.any().optional().transform(v => v === 'ANDROID_ENTERPRISE' ? 'ANDROID_ENTERPRISE' : 'ANDROID_LEGADO'),
+      tipoAgente: z.string().optional().default('Agente PoS').transform(s => s?.trim() || 'Agente PoS'),
+      versaoAgente: z.string().optional().default('Não informada').transform(s => s?.trim() || 'Não informada'),
+      versaoPos: z.string().optional().nullable().transform(s => s?.trim() || null),
+      ferramenta: z.string().optional().nullable().transform(s => s?.trim() || null),
+      metodoInscricao: z.string().optional().default('Não informado').transform(s => s?.trim() || 'Não informado'),
+      assinaturaAgente: z.any().optional().transform(v => Boolean(v)),
+      precisaAssinaturaDev: z.any().optional().transform(v => Boolean(v)),
+      dataInicio: z.any().optional().transform(s => {
+        if (!s) return new Date()
+        const d = new Date(s)
+        return isNaN(d.getTime()) ? new Date() : d
+      }),
     })
 
     const body = schema.parse(request.body)
-    const { categoriaId, fabricante, modelo, nomeComercial, linkFabricante, ...dadosHomologacao } = body
+    const {
+      categoriaId,
+      fabricante: fabricanteRaw,
+      modelo: modeloRaw,
+      nomeComercial: nomeComercialRaw,
+      linkFabricante,
+      bateriaId: bateriaIdRaw,
+      ...restoHomologacao
+    } = body
 
-    const bateria = await fastify.prisma.bateriaTeste.findUnique({
-      where: { id: body.bateriaId },
-      include: { itens: { select: { itemId: true } } },
-    })
-    if (!bateria) return reply.status(404).send({ erro: 'Bateria não encontrada' })
-    if (!bateria.ativo) return reply.status(400).send({ erro: 'Bateria inativa' })
+    const fabricante = fabricanteRaw || 'Fabricante'
+    const modelo = modeloRaw || 'Modelo'
+    const nomeComercial = nomeComercialRaw || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
+
+    let bateria = null
+    if (bateriaIdRaw && typeof bateriaIdRaw === 'string' && bateriaIdRaw.trim()) {
+      bateria = await fastify.prisma.bateriaTeste.findUnique({
+        where: { id: bateriaIdRaw.trim() },
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { categoriaId, ativo: true },
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { categoriaId },
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        include: { itens: { select: { itemId: true } } },
+      })
+    }
+    if (!bateria) return reply.status(404).send({ erro: 'Bateria de testes não encontrada' })
+
+    const dadosHomologacao = {
+      ...restoHomologacao,
+      bateriaId: bateria.id,
+    }
 
     let empresaDispositivo: string | null = null
     if (request.user.papel === 'PARCEIRO') {
@@ -269,12 +352,15 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.status(201).send(dispositivo)
     } catch (e: any) {
+      fastify.log.error(e)
       if (e.code === 'P2002') {
         return reply.status(409).send({
           erro: `Já existe um dispositivo ${fabricante} ${modelo}. Para um novo teste do mesmo modelo, abra um reteste em vez de cadastrar de novo.`,
         })
       }
-      throw e
+      return reply.status(400).send({
+        erro: e?.message || 'Não foi possível cadastrar o modelo e abrir a homologação.',
+      })
     }
   })
 

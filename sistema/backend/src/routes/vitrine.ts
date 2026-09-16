@@ -27,31 +27,60 @@ const vitrineRoutes: FastifyPluginAsync = async (fastify) => {
     })
 
     const ehParceiro = request.user.papel === 'PARCEIRO'
-    let whereHomologacao: any = {
-      dispositivo: { ativo: true, categoria: { ativo: true } },
-    }
-
+    let empresaParceiro: string | null = null
     if (ehParceiro) {
       const usuarioParceiro = await fastify.prisma.usuario.findUnique({
         where: { id: request.user.id },
         select: { empresa: true },
       })
-      const empresa = usuarioParceiro?.empresa
-      whereHomologacao = {
-        dispositivo: { ativo: true, categoria: { ativo: true } },
-        OR: [
-          // Homologados ou Publicados são visíveis para todos os parceiros no catálogo
-          { status: { in: ['APROVADO', 'PUBLICADO'] } },
-          // Dispositivos em andamento apenas se pertencerem à sua própria empresa ou atribuídos a ele
-          ...(empresa
-            ? [
-                { status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] }, dispositivo: { empresa } },
-                { status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] }, responsavel: { empresa } },
-              ]
-            : []),
-          { status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] }, responsavelId: request.user.id },
-        ],
-      }
+      empresaParceiro = usuarioParceiro?.empresa?.trim() ?? null
+    }
+
+    // Painel Principal (Vitrine Geral Mobiltec):
+    // 1. Modelos já aprovados ou publicados são visíveis para todos.
+    // 2. Modelos em andamento no ambiente Mobiltec (empresa Mobiltec ou null) são visíveis
+    //    para todos os usuários (incluindo parceiros) como visão geral do que está sendo homologado.
+    // 3. Se for parceiro com empresa externa, visualiza adicionalmente seus próprios dispositivos em teste.
+    const condicaoMobiltecAndamento = {
+      status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] },
+      AND: [
+        {
+          OR: [
+            { dispositivo: { empresa: null } },
+            { dispositivo: { empresa: { equals: 'Mobiltec', mode: 'insensitive' } } },
+          ],
+        },
+        {
+          OR: [
+            { responsavel: { empresa: null } },
+            { responsavel: { empresa: { equals: 'Mobiltec', mode: 'insensitive' } } },
+          ],
+        },
+      ],
+    }
+
+    const whereHomologacao: any = {
+      dispositivo: { ativo: true, categoria: { ativo: true } },
+      OR: [
+        { status: { in: ['APROVADO', 'PUBLICADO'] } },
+        condicaoMobiltecAndamento,
+        ...(ehParceiro && empresaParceiro && empresaParceiro.toLowerCase() !== 'mobiltec'
+          ? [
+              {
+                status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] },
+                dispositivo: { empresa: { equals: empresaParceiro, mode: 'insensitive' } },
+              },
+              {
+                status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] },
+                responsavel: { empresa: { equals: empresaParceiro, mode: 'insensitive' } },
+              },
+              {
+                status: { in: ['RASCUNHO', 'AGUARDANDO_ANALISE', 'EM_REVISAO', 'REPROVADO'] },
+                responsavelId: request.user.id,
+              },
+            ]
+          : []),
+      ],
     }
 
     const homologacoes = await fastify.prisma.homologacao.findMany({

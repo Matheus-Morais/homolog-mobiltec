@@ -14,6 +14,7 @@ import { AvisoRevisao } from '@/componentes/homologacao/AvisoRevisao'
 import { Icone } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 
+
 /**
  * Informações da homologação de um modelo.
  *
@@ -117,18 +118,33 @@ export function DetalheDispositivo() {
 
         {aviso && (
           <div
-            className="mt-3 rounded-lg px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-            style={{
-              background: 'var(--color-destructive-soft)',
-              color: 'var(--color-destructive-fg)',
-            }}
+            role="status"
+            className="mt-3 rounded-lg px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 border transition-all"
+            style={
+              aviso.toLowerCase().includes('abrindo')
+                ? {
+                    background: 'var(--color-brand-purple-soft)',
+                    color: 'var(--color-brand-purple-fg)',
+                    borderColor: 'var(--color-brand-purple-border)',
+                  }
+                : {
+                    background: 'var(--color-destructive-soft)',
+                    color: 'var(--color-destructive-fg)',
+                    borderColor: 'var(--color-destructive-soft)',
+                  }
+            }
           >
-            <span>{aviso}</span>
+            <div className="flex items-center gap-2">
+              {aviso.toLowerCase().includes('abrindo') && (
+                <Icone nome="printer" className="h-4 w-4 shrink-0 animate-pulse text-[var(--color-primary)]" />
+              )}
+              <span>{aviso}</span>
+            </div>
             <Link
               to={`/homologacoes/${id}/certificado`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 shrink-0"
+              className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 shrink-0 hover:opacity-80 transition-opacity"
               style={{ color: 'var(--color-primary)' }}
             >
               Abrir Certificado no navegador →

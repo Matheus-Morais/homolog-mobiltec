@@ -11,6 +11,8 @@ export function ModalObservacao({
   itemNome,
   modeloNome,
   textoAtual,
+  autorEmail,
+  atualizadoEm,
   salvando,
   aoSalvar,
   aoFechar,
@@ -18,6 +20,8 @@ export function ModalObservacao({
   itemNome: string
   modeloNome: string
   textoAtual: string
+  autorEmail?: string | null
+  atualizadoEm?: string | null
   salvando: boolean
   aoSalvar: (texto: string) => void
   aoFechar: () => void
@@ -89,7 +93,6 @@ export function ModalObservacao({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15,15,18,.45)' }}
-      onClick={aoFechar}
     >
       <div
         role="dialog"
@@ -102,11 +105,21 @@ export function ModalObservacao({
         className="w-full max-w-xl rounded-xl border shadow-xl"
         style={{ background: 'var(--color-popover)' }}
       >
-        <div className="p-5 border-b">
-          <h2 className="text-lg font-semibold">Observação</h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
-            {itemNome} · {modeloNome}
-          </p>
+        <div className="p-5 border-b flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Observação</h2>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--color-muted-foreground)' }}>
+              {itemNome} · {modeloNome}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={aoFechar}
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Fechar"
+          >
+            <Icone nome="x" className="h-5 w-5" />
+          </button>
         </div>
 
         <div className="p-5 space-y-3" onPaste={aoColar}>
@@ -115,7 +128,6 @@ export function ModalObservacao({
             rows={5}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Nota interna sobre este item. Você pode colar prints com Ctrl+V ou anexar arquivos .zip e imagens."
             className="w-full p-3 rounded-md border bg-transparent text-sm leading-relaxed resize-y outline-none focus:ring-1 focus:ring-primary"
             style={{ borderColor: 'var(--color-input)' }}
           />
@@ -156,6 +168,18 @@ export function ModalObservacao({
             </span>
           </div>
         </div>
+
+        {autorEmail && (
+          <div className="px-5 py-2 bg-muted/40 text-[11px] text-muted-foreground flex items-center justify-between border-t border-dashed" style={{ borderColor: 'var(--color-border)' }}>
+            <span>Registrado por: <strong className="font-semibold text-foreground">{autorEmail}</strong></span>
+            {atualizadoEm && (
+              <span className="font-medium">
+                {new Date(atualizadoEm).toLocaleDateString('pt-BR')} às{' '}
+                {new Date(atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="p-5 border-t flex items-center justify-between gap-3">
           <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>

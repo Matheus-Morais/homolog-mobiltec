@@ -95,6 +95,9 @@ export function ModalObservacoesHomologacao({
   const [erroUpload, setErroUpload] = useState<string | null>(null)
   const [imagemAmpliada, setImagemAmpliada] = useState<{ url: string; nome: string } | null>(null)
 
+  const emailResponsavel = (coluna.homologacao.responsavel as any)?.email || usuario?.email || 'contato@mobiltec.com.br'
+  const dataPadrao = coluna.homologacao.atualizadoEm || coluna.homologacao.criadoEm
+
   // Anotações célula a célula da homologação
   const anotacoes = itens
     .map((item) => ({ item, r: coluna.homologacao.resultadosPorItem[item.id] }))
@@ -103,6 +106,8 @@ export function ModalObservacoesHomologacao({
       item: item.nome,
       status: r!.status,
       texto: r!.observacao!.trim(),
+      autorEmail: (r as any)?.autorEmail || emailResponsavel,
+      atualizadoEm: (r as any)?.atualizadoEm || dataPadrao,
     }))
 
   async function processarArquivo(arquivo: File) {
@@ -172,6 +177,7 @@ export function ModalObservacoesHomologacao({
       autorId: usuario?.id,
       autorNome: usuario?.nome ?? 'Usuário',
       autorPapel: usuario?.papel,
+      autorEmail: usuario?.email,
       criadoEm: new Date().toISOString(),
       anexos: anexosPendentes,
     }
@@ -198,7 +204,6 @@ export function ModalObservacoesHomologacao({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(15,15,18,.5)' }}
-      onClick={aoFechar}
     >
       <div
         role="dialog"
@@ -264,7 +269,6 @@ export function ModalObservacoesHomologacao({
                     type="text"
                     value={novoTitulo}
                     onChange={(e) => setNovoTitulo(e.target.value)}
-                    placeholder="Título da observação (ex.: Problema na instalação do dispositivo)"
                     className="w-full px-3 py-2 text-sm rounded-md border bg-transparent text-foreground outline-none focus:ring-1 focus:ring-primary"
                     style={{ borderColor: 'var(--color-input)' }}
                   />
@@ -275,7 +279,6 @@ export function ModalObservacoesHomologacao({
                     rows={3}
                     value={novoTexto}
                     onChange={(e) => setNovoTexto(e.target.value)}
-                    placeholder="Descreva a falha ou comportamento observado... Você pode colar imagens (Ctrl+V) ou anexar arquivos .zip e fotos abaixo."
                     className="w-full resize-y px-3 py-2 text-sm rounded-md border bg-transparent text-foreground leading-relaxed outline-none focus:ring-1 focus:ring-primary"
                     style={{ borderColor: 'var(--color-input)' }}
                   />
@@ -396,7 +399,7 @@ export function ModalObservacoesHomologacao({
                       <div>
                         <h4 className="font-semibold text-sm text-foreground">{obs.titulo}</h4>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {obs.autorNome} {obs.autorPapel ? `(${obs.autorPapel})` : ''} · {formatarDataHora(obs.criadoEm)}
+                          {obs.autorEmail || obs.autorNome} · {formatarDataHora(obs.criadoEm)}
                         </p>
                       </div>
 
@@ -514,6 +517,12 @@ export function ModalObservacoesHomologacao({
                     <p className="mt-1 leading-relaxed text-muted-foreground whitespace-pre-wrap">
                       {a.texto}
                     </p>
+                    <div className="pt-2 border-t mt-2 text-[11px] text-muted-foreground flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
+                      <span>
+                        Registrado por: <strong className="font-semibold text-foreground">{a.autorEmail}</strong>
+                      </span>
+                      <span className="font-medium">{formatarDataHora(a.atualizadoEm)}</span>
+                    </div>
                   </li>
                 ))}
               </ul>

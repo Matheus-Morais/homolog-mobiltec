@@ -81,6 +81,8 @@ model Categoria {
   /// impressora não tem IMEI, coletor não tem versão de PoS. Vazio significa
   /// "a ficha inteira" — é o estado das categorias criadas antes do registro.
   camposFicha     String[]       @default([]) @map("campos_ficha")
+  gruposOrdem     String[]       @default([]) @map("grupos_ordem")
+  gruposTitulos   Json           @default("{}") @map("grupos_titulos")
   dispositivos    Dispositivo[]
   baterias        BateriaTeste[]
 
@@ -129,7 +131,7 @@ model Dispositivo {
 
 model ItemTeste {
   id            String       @id @default(uuid())
-  grupo         GrupoItem
+  grupo         String       @default("TELEMETRIA")
   nome          String
   descricaoAcao String       @map("descricao_acao")
   ordem         Int          @default(0)
@@ -249,6 +251,7 @@ model Resultado {
   observacao          String?
   justificativaId     String?         @map("justificativa_id")
   justificativaTexto  String?         @map("justificativa_texto")
+  autorEmail          String?         @map("autor_email")
   atualizadoEm        DateTime        @updatedAt @map("atualizado_em")
   homologacao         Homologacao     @relation(fields: [homologacaoId], references: [id])
   item                ItemTeste       @relation(fields: [itemId], references: [id])
@@ -296,4 +299,22 @@ model HistoricoStatus {
   usuario        Usuario           @relation(fields: [usuarioId], references: [id])
 
   @@map("historico_status")
+}
+
+model Notificacao {
+  id              String    @id @default(uuid())
+  tipo            String    // "REVISAO", "APROVADO", "SUBMETIDO", "GERAL"
+  titulo          String
+  mensagem        String
+  homologacaoId   String?   @map("homologacao_id")
+  dispositivoNome String?   @map("dispositivo_nome")
+  empresaDestino  String?   @map("empresa_destino")
+  lida            Boolean   @default(false)
+  confirmada      Boolean   @default(false)
+  confirmadaEm    DateTime? @map("confirmada_em")
+  confirmadaPor   String?   @map("confirmada_por")
+  link            String?
+  criadoEm        DateTime  @default(now()) @map("criado_em")
+
+  @@map("notificacao")
 }

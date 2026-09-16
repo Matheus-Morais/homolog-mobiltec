@@ -872,32 +872,304 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | D427 | Atualização de segurança do ecossistema Fastify 5 e JWT | Atualização coordenada de `fastify` (5.12.3), `@fastify/jwt` (10.2.2), `@fastify/static` (10.1.3), `@fastify/cors` (11.3.0), `@fastify/multipart` (10.1.1) e `fastify-plugin` (6.0.0) para sanar vulnerabilidades críticas de bypass de autenticação JWT e path traversal (GHSA-gmvf-9v4p-v8jc, GHSA-8pvw-jcv7-9cmj, GHSA-jx2c-rxcm-jvmq), com preservação de 100% dos tipos e roteiros de verificação mecânica |
 | D428 | Blindagem de RBAC para perfil LEITOR e restrição de rotas sensíveis de catálogo, dispositivos e vitrine | Garante que usuários com perfil LEITOR não possam criar ou alterar homologações, itens de catálogo ou transicionar status, restringe operações estruturais (DELETE/POST dispositivos, tipos e baterias) a ADMIN/HOMOLOGADOR, reabertura a ADMIN, e isola homologações em andamento na vitrine por empresa de parceiro |
 
-## Etapa 60 — Baterias de Teste: Criação, Edição e Reordenação
+---
+
+## Etapa 60 — Simplificação e Compactação Visual dos Cards de Parceiros (D429)
 
 | # | Decisão | Justificativa |
 |---|---|---|
-| D429 | Baterias de teste múltiplas e independentes por tipo de dispositivo | O schema já suporta N baterias por categoria (relação 1:N `Categoria → BateriaTeste`), mas a UI e a lógica tratavam como 1:1. Agora o admin pode criar baterias adicionais dentro de um tipo existente, e na criação de homologação escolhe qual bateria usar. Atende ao pedido de "criar e configurar novas baterias de testes, além das que já existem" |
-| D430 | Reordenação de itens da bateria via endpoint PATCH em lote | Nova rota `PATCH /baterias/:id/ordem` aceita array `[{ itemId, ordem }]` e atualiza as posições em transação. A UI exibe campos numéricos de ordem editáveis — mapeamento direto do requisito "cada teste deverá possuir um número de ordem" e "o administrador poderá alterar esses números" |
-| D431 | Rota PATCH /baterias/:id para edição de bateria existente | Só existia `POST /baterias` (criação). Nova rota permite renomear, adicionar/remover itens e desativar bateria. Ao receber `itens`, faz reconciliação similar ao `PATCH /tipos-dispositivo` (D369): sincroniza homologações abertas que usam essa bateria |
+| D429 | Simplificação e compactação visual dos cards de parceiros na tela de gestão | Remove campos secundários da visualização em lista (nome do contato e chips de homologações permitidas) e padroniza os cards em layout horizontal compacto contendo estritamente Empresa, badge de status, e-mail e botões diretos de ação ("Editar" e "Inativar/Reativar"). Preserva todos os dados e permissões acessíveis e editáveis no modal |
 
 ---
 
-## Etapa 61 — Fluxo de Revisão do Certificado (Admin ⇄ Parceiro)
+## Etapa 61 — Sincronização Dinâmica do Certificado e Rastreamento de Autoria (D430)
 
 | # | Decisão | Justificativa |
 |---|---|---|
-| D432 | Ficha de informações extraída para `componentes/homologacao/FichaHomologacao.tsx` (`FichaUnidadeTestada` + `ResultadoHomologacao`), consumida pela página `/dispositivos/:id` e por `ModalInformacoesHomologacao` na tela de Validar Certificado | Pedido do usuário (Item 1): o botão "Exibir informações" da validação abre "o mesmo card" da vitrine. Em modal, e não navegando, para o Admin não perder a fila, a busca e a aba ao conferir cada dispositivo. São dois componentes e não um porque na página a unidade testada fica dentro do card com os botões do certificado e o resultado vem abaixo dele — duas cópias do mesmo documento divergiriam na primeira mudança |
-| D433 | Observações Gerais do parceiro passam a integrar a ficha (`BlocoObservacoesParceiro`); os botões "Matriz" e "Observações" saem da tela de Validar Certificado | Pedido do usuário (Item 1). A premissa do pedido — "esse card já apresenta as observações registradas pelo parceiro" — não era verdadeira: `DetalheDispositivo` mostrava só a justificativa item a item, nunca as Observações Gerais com anexos (D421). Remover o botão sem mover o conteúdo tiraria do Admin os logs e prints que sustentam a validação |
-| D434 | `EM_REVISAO` devolve a custódia ao parceiro: ele reedita ficha, resultados e observações, e reenvia com `EM_REVISAO → AGUARDANDO_ANALISE`. `AGUARDANDO_ANALISE` segue somente-leitura para ele | Pedido do usuário (Item 3): criar o ciclo Revisão → Ajustes → Nova avaliação sem recriar a homologação. Revisão **não** é reteste (Regra Inalienável 4): é o mesmo registro voltando para edição. Implementado em `TRANSICOES_PARCEIRO` e `STATUS_EDITAVEIS_PARCEIRO` (`lib/transicoes.ts`), espelhados por `ehSomenteLeitura` no frontend — se uma lista mudar, a outra muda junto, ou a tela libera o que a API recusa |
-| D435 | Motivo da revisão obrigatório (mínimo 10 caracteres) em `AGUARDANDO_ANALISE → EM_REVISAO`, e exposto ao parceiro na matriz, na ficha e no painel via `AvisoRevisao` | O motivo já era gravado em `HistoricoStatus.motivo` desde sempre e **nunca era lido em lugar nenhum**: o dispositivo voltava para a bancada sem dizer o que ajustar, e o ciclo do Item 3 não fecharia. A exigência vale só na devolução real — `RASCUNHO → EM_REVISAO` é escala interna do "Finalizar" da Mobiltec a caminho de `APROVADO` (`ModalFinalizar`), onde não há parceiro a quem instruir |
-| D436 | A aba "Pendentes" da tela de validação passa a conter apenas `AGUARDANDO_ANALISE`; `EM_REVISAO` ganha aba própria, sem botões de aprovação | Item 3 pede que o dispositivo "volte a aparecer" para o Admin ao ser reenviado — o que pressupõe que ele saia enquanto está com o parceiro. Antes as duas situações compartilhavam a fila: o contador de pendências mentia e "Aprovar & Emitir" aparecia sobre um dispositivo que a Mobiltec nem tinha em mãos |
-| D437 | Regra global `button:not(:disabled) { cursor: pointer }` em `index.css` | Pedido do usuário (Item 2). Causa raiz: o Tailwind 4 removeu `cursor: pointer` do preflight dos botões, então o cursor só aparecia onde alguém escreveu `cursor-pointer` na classe. O botão de revisão chegou a produção com a seta do sistema e a paleta `muted-foreground`, parecendo desabilitado. A regra devolve o comportamento anterior para toda a aplicação; `:disabled` vira `not-allowed` |
+| D430 | Sobreposição direta de justificativas no certificado, rodapé flexível sem quebras e rastreamento de autoria por e-mail e horário | Elimina banner manual de confirmação de justificativas no certificado; sobrepõe alterações diretamente nos blocos técnicos durante a homologação; implementa rodapé elástico em flexbox (`.pagina-final`, `.interna-final`, `.rodape-final`) para impedir colisões em certificados com muitas divergências; e adiciona `autorEmail` no modelo `Resultado` e `ItemObservacaoGeral` para exibir registro sutil de quem comentou e horário abaixo dos cards |
 
 ---
 
-## Etapa 62 — Ajustes no fluxo de revisão de dispositivos
+## Etapa 62 — Remoção de Homologações em Planilha e Gestão de Dispositivos Finalizados (D431)
 
 | # | Decisão | Justificativa |
 |---|---|---|
-| D438 | A custódia de `EM_REVISAO` definida na D434 também abrange a foto do dispositivo | O parceiro atribuído à homologação pode substituir a foto em `RASCUNHO` ou `EM_REVISAO`; em `AGUARDANDO_ANALISE` e nos estados finais a ação continua bloqueada na interface e com HTTP 403 na API. A autorização deve considerar o vínculo do usuário com a homologação editável do dispositivo, e não apenas a existência de qualquer homologação histórica aprovada para o mesmo modelo |
-| D439 | Observação da funcionalidade e justificativa técnica são informações independentes na ficha compartilhada | O `ResultadoHomologacao` não pode escolher uma com `justificativa ?? observacao`: quando ambas existem, deve expor as duas com rótulos distintos e manter cada observação vinculada à linha da respectiva funcionalidade, inclusive no modal “Exibir informações” do Admin |
+| D431 | Remoção de homologações com RBAC em planilha e painel consultivo de dispositivos finalizados com reabertura e exclusão sincronizada | Adiciona `DELETE /homologacoes/:id` com regras estritas de permissão: ADMIN/HOMOLOGADOR podem remover qualquer homologação de suas planilhas; membros de empresas parceiras visualizam itens de sua equipe mas apenas o criador/responsável (`responsavelId === usuario.id`) pode remover da planilha; exclusão atômica de dependentes e do dispositivo quando não houver outros testes vinculados. Reestrutura o menu lateral para "Configurar Homologação" (com subitens de registro e edição de tipos) e adiciona para Administrador o botão "Configurar dispositivos" com acesso ao painel consultivo unificado de dispositivos finalizados (`/configurar-dispositivos`), permitindo reabrir com justificativa ou excluir permanentemente da base refletindo dinamicamente nos painéis Mobiltec e Parceiro |
+
+---
+
+## Etapa 63 — Restauração Resiliente do Fundo do Certificado e Layout A4 Dinâmico (D432)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D432 | Restauração resiliente da imagem de fundo oficial do certificado e layout A4 com paginação dinâmica de divergências | Corrige a resolução do asset de fundo (`fundo-certificado.png`) através de busca multi-caminho e fallback incondicional Data URI (`fundoBase64.ts`), eliminando a falha silenciosa que gerava certificados com fundo branco. Padroniza todas as páginas na proporção A4 exata (210mm x 297mm) com `background-size: 100% 100%` sem distorção. Implementa paginação dinâmica de divergências (`paginarDivergencias`), distribuindo justificativas extensas entre páginas A4 com cabeçalho de continuação e flexbox elástico (`.interna-final`, `.conteudo-final`, `.rodape-final`), assegurando que o rodapé com assinaturas acompanhe o volume de texto sem nunca sobrepor nem estourar a folha |
+
+---
+
+## Etapa 64 — Autoria por E-mail e Horário & Confirmação em Tela da Justificativa (D433)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D433 | Autoria estrita por e-mail e horário em observações e confirmação in-place no painel de justificativa | Elimina duplicação de informações nos cards de observação geral (removendo rodapé redundante e mantendo apenas uma indicação logo abaixo do título); padroniza a identificação autoral para exibir exclusivamente o e-mail da conta do responsável e o horário (sem nomes pessoais ou papéis); ajusta `GET /matriz/:categoriaSlug` para selecionar `autorEmail` e `atualizadoEm`; e no painel de justificativa (`PainelJustificativa.tsx`), impede o fechamento abrupto ao clicar em "Aplicar", mantendo o usuário na mesma tela com aviso visual explícito ("Justificativa registrada com sucesso") e exibindo a última atualização com e-mail e horário no card. |
+
+---
+
+## Etapa 65 — Autoria por E-mail em Anotações e Fechamento Estrito de Popups pelo Botão X (D434)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D434 | Autoria com e-mail e horário nas anotações e eliminação de fechamento acidental por clique no backdrop | Padroniza o rodapé das anotações por funcionalidade para exibir estritamente `Registrado por: [e-mail]` e a data/hora ao lado direito, com fallback garantido para o e-mail e data da homologação/responsável da conta (eliminando a palavra "técnico"); e remove os manipuladores de clique no backdrop (`onClick={aoFechar}` e `onClick={aoCancelar}`) em `ModalObservacoesHomologacao.tsx`, `ModalObservacao.tsx` e `PainelJustificativa.tsx`, garantindo que arrastar o mouse para selecionar ou copiar texto nunca feche o modal acidentalmente, fechando estritamente através do botão de fechar (X). |
+
+---
+
+## Etapa 66 — Campo de Busca Digitável Integrado aos Seletores de Filtro (D435)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D435 | Busca digitável em tempo real nos dropdowns de filtro da matriz | Integra campo de pesquisa fixo no topo (`sticky top-0`) com foco automático em `SeletorFiltro.tsx`, permitindo ao usuário filtrar fabricantes, modelos, versões e status digitando diretamente pelo teclado (com filtragem em tempo real, normalização case/acento, atalho Enter para seleção rápida do primeiro resultado e botão de limpeza ✕), dispensando a rolagem manual exaustiva em listas longas sem quebrar a interação tradicional por clique. |
+
+---
+
+## Etapa 67 — Estilização em Tom Roxo de Marca para Alerta de Diálogo de Impressão (D436)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D436 | Alerta de diálogo de impressão do certificado em roxo suave de marca | Substitui a tonalidade vermelha/destrutiva (que sugeria incorretamente falha/erro ao usuário) por um banner estilizado nos tokens roxos oficiais da Mobiltec (`--color-brand-purple-soft: #fbf4fa`, `--color-brand-purple-fg: #6e226b`, `--color-brand-purple-border: #f0d5eb`) acompanhado do ícone animado de impressora em `DetalheDispositivo.tsx` e `Certificado.tsx`, preservando a estilização destrutiva exclusivamente para falhas reais de API/geração. |
+
+---
+
+## Etapa 68 — Visibilidade Unificada no Painel Principal e Seletor Fixo com Criação Dinâmica de Parceiros (D437)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D437 | Visibilidade unificada no Painel Geral Mobiltec e seletor estrito com criação rápida de parceiros | Ajusta `GET /vitrine` para que o painel principal (`/`) forneça visão geral das homologações em andamento no ambiente Mobiltec para todos os usuários (incluindo parceiros), preservando os painéis exclusivos de cada parceiro (`/paineis/meu-painel`) para acompanhamento restrito de sua própria empresa; remove a duplicação do botão "Mobiltec" no menu lateral para usuários internos; e em `GerenciarParceiros.tsx`, substitui o campo livre por seletor com nomes fixos pré-registrados (`Mobiltec`, `TNS` e existentes) acompanhado de botão de criação inline `+ Criar Novo Parceiro`, garantindo vinculação estrita de cada usuário ao ambiente da sua empresa. |
+
+---
+
+## Etapa 69 — Remoção de Greyout em Campos Editáveis e Limpeza de Textos Pré-Prontos de Migração (D438)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D438 | Remoção de placeholders em campos digitáveis e limpeza definitiva de textos pré-prontos automáticos originados da planilha | Remove todos os atributos `placeholder` de inputs e textareas da interface (modais de observação, justificativa, reabertura, novo modelo, criação de parceiro, buscas e assinaturas do certificado), garantindo caixas 100% em branco sem qualquer texto fantasma/greyout pré-escrito que possa simular preenchimento; executa limpeza idempotente no banco via `limpar-textos-automaticos.mjs`, zerando exclusivamente as 75 justificativas genéricas de migração (*"Migrado da planilha..."*) e as 143 observações automáticas geradas pela importação legado (*"Marcado como Testar..."*, *"Item do catálogo sem linha..."*, *"Planilha: ..."*), mantendo estritamente preservadas as 62 observações e 14 justificativas técnicas reais lançadas por usuários humanos; e atualiza `importar-planilha.ts` para que futuras reimportações não reinjetem esses textos sintéticos. |
+
+---
+
+## Etapa 70 — Flexibilização Total e Resiliência no Cadastro de Dispositivos e Homologações (D439)
+
+| D439 | Flexibilização e resiliência no cadastro de modelos e dispositivos | Elimina restrições rígidas e limitadores de dados inválidos no cadastro de dispositivos, adotando valores padrão e preenchimento tolerante para permitir homologações ágeis mesmo com informações parciais. |
+
+---
+
+## Etapa 71 — Gestão Dinâmica de Itens de Registro, Edição e Lixeira Reativa em Configurar Homologação (D440)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D440 | Card de registro com criação e edição dinâmica de itens e lixeira reativa nos tópicos da bateria de testes | No Card "2. Itens do registro" de `FormularioTipo.tsx`, implementa o mesmo padrão interativo dos tópicos de teste: rodapé para cadastrar novos itens de registro/ficha com input de texto e botão Adicionar/Salvar, além de suporte a edição do rótulo de qualquer linha não-fixa via ícone de lápis; e em todos os cards (Itens de Registro e nos 4 tópicos da Bateria de Testes), compacta os campos de digitação e adiciona ao lado do botão Adicionar um botão com ícone de lixeira reativa (`lixeira`): o ícone permanece em cinza/greyout (`opacity-40 cursor-not-allowed`) enquanto 0 funcionalidades/itens estiverem flagados, e transita imediatamente para vermelho vivo ativo (`border-red-300 text-red-600 bg-red-50 hover:bg-red-100`) ao flagar 1 ou mais itens, permitindo excluir em lote as funcionalidades e itens selecionados do modelo/tipo de dispositivo sendo configurado; além de permitir edição inline/rodapé de qualquer funcionalidade já existente ou nova. |
+
+---
+
+## Etapa 72 — Flag de Acesso Administrador para Parceiro Mobiltec (D441)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D441 | Flag "Dar acesso de Administrador" para parceiros vinculados à empresa Mobiltec | Ao registrar ou editar parceiro em `GerenciarParceiros.tsx`, quando a empresa selecionada for Mobiltec (`empresa.trim().toLowerCase() === 'mobiltec'`), exibe container destacado com checkbox "Dar acesso de Administrador"; quando marcada, envia `isAdmin: true`, atribuindo no backend (`parceiros.ts`) papel `papel: 'ADMIN'` e cargo `cargo: 'Administrador'`, liberando todas as permissões de administração do sistema; se desmarcada ou para outras empresas parceiras, mantém `papel: 'PARCEIRO'` e cargo `'Parceiro Homologador'`; atualiza `GET /parceiros` para listar também parceiros internos/admin que possuam empresa preenchida; e renderiza badge visual "Admin" nos cards de gerenciamento de parceiros. |
+
+---
+
+## Etapa 73 — Seletor de Tipo de Agente, Assinatura de Fabricante e Correção de Cadastro de Dispositivo (D442)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D442 | Seletor de Tipo de Agente, flag contextual Sim/Não de assinatura de fabricante e correção do erro 500 no cadastro | No modal de cadastro e edição de modelos (`ModalNovoModelo.tsx`), substitui o campo de texto livre de Tipo de Agente por um seletor selecionável com opções padrão ('Agente de Prod', 'Agente Dev', 'Agente QA', 'Agente POS', 'Agente Legado') acompanhado do botão '+ Novo agente' com formulário inline para adição dinâmica; remove os checkboxes genéricos 'Assinatura do agente' e 'Precisa assinatura DEV' e adiciona container contextual exibido exclusivamente para 'Agente POS' e 'Agente Legado' com a pergunta 'O agente precisa de assinatura do fabricante: Sim ou Não', sincronizando as flags correspondentes; e no backend (`matriz.ts` e `dispositivos.ts`), desestrutura explicitamente os campos de entidade e envolve as queries de criação em tratamento robusto de erros, evitando vazamento de propriedades no Prisma `homologacoes.create` que causava erro interno 500. |
+
+---
+
+## Etapa 74 — Exclusão da Mobiltec da Lista de Parceiros e Abrangência de Dispositivos por Ambiente no Painel (D443)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D443 | Remoção da Mobiltec no submenu Parceiros e consolidação dos dispositivos de categorias permitidas no Painel do Parceiro | No menu lateral (`Layout.tsx`), filtra a empresa Mobiltec da lista desdobrável de parceiros para admins (`empresasParceirasUnicas`), mantendo o link principal 'Mobiltec' unicamente no topo de 'Painel'; e no backend (`parceiros.ts`), ajusta `montarDadosPainel` para consolidar as `categoriasPermitidas` de todos os usuários da empresa parceira (e explicitamente 'pos' para TNS), expandindo a query `dispositivo.findMany` para incluir todos os dispositivos das categorias permitidas além daqueles explicitamente associados por empresa ou responsabilidade, garantindo que ao clicar em qualquer parceiro (ex: TNS com seus 32 dispositivos) o administrador visualize o ambiente completo e coerente de testes daquela organização. |
+
+---
+
+## Etapa 75 — Modal de Informações em Abas com Tabela Compacta e Gestão Estruturada de Parceiros com Busca (D444)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D444 | Modal de Informações com abas em botões horizontais, tabela compacta de testes/observações e tabela de parceiros com filtro em tempo real | Em `ModalInformacoesHomologacao.tsx`, substitui os blocos verticais grandes e o card fixo de observações por uma barra de botões/abas dispostos lado a lado ('Todos', 'Telemetria', 'Coleta', 'Comandos', 'Perfis' e 'Observações'); ao selecionar uma categoria de teste, renderiza uma tabela compacta e limpa contendo Nome do Teste e Status (com justificativa técnica discreta quando houver); ao clicar em 'Observações', alterna exclusivamente para a visualização de observações com mensagem amigável quando vazia ('O parceiro não registrou nenhuma observação até o momento'); e em `GerenciarParceiros.tsx`, substitui o grid de cards por uma tabela administrativa estruturada e compacta acompanhada de input de busca e filtro em tempo real por empresa ou colaborador. |
+
+---
+
+## Etapa 76 — Seletor de SO, Dropdowns com Design System, Badges Premium e Placeholders de Busca (D445)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D445 | Seletor de Sistema Operacional, rótulo dinâmico da versão, dropdowns customizados com Design System, desobrigação do número de série, badges premium e placeholders nas buscas | Em `ModalNovoModelo.tsx`: adiciona seletor de Sistema Operacional ('Android', 'iOS', 'Microsoft', 'Linux'), ajustando o rótulo da versão dinamicamente ('Versão do Android', 'Versão do iOS', 'Versão do Windows', 'Versão do Linux') e exibindo os cadastros específicos de Android ('Gerenciamento') unicamente quando o SO for Android; substitui os elementos `<select>` nativos do navegador por um componente customizado `SeletorDropdown` alinhado ao Design System (com popover flutuante, bordas sutis, hover roxo de marca e checkmark ativo); remove a obrigatoriedade do campo 'Número de série', permitindo submissão transparente sem exigência; em `ConfigurarDispositivos.tsx`, atualiza o badge do cabeçalho e da coluna de status para uma flag pill clean e premium com dot indicador esmeralda (`bg-emerald-500`), e estiliza o badge 'Mobiltec' na coluna Ambiente/Parceiro com o gradiente oficial roxo (`var(--gradient-brand-purple)`); e nas barras de pesquisa de `Home.tsx`, `PainelParceiro.tsx` e `ConfigurarDispositivos.tsx`, restaura o placeholder informativo ('Pesquise o modelo, versão, fabricante, etc...') com expansão de largura para acomodação limpa do texto. |
+
+---
+
+## Etapa 77 — Remoção do Campo de Categorias Permitidas, Lupa Roxa e Badge com Nome da Empresa (D446)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D446 | Remoção do campo e coluna de Categorias Permitidas no registro de parceiro, lupa de busca roxa e badge do parceiro exibindo unicamente o nome da empresa | Em `GerenciarParceiros.tsx`, remove a coluna 'Categorias Permitidas' da tabela administrativa e a seção correspondente do modal de cadastro/edição de parceiros, liberando o escopo completo de categorias por padrão sem necessidade de seleção manual; altera a cor do ícone de lupa na barra de pesquisa para a cor primária da marca (`var(--color-primary)`); e no cabeçalho superior (`Layout.tsx`), altera o badge de perfil do usuário logado no ambiente do parceiro para renderizar unicamente o nome da sua empresa (ex: `Teste` ou `TNS`), eliminando o prefixo redundante `Parceiro (...)`. |
+
+---
+
+## Etapa 78 — Preservação de Ordem e Status ao Renomear Funcionalidade na Bateria de Testes (D447)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D447 | Atualização in-place de nome e descrição de funcionalidades em Configurar Homologação sem alteração de ordem nem reinício de status | Em `FormularioTipo.tsx`, mantém o ID dos itens editados do catálogo na lista `itensExistentesFinais` e despacha os dados renomeados via `itensEditados` (em vez de tratá-los como `itensNovosConvertidos`), evitando que o backend remova o item da bateria e o recrie com novo ID ao final da lista; e em `tipos-dispositivo.ts` (`PATCH` e `POST /tipos-dispositivo`), adiciona suporte ao array `itensEditados` para atualizar `itemTeste.nome` e `itemTeste.descricaoAcao` diretamente no banco sem modificar a tabela pivot `bateriaItem` nem recriar os registros da tabela `resultado` das homologações abertas, garantindo que o status avaliado e a ordem na planilha de testes permaneçam 100% preservados. |
+
+---
+
+## Etapa 79 — Redesign Compacto em Validação de Certificados, Contraste de Notificações e Simplificação de Card (D448)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D448 | Redesign compacto horizontal dos cards de métricas em Validação de Certificados, contraste alto nas notificações e simplificação do card de homologação | Em `CentralNotificacoes.tsx`: restaura contraste pleno no texto descritivo das notificações (`color: var(--color-foreground)`, removendo opacidade esmaecida) para leitura nítida e confortável com borda esquerda roxa de destaque; em `ValidarCertificados.tsx`: compacta os cards superiores de métricas (*Aguardando Validação*, *Aprovados & Emitidos*, *Parceiros Cadastrados*) em layout horizontal com altura reduzida (`py-2.5 px-3.5`), ícones menores e o contador numérico posicionado ao lado do título; e simplifica o card de modelo enviado para validação, removendo o emoji de prédio (`🏢`) da tag do parceiro, eliminando a barra e os contadores de progresso de testes (`0 OK 1 div 47 pend`), e promovendo a data de envio (`· Envio: dd/mm/aaaa`) para a linha superior de tags, unificando a altura do card em um design limpo e fluido. |
+
+---
+
+## Etapa 80 — Alertas Reativos de Menu por Perfil e Redesign Compacto do Card em Revisão (D449)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D449 | Dispensa de alerta de validação ao visualizar no menu, exibição e saída do alerta de revisão no menu do parceiro após confirmação, e redesign compacto do card em revisão | Em `Layout.tsx`: implementa persistência de IDs visualizados (`homolog.validacao-vistos`) para o Admin, exibindo badges em *Parceiros* e *Validar certificado* apenas para novas pendências e dispensando-os ao clicar/visitar a página; e para o Parceiro, exibe badge de alerta âmbar em *Painel* e no subitem da sua empresa (`/paineis/meu-painel`) enquanto houver revisões pendentes de confirmação (`pendentesConfirmacao`), removendo os badges do menu em tempo real no momento em que o recebimento for confirmado. Em `PainelParceiro.tsx`: quando o dispositivo estiver em revisão (`EM_REVISAO`), substitui a foto do coletor e as especificações técnicas (Android/Agente/Progresso) por um container clean com o texto da revisão da Mobiltec sem o cabeçalho/ícone `⚠️`, provê controle de 'Ler mais / Ler menos' para textos extensos, exibe status/botão de confirmação e mantém o rodapé alinhado por `mt-auto`, unificando a altura dos cards e eliminando deformações na grade. |
+
+---
+
+## Etapa 81 — Isolamento Estrito do Painel do Parceiro e Eliminação de Vazamento de Dispositivos (D450)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D450 | Isolamento estrito do painel do parceiro para exibir unicamente dispositivos e homologações da própria empresa | Em `parceiros.ts` (`montarDadosPainel`): remove a cláusula aberta por categoria (`listaCategorias`) que provocava o vazamento de dispositivos da Mobiltec e de terceiros em teste para o painel do parceiro; restringe a consulta e o `include` de homologações aos modelos cadastrados pela empresa do parceiro (`dispositivo.empresa` ou `fabricante`) ou que possuam homologações atribuídas ao parceiro ou a usuários da sua empresa; assegura que o painel do parceiro liste apenas os modelos do seu ambiente e que os modelos e homologações em andamento da Mobiltec sejam acessados exclusivamente através da vitrine geral em *Painel > Mobiltec*. |
+
+---
+
+## Etapa 82 — Liberação de Edição e Reenvio para Validação de Homologações em Revisão (D451)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D451 | Desbloqueio da edição de testes e habilitação de reenvio para validação pela Mobiltec quando a homologação estiver com status EM_REVISAO | Em `transicoes.ts` (`validarTransicao`): autoriza o papel `PARCEIRO` a transicionar de `EM_REVISAO` para `AGUARDANDO_ANALISE` (além da transição padrão de `RASCUNHO`), garantindo que o parceiro possa submeter novamente após corrigir os apontamentos; em `homologacoes.ts` (`PUT /homologacoes/:id/resultados/:itemId`): autoriza o parceiro a atualizar status e observações de itens de teste quando a homologação estiver em `EM_REVISAO`, com validação de titularidade da mesma empresa; em `tipos.ts` (`ehSomenteLeitura`): atualiza a regra para que o parceiro só tenha visualização somente-leitura enquanto a homologação estiver sob custódia da Mobiltec (`AGUARDANDO_ANALISE`) ou em estados finais concluídos (`APROVADO`, `PUBLICADO`, `REPROVADO`), liberando total interatividade de edição em `EM_REVISAO`; e em `ModalFinalizar.tsx` e `Matriz.tsx`: ajusta os botões e títulos de ação dinamicamente para 'Reenviar para Validação Mobiltec' quando o status for `EM_REVISAO`. |
+
+---
+
+## Etapa 83 — Redesign Premium do Aviso de Revisão e Eliminação de Cards Desarmoniosos (D452)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D452 | Aviso estilizado de revisão com identificação do técnico emitente, eliminação de caixas escuras/verdes e alinhamento visual com o Design System | Em `parceiros.ts` (`montarDadosPainel`): inclui `historicoStatus` com o último registro de transição para `EM_REVISAO` e o usuário responsável, expondo o objeto `revisaoInfo` contendo o nome real do técnico da Mobiltec que solicitou a revisão (`tecnicoNome`), a mensagem exata (`mensagem`) e a data/hora do envio (`criadoEm`); em `tipos.ts`: declara a interface `RevisaoInfo` e a associa a `DispositivoPainelParceiro`; em `PainelParceiro.tsx`: elimina os blocos amarronzados e a pílula verde sobre fundo cinza escuro, substituindo-os por um card de aviso premium integrado ao Design System (cabeçalho com avatar roxo em gradiente da marca, nome do técnico e indicador temporal sutil, caixa de mensagem nítida sobre `var(--color-card)`, linha de ciência/confirmação discreta com dot esmeralda sutil, e botão de confirmação com gradiente roxo oficial); e remove o link redundante 'Ajustar itens na bateria' do corpo, unificando a ação contextual no botão de rodapé 'Ajustar testes na bateria →'. |
+
+---
+
+## Etapa 84 — Visibilidade dos Dispositivos PoS da TNS e Redesign dos Cards de Teste e Status em Linha Única (D453)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D453 | Inclusão de dispositivos da categoria PoS para o ambiente TNS e redesign da modal de testes com cards por grupo temático, cabeçalhos roxos e status em linha única | Em `parceiros.ts` (`montarDadosPainel`): restaura a associação da categoria PoS (`categoria: { slug: 'pos' }`) e o fallback de homologações para parceiros do ambiente TNS (`empresa: 'TNS'/'TNSI'` ou `email: 'hgomes@tnsi.com'`), garantindo que administradores visualizem os 31 dispositivos PoS no painel do parceiro TNS sem comprometer o isolamento estrito de parceiros mono-empresa (como 'Teste'); e em `ModalInformacoesHomologacao.tsx`: elimina o card estático "Bateria de Testes", agrupando dinamicamente os itens por categoria temática (Telemetria, Coleta, etc.) com cabeçalho em roxo oficial (`var(--color-primary)` com texto branco), cabeçalho de colunas com cinza mais escuro contrastante (`bg-slate-200 border-slate-300` com tipografia em negrito), e formatação compacta do badge de status com `whitespace-nowrap` e `leading-none`, impedindo que "Não Testado" quebre em múltiplas linhas. |
+
+---
+
+## Etapa 85 — Isolamento Estrito do Escopo PoS Exclusivo para TNS (D454)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D454 | Restrição da exceção PoS unicamente à organização TNS, preservando isolamento estrito para os demais parceiros | Em `parceiros.ts` (`montarDadosPainel`): ajusta `ehTNS` para avaliar estritamente a identidade da empresa (`empresa: 'TNS'/'TNSI'`) ou e-mail corporativo (`@tnsi.com`), removendo a checagem aberta por `categoriasPermitidas`; assegura que os 32 dispositivos PoS do catálogo Mobiltec/TNS sejam compartilhados única e exclusivamente entre o catálogo público da Mobiltec e o ambiente TNS, garantindo que qualquer outro parceiro cadastrado (como 'Teste') visualize 100% estritamente apenas os seus próprios dispositivos sem qualquer vazamento de modelos PoS. |
+
+---
+
+## Etapa 86 — Baterias Dinâmicas de Teste, Reordenação de Blocos e Limpeza do Subtítulo no Registro/Edição de Tipos (D455)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D455 | Criação dinâmica de novas baterias de testes, reordenação sequencial de blocos e remoção de subtítulo nos formulários de tipos de dispositivo | No banco (`schema.prisma` / Postgres): converte a coluna `ItemTeste.grupo` de enum estático para `text` (`String @default("TELEMETRIA")`) e adiciona `gruposOrdem String[]` e `gruposTitulos Json` na tabela `Categoria`, permitindo que novas baterias sejam adicionadas livremente sem alterar o schema relacional; no backend (`tipos-dispositivo.ts`, `matriz.ts`, `certificado.ts`): estende endpoints de criação e edição para persistir ordem e títulos customizados das baterias, ordena itens e resultados pela ordem definida pela categoria e adapta a geração do certificado oficial PDF/HTML para paginar e renderizar dinamicamente grupos extras; no frontend (`FormularioTipo.tsx`, `Matriz.tsx`, `DetalheDispositivo.tsx`, `ModalInformacoesHomologacao.tsx`, `RotuloGrupo.tsx`): remove o subtítulo explicativo sob os títulos "Registrar tipo de dispositivo" e "Editar", adiciona o botão compacto "Nova bateria" com formulário inline de título e itens, introduz seletores e botões de reordenação (▲ ▼) para os blocos e testes (inclusive o bloco Registro), e reflete dinamicamente a ordem e rótulos personalizados das baterias tanto na planilha quanto nos relatórios e menus. |
+
+---
+
+## Etapa 87 — Redesign Clean de Ambiente/Parceiro e Badges de Status na Tela Configurar Dispositivos (D456)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D456 | Remoção de flag de fundo na coluna Ambiente/Parceiro e adoção do design clean tipo 'Ativo' para os status na tela Configurar Dispositivos | Em `ConfigurarDispositivos.tsx`: remove qualquer badge/pílula/card com fundo na coluna 'Ambiente / Parceiro' (eliminando blocos escuros/âmbar e renderizando estritamente o nome do ambiente/empresa em fonte roxa oficial `var(--color-primary)` com indicação de responsável discreta abaixo); e substitui os badges de status opacos com fundo cinza-esverdeado (tanto no resumo métrico do cabeçalho quanto na coluna 'Status') pelo design clean idêntico ao componente de referência da flag 'Ativo' (pílula `rounded-full`, fundo verde ultraclaro `var(--color-success-soft)` `#f0fdf4`, borda suave `rgba(22, 163, 74, 0.25)`, indicador dot verde vibrante `bg-emerald-500` e tipografia nítida semibold em verde esmeralda `var(--color-success-fg)` `#166534`, além de variantes correspondentes para Publicado e Reprovado). |
+
+---
+
+## Etapa 88 — Exibição Completa de Título de Baterias e Edição de Títulos Existentes (D457)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D457 | Exibição vertical integral de títulos longos em baterias com poucos itens e funcionalidade de renomeação de baterias cadastradas | Em `RotuloGrupo.tsx`: elimina o truncamento com reticências e o fallback para a sigla 'BAT', permitindo que títulos extensos de baterias sejam exibidos integralmente no rail lateral; em `Matriz.tsx`: introduz cálculo dinâmico de altura mínima de linha por grupo (`alturaNecessariaTitulo`) baseado no comprimento do título (`caracteres * 8.5px`) distribuído entre a quantidade de itens da bateria, adaptando o layout para acomodar títulos longos mesmo em baterias com apenas 1 ou 2 funcionalidades; em `FormularioTipo.tsx`: adiciona a função `editarTituloBateria` com botão de edição rápida (ícone de lápis) no cabeçalho de cada bloco de testes, permitindo ao administrador renomear títulos de baterias existentes mantendo funcionalidades e posições intactas; e em `ModalInformacoesHomologacao.tsx`: unifica a obtenção do rótulo completo via `obterRotuloGrupo`. |
+
+---
+
+## Etapa 89 — Alertas do Sino Instantâneos e Ocultação de Bolinha ao Aprovar/Revisar (D458)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D458 | Ocultação imediata do alerta no sino ao clicar, remoção do botão 'Marcar como lida' e eliminação da bolinha de validação no painel ao aprovar ou enviar para revisão até nova interação | Em `CentralNotificacoes.tsx`: ao clicar no sino, limpa o sinalizador visual instantaneamente (`alertaVistoLocal = true`) e dispara `marcarTodasLidas.mutate()`, eliminando o badge de alerta no primeiro milissegundo do clique do usuário (tanto admin quanto parceiro); remove o botão redundante 'Marcar lidas' do cabeçalho da central e preserva integralmente a ação de 'Confirmar recebimento' para notificações de revisão; em `useNotificacoes.ts`: implementa mutação otimista em `useMarcarTodasLidas` para zerar `naoLidas` imediatamente no cache TanStack Query; em `homologacoes.ts` (backend): ao transicionar uma homologação para `APROVADO`, `EM_REVISAO` ou `REPROVADO`, encerra e marca automaticamente como lida qualquer notificação anterior de `SUBMETIDO` associada; em `useHomologacao.ts`: expande o `onSuccess` de `useTransicaoStatus` para invalidar `homologacoes`, `notificacoes` e `painel-parceiro`; em `Layout.tsx`: restringe `homologacoesPendentes` estritamente a `h.status === 'AGUARDANDO_ANALISE'` (descartando `EM_REVISAO`, que fica sob custódia do parceiro), removendo a bolinha do admin no exato instante em que ele aprova ou envia para revisão, reaparecendo unicamente quando o parceiro voltar a interagir e reenviar a homologação; e em `ValidarCertificados.tsx`: ajusta as métricas e cria a aba 'Em Revisão' para separar o que aguarda validação do admin do que está sob ajuste do parceiro. |
+
+---
+
+## Etapa 90 — Redesign Clean dos Cards Métricos e Badges em Validar Certificados (D459)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D459 | Substituição do design de caixas cinzas nos contadores métricos e badges de status pelo padrão pílula clean com dot verde/roxo/âmbar | Em `ValidarCertificados.tsx`: substitui o bloco acinzentado do número no card métrico 'Aprovados & Emitidos' pelo badge clean pílula (`rounded-full`) com fundo verde ultraclaro (`#f0fdf4`), borda suave (`rgba(22, 163, 74, 0.25)`), indicador dot verde vibrante (`bg-emerald-500`) e tipografia nítida semibold em verde esmeralda (`#166534`), harmonizando identicamente com os cards de 'Aguardando Validação' (pílula roxa com dot) e 'Parceiros Cadastrados'; e na listagem de dispositivos, elimina as bordas e badges genéricos de pendência para itens em revisão, aplicando pills específicas com dot âmbar para `EM_REVISAO` e roxo para `AGUARDANDO_ANALISE`. |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+## Etapa 91 — Baterias de Teste: Criação, Edição e Reordenação (D460–D462)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D460 | Baterias de teste múltiplas e independentes por tipo de dispositivo (branch feat) | O schema já suporta N baterias por categoria (relação 1:N `Categoria → BateriaTeste`), mas a UI e a lógica tratavam como 1:1. Agora o admin pode criar baterias adicionais dentro de um tipo existente, e na criação de homologação escolhe qual bateria usar. Atende ao pedido de "criar e configurar novas baterias de testes, além das que já existem" |
+| D461 | Reordenação de itens da bateria via endpoint PATCH em lote | Nova rota `PATCH /baterias/:id/ordem` aceita array `[{ itemId, ordem }]` e atualiza as posições em transação. A UI exibe campos numéricos de ordem editáveis — mapeamento direto do requisito "cada teste deverá possuir um número de ordem" e "o administrador poderá alterar esses números" |
+| D462 | Rota PATCH /baterias/:id para edição de bateria existente | Só existia `POST /baterias` (criação). Nova rota permite renomear, adicionar/remover itens e desativar bateria. Ao receber `itens`, faz reconciliação similar ao `PATCH /tipos-dispositivo` (D369): sincroniza homologações abertas que usam essa bateria |
+
+---
+
+## Etapa 92 — Fluxo de Revisão do Certificado (Admin ⇄ Parceiro) (D463–D469)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D463 | Ficha de informações extraída para `componentes/homologacao/FichaHomologacao.tsx` (`FichaUnidadeTestada` + `ResultadoHomologacao`), consumida pela página `/dispositivos/:id` e por `ModalInformacoesHomologacao` na tela de Validar Certificado | Pedido do usuário (Item 1): o botão "Exibir informações" da validação abre "o mesmo card" da vitrine. Em modal, e não navegando, para o Admin não perder a fila, a busca e a aba ao conferir cada dispositivo. São dois componentes e não um porque na página a unidade testada fica dentro do card com os botões do certificado e o resultado vem abaixo dele — duas cópias do mesmo documento divergiriam na primeira mudança |
+| D464 | Observações Gerais do parceiro passam a integrar a ficha (`BlocoObservacoesParceiro`); os botões "Matriz" e "Observações" saem da tela de Validar Certificado | Pedido do usuário (Item 1). A premissa do pedido — "esse card já apresenta as observações registradas pelo parceiro" — não era verdadeira: `DetalheDispositivo` mostrava só a justificativa item a item, nunca as Observações Gerais com anexos (D421). Remover o botão sem mover o conteúdo tiraria do Admin os logs e prints que sustentam a validação |
+| D465 | `EM_REVISAO` devolve a custódia ao parceiro: ele reedita ficha, resultados e observações, e reenvia com `EM_REVISAO → AGUARDANDO_ANALISE`. `AGUARDANDO_ANALISE` segue somente-leitura para ele | Pedido do usuário (Item 3): criar o ciclo Revisão → Ajustes → Nova avaliação sem recriar a homologação. Revisão **não** é reteste (Regra Inalienável 4): é o mesmo registro voltando para edição. Implementado em `TRANSICOES_PARCEIRO` e `STATUS_EDITAVEIS_PARCEIRO` (`lib/transicoes.ts`), espelhados por `ehSomenteLeitura` no frontend — se uma lista mudar, a outra muda junto, ou a tela libera o que a API recusa |
+| D466 | Motivo da revisão obrigatório (mínimo 10 caracteres) em `AGUARDANDO_ANALISE → EM_REVISAO`, e exposto ao parceiro na matriz, na ficha e no painel via `AvisoRevisao` | O motivo já era gravado em `HistoricoStatus.motivo` desde sempre e **nunca era lido em lugar nenhum**: o dispositivo voltava para a bancada sem dizer o que ajustar, e o ciclo do Item 3 não fecharia. A exigência vale só na devolução real — `RASCUNHO → EM_REVISAO` é escala interna do "Finalizar" da Mobiltec a caminho de `APROVADO` (`ModalFinalizar`), onde não há parceiro a quem instruir |
+| D467 | A aba "Pendentes" da tela de validação passa a conter apenas `AGUARDANDO_ANALISE`; `EM_REVISAO` ganha aba própria, sem botões de aprovação | Item 3 pede que o dispositivo "volte a aparecer" para o Admin ao ser reenviado — o que pressupõe que ele saia enquanto está com o parceiro. Antes as duas situações compartilhavam a fila: o contador de pendências mentia e "Aprovar & Emitir" aparecia sobre um dispositivo que a Mobiltec nem tinha em mãos |
+| D468 | Regra global `button:not(:disabled) { cursor: pointer }` em `index.css` | Pedido do usuário (Item 2). Causa raiz: o Tailwind 4 removeu `cursor: pointer` do preflight dos botões, então o cursor só aparecia onde alguém escreveu `cursor-pointer` na classe. O botão de revisão chegou a produção com a seta do sistema e a paleta `muted-foreground`, parecendo desabilitado. A regra devolve o comportamento anterior para toda a aplicação; `:disabled` vira `not-allowed` |
+
+---
+
+## Etapa 93 — Ajustes no fluxo de revisão de dispositivos (D469–D470)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D469 | A custódia de `EM_REVISAO` definida na D465 também abrange a foto do dispositivo | O parceiro atribuído à homologação pode substituir a foto em `RASCUNHO` ou `EM_REVISAO`; em `AGUARDANDO_ANALISE` e nos estados finais a ação continua bloqueada na interface e com HTTP 403 na API. A autorização deve considerar o vínculo do usuário com a homologação editável do dispositivo, e não apenas a existência de qualquer homologação histórica aprovada para o mesmo modelo |
+| D470 | Observação da funcionalidade e justificativa técnica são informações independentes na ficha compartilhada | O `ResultadoHomologacao` não pode escolher uma com `justificativa ?? observacao`: quando ambas existem, deve expor as duas com rótulos distintos e manter cada observação vinculada à linha da respectiva funcionalidade, inclusive no modal "Exibir informações" do Admin |
+

@@ -8,6 +8,8 @@ export interface AcaoColuna {
   marcado?: boolean
   /** Destaca a ação que fecha ou reabre a homologação */
   destaque?: boolean
+  /** Ação destrutiva como remover da planilha */
+  destrutivo?: boolean
   /** Opção corrente, quando o menu é um seletor e não uma lista de ações */
   ativo?: boolean
 }
@@ -115,9 +117,8 @@ export function MenuColuna({
         >
           {acoes.map((a, i) => (
             <div key={a.rotulo}>
-              {/* Um traço antes da última ação: fechar/reabrir é de outra
-                  natureza que navegar e anotar */}
-              {a.destaque && i > 0 && <div className="my-1 border-t" />}
+              {/* Um traço antes de fechar/reabrir ou remover */}
+              {(a.destaque || a.destrutivo) && i > 0 && <div className="my-1 border-t" />}
               <button
                 type="button"
                 role="menuitem"
@@ -128,11 +129,13 @@ export function MenuColuna({
                 aria-current={a.ativo || undefined}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-normal transition-opacity hover:opacity-80"
                 style={
-                  a.destaque
-                    ? { color: 'var(--color-primary)', fontWeight: 600 }
-                    : a.ativo
-                      ? { background: 'var(--color-muted)', color: 'var(--color-primary)', fontWeight: 600 }
-                      : undefined
+                  a.destrutivo
+                    ? { color: 'var(--color-destructive)', fontWeight: 500 }
+                    : a.destaque
+                      ? { color: 'var(--color-primary)', fontWeight: 600 }
+                      : a.ativo
+                        ? { background: 'var(--color-muted)', color: 'var(--color-primary)', fontWeight: 600 }
+                        : undefined
                 }
               >
                 <span className="flex-1">{a.rotulo}</span>

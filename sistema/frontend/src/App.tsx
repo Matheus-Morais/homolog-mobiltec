@@ -13,6 +13,7 @@ import { Certificado } from '@/paginas/Certificado'
 import { GerenciarParceiros } from '@/paginas/GerenciarParceiros'
 import { ValidarCertificados } from '@/paginas/ValidarCertificados'
 import { PainelParceiro } from '@/paginas/PainelParceiro'
+import { ConfigurarDispositivos } from '@/paginas/ConfigurarDispositivos'
 
 const clienteQuery = new QueryClient({
   defaultOptions: {
@@ -67,6 +68,9 @@ export default function App() {
               <Route path="/registro" element={<RegistroDispositivo />} />
               <Route path="/registro/tipos" element={<GerenciarTipos />} />
               <Route path="/registro/tipos/:id" element={<RegistroDispositivo />} />
+              {/* Painel consultivo de dispositivos finalizados (Admin) */}
+              <Route path="/configurar-dispositivos" element={<ConfigurarDispositivos />} />
+              <Route path="/dispositivos/gerenciar" element={<Navigate to="/configurar-dispositivos" replace />} />
               {/* Gestão de Parceiros e Validação de Certificados (Admin / Mobiltec) */}
               <Route path="/ambiente/parceiros" element={<GerenciarParceiros />} />
               <Route path="/parceiros" element={<Navigate to="/ambiente/parceiros" replace />} />

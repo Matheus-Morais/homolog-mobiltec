@@ -217,75 +217,98 @@ export function ValidarCertificados() {
           </div>
         )}
 
-        {/* Cards de Métricas Rápidas */}
+        {/* Cards de Métricas Rápidas (Design Clean e Elegante) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div
-            className="p-4 rounded-xl border flex items-center justify-between"
+            className="py-2.5 px-3.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs transition-all"
             style={{
               background: pendentes.length > 0 ? 'rgba(126,32,101,0.04)' : 'var(--color-card)',
               borderColor: pendentes.length > 0 ? 'var(--color-brand-purple)' : 'var(--color-border)',
             }}
           >
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-muted-foreground)' }}>
-                Aguardando Validação
-              </p>
-              <p
-                className="text-2xl font-bold mt-1"
-                style={{ color: pendentes.length > 0 ? 'var(--color-primary)' : 'var(--color-foreground)' }}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{
+                  background: pendentes.length > 0 ? 'var(--gradient-brand-purple)' : 'var(--color-muted)',
+                  color: pendentes.length > 0 ? '#fff' : 'var(--color-muted-foreground)',
+                }}
               >
-                {pendentes.length}
-              </p>
+                <Icone nome="relogio" className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-semibold text-[var(--color-foreground)] truncate">
+                Aguardando Validação
+              </span>
             </div>
-            <div
-              className="h-10 w-10 rounded-lg flex items-center justify-center"
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold select-none shrink-0"
               style={{
-                background: pendentes.length > 0 ? 'var(--gradient-brand-purple)' : 'var(--color-muted)',
-                color: pendentes.length > 0 ? '#fff' : 'var(--color-muted-foreground)',
+                color: pendentes.length > 0 ? 'var(--color-primary)' : 'var(--color-muted-foreground)',
+                background: pendentes.length > 0 ? 'rgba(126,32,101,0.08)' : 'var(--color-muted)',
+                border: pendentes.length > 0 ? '1px solid rgba(126,32,101,0.25)' : '1px solid var(--color-border)',
               }}
             >
-              <Icone nome="relogio" className="h-5 w-5" />
-            </div>
+              {pendentes.length > 0 && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--color-primary)' }} />}
+              <span className="text-sm font-bold">{pendentes.length}</span>
+            </span>
           </div>
 
           <div
-            className="p-4 rounded-xl border flex items-center justify-between"
+            className="py-2.5 px-3.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs transition-all"
             style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
           >
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-muted-foreground)' }}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{
+                  background: 'var(--color-success-soft, #f0fdf4)',
+                  color: 'var(--color-success-fg, #166534)',
+                }}
+              >
+                <Icone nome="certificado" className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-semibold text-[var(--color-foreground)] truncate">
                 Aprovados & Emitidos
-              </p>
-              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-foreground)' }}>
-                {aprovados.length}
-              </p>
+              </span>
             </div>
-            <div
-              className="h-10 w-10 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--color-status-ok-soft)', color: 'var(--color-status-ok)' }}
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold select-none shrink-0"
+              style={{
+                color: 'var(--color-success-fg, #166534)',
+                background: 'var(--color-success-soft, #f0fdf4)',
+                border: '1px solid rgba(22, 163, 74, 0.25)',
+              }}
             >
-              <Icone nome="certificado" className="h-5 w-5" />
-            </div>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-sm font-bold">{aprovados.length}</span>
+            </span>
           </div>
 
           <div
-            className="p-4 rounded-xl border flex items-center justify-between"
+            className="py-2.5 px-3.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs transition-all"
             style={{ background: 'var(--color-card)', borderColor: 'var(--color-border)' }}
           >
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-muted-foreground)' }}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: 'var(--color-muted)', color: 'var(--color-muted-foreground)' }}
+              >
+                <Icone nome="parceiros" className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-semibold text-[var(--color-foreground)] truncate">
                 Parceiros Cadastrados
-              </p>
-              <p className="text-2xl font-bold mt-1" style={{ color: 'var(--color-foreground)' }}>
-                {empresasParceiras.length}
-              </p>
+              </span>
             </div>
-            <div
-              className="h-10 w-10 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--color-muted)', color: 'var(--color-muted-foreground)' }}
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold select-none shrink-0"
+              style={{
+                color: 'var(--color-foreground)',
+                background: 'rgba(0, 0, 0, 0.03)',
+                border: '1px solid var(--color-border)',
+              }}
             >
-              <Icone nome="parceiros" className="h-5 w-5" />
-            </div>
+              <span className="text-sm font-bold">{empresasParceiras.length}</span>
+            </span>
           </div>
         </div>
 
@@ -301,7 +324,18 @@ export function ValidarCertificados() {
                 background: aba === 'pendentes' ? 'var(--gradient-brand-purple)' : 'transparent',
               }}
             >
-              Pendentes ({pendentes.length})
+              Aguardando Validação ({pendentes.length})
+            </button>
+            <button
+              onClick={() => setAba('revisao')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                aba === 'revisao' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              style={{
+                background: aba === 'revisao' ? 'var(--gradient-brand-purple)' : 'transparent',
+              }}
+            >
+              Em Revisão ({emRevisao.length})
             </button>
             <button
               onClick={() => setAba('em-revisao')}
@@ -347,7 +381,6 @@ export function ValidarCertificados() {
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Filtrar por modelo, parceiro ou S/N…"
               className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border bg-transparent outline-none focus:ring-1"
               style={{ borderColor: 'var(--color-input)' }}
             />
@@ -377,8 +410,13 @@ export function ValidarCertificados() {
             <h3 className="text-base font-semibold" style={{ color: 'var(--color-foreground)' }}>
               {aba === 'pendentes'
                 ? 'Nenhum certificado pendente de validação'
+<<<<<<< HEAD
                 : aba === 'em-revisao'
                 ? 'Nenhum dispositivo em revisão'
+=======
+                : aba === 'revisao'
+                ? 'Nenhuma homologação em revisão técnica no momento'
+>>>>>>> upstream/main
                 : 'Nenhuma homologação encontrada'}
             </h3>
             <p className="text-xs sm:text-sm mt-1 max-w-md" style={{ color: 'var(--color-muted-foreground)' }}>
@@ -392,15 +430,6 @@ export function ValidarCertificados() {
         ) : (
           <div className="space-y-3">
             {listaAtual.map((h) => {
-              const resultados = h.resultados ?? []
-              const total = resultados.length || h._count.resultados || 0
-              const ok = resultados.filter((r) => r.status === 'OK').length
-              const divergencias = resultados.filter(
-                (r) => r.status === 'FALHA' || r.status === 'COM_RESSALVA' || r.status === 'NAO_SUPORTADO',
-              ).length
-              const naoTestados = resultados.filter((r) => r.status === 'NAO_TESTADO').length
-              const percentual = total > 0 ? Math.round((ok / total) * 100) : 100
-
               const nomeEmpresa = h.responsavel?.empresa || h.dispositivo.empresa || 'Parceiro'
               const nomeResponsavel = h.responsavel?.nome || 'Técnico'
               // Pendente é o que espera ação do Admin — e só. Em revisão o
@@ -409,6 +438,10 @@ export function ValidarCertificados() {
               const isEmRevisao = h.status === 'EM_REVISAO'
               const isAprovado = h.status === 'APROVADO' || h.status === 'PUBLICADO'
               const revisao = h.historicoStatus?.[0]
+              const dataEnvio = new Date(h.atualizadoEm || h.criadoEm).toLocaleDateString('pt-BR')
+              // Alias compatíveis com o código do upstream para os badges
+              const precisaValidar = isPendente
+              const ehRevisao = isEmRevisao
 
               return (
                 <div
@@ -430,9 +463,9 @@ export function ValidarCertificados() {
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     {/* Dispositivo e Foto */}
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
                       <div
-                        className="h-16 w-16 rounded-lg border shrink-0 overflow-hidden flex items-center justify-center p-1.5"
+                        className="h-14 w-14 rounded-lg border shrink-0 overflow-hidden flex items-center justify-center p-1"
                         style={{ background: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
                       >
                         {h.dispositivo.fotoUrl ? (
@@ -444,15 +477,15 @@ export function ValidarCertificados() {
                         ) : (
                           <Icone
                             nome={iconeDaCategoria(h.dispositivo.categoria?.icone)}
-                            className="h-8 w-8 text-muted-foreground"
+                            className="h-7 w-7 text-muted-foreground"
                           />
                         )}
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider"
+                            className="px-2 py-0.5 rounded text-[10.5px] font-semibold uppercase tracking-wider"
                             style={{
                               background: 'var(--color-muted)',
                               color: 'var(--color-muted-foreground)',
@@ -463,9 +496,9 @@ export function ValidarCertificados() {
 
                           {isAprovado ? (
                             <BadgeHomologado homologado={true} />
-                          ) : (
+                          ) : precisaValidar ? (
                             <span
-                              className="px-2 py-0.5 rounded-full text-[11px] font-bold"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold select-none"
                               style={{
                                 background:
                                   isPendente || isEmRevisao
@@ -484,71 +517,32 @@ export function ValidarCertificados() {
                                 ? 'Com o parceiro'
                                 : h.status}
                             </span>
+                            </span>
                           )}
 
                           <span
-                            className="px-2 py-0.5 rounded text-[11px] font-medium"
+                            className="px-2 py-0.5 rounded-md text-[10.5px] font-bold tracking-wide"
                             style={{ background: 'rgba(126,32,101,0.08)', color: 'var(--color-primary)' }}
                           >
-                            🏢 {nomeEmpresa}
+                            {nomeEmpresa}
+                          </span>
+
+                          <span className="text-[11px] text-[var(--color-muted-foreground)] ml-auto sm:ml-1 font-medium">
+                            · Envio: {dataEnvio}
                           </span>
                         </div>
 
-                        <h3 className="text-base font-semibold leading-tight" style={{ color: 'var(--color-foreground)' }}>
+                        <h3 className="text-sm sm:text-base font-semibold leading-tight truncate" style={{ color: 'var(--color-foreground)' }}>
                           {h.dispositivo.nomeComercial}
                         </h3>
 
-                        <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-                          {h.dispositivo.fabricante} {h.dispositivo.modelo} · Responsável: <strong>{nomeResponsavel}</strong>
-                          {h.assinaturaApoio && ` · Apoio: ${h.assinaturaApoio}`}
+                        <p className="text-xs truncate" style={{ color: 'var(--color-muted-foreground)' }}>
+                          {h.dispositivo.fabricante} {h.dispositivo.modelo} · Resp.: <strong>{nomeResponsavel}</strong>
+                          {h.assinaturaApoio && ` · Apoio: ${h.assinaturaApoio}`} · SO: {h.versaoSo} · Agente: {h.versaoAgente}
+                          {h.numeroSerie ? ` · S/N: ${h.numeroSerie}` : ''}
                         </p>
-
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs pt-0.5 text-muted-foreground">
-                          <span>SO: Android {h.versaoSo}</span>
-                          <span>·</span>
-                          <span>Agente: v{h.versaoAgente}</span>
-                          <span>·</span>
-                          <span>S/N: {h.numeroSerie}</span>
-                          <span>·</span>
-                          <span>
-                            Envio: {new Date(h.atualizadoEm || h.criadoEm).toLocaleDateString('pt-BR')}
-                          </span>
-                        </div>
                       </div>
                     </div>
-
-                    {/* Barra de Progresso e Ações */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 lg:gap-6 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0">
-                      {total > 0 && (
-                        <div className="text-left lg:text-right space-y-1 min-w-[130px]">
-                          <div className="flex items-center justify-between lg:justify-end gap-2 text-xs font-semibold">
-                            <span style={{ color: 'var(--color-status-ok)' }}>{ok} OK</span>
-                            {divergencias > 0 && (
-                              <span style={{ color: 'var(--color-brand-orange)' }}>
-                                {divergencias} div
-                              </span>
-                            )}
-                            {naoTestados > 0 && (
-                              <span style={{ color: 'var(--color-muted-foreground)' }}>
-                                {naoTestados} pend
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${percentual}%`,
-                                background: percentual === 100 ? 'var(--color-status-ok)' : 'var(--color-brand-orange)',
-                              }}
-                            />
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            {ok} de {total} itens ({percentual}%)
-                          </p>
-                        </div>
-                      )}
 
                       {/* Botões de Ação */}
                       <div className="flex flex-wrap items-center gap-2">
@@ -750,7 +744,6 @@ export function ValidarCertificados() {
                 rows={3}
                 value={motivoRevisao}
                 onChange={(e) => setMotivoRevisao(e.target.value)}
-                placeholder="Ex: Favor verificar o item de telemetria de bateria e justificar o resultado..."
                 className="w-full px-3 py-2 text-xs rounded-lg border bg-transparent outline-none focus:ring-1"
                 style={{ borderColor: 'var(--color-input)' }}
               />

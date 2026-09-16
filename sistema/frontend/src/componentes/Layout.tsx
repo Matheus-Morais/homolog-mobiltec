@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contextos/AuthContext'
 import { useCategorias } from '@/hooks/useVitrine'
@@ -7,6 +7,8 @@ import { useParceiros } from '@/hooks/useParceiros'
 import { ancorarMenu } from '@/lib/ancorarMenu'
 import { LogoMobiltec } from './LogoMobiltec'
 import { Icone, iconeDaCategoria, type NomeIcone } from './Icone'
+import { CentralNotificacoes } from './CentralNotificacoes'
+import { useNotificacoes } from '@/hooks/useNotificacoes'
 
 const CHAVE_MENU = 'homolog.menu-aberto'
 
@@ -30,11 +32,13 @@ function GrupoMenu({
   filhos,
   aberto,
   totalPendentes = 0,
+  aoClicarItem,
 }: {
   item: Omit<ItemMenuDados, 'fim'>
   filhos: ItemMenuDados[]
   aberto: boolean
   totalPendentes?: number
+  aoClicarItem?: (item: ItemMenuDados) => void
 }) {
   const { pathname } = useLocation()
   const noGrupo = filhos.some((f) => pathname === f.para || pathname.startsWith(`${f.para}/`))
@@ -206,6 +210,7 @@ function GrupoMenu({
                     key={f.para}
                     to={f.para}
                     end={f.fim}
+                    onClick={() => aoClicarItem?.(f)}
                     className={({ isActive }) =>
                       `btn-menu-subitem flex items-center justify-between truncate rounded-md px-2.5 py-1.5 text-[13px] font-medium leading-tight outline-none focus:outline-none focus-visible:outline-none ${
                         isActive
@@ -255,7 +260,10 @@ function GrupoMenu({
                 to={f.para}
                 end={f.fim}
                 role="menuitem"
-                onClick={() => setFlutuante(null)}
+                onClick={() => {
+                  setFlutuante(null)
+                  aoClicarItem?.(f)
+                }}
                 className="flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[0.04] outline-none focus:outline-none focus-visible:outline-none"
                 style={({ isActive }) => ({
                   background: isActive ? 'var(--color-muted)' : 'transparent',
@@ -302,15 +310,41 @@ function MenuPaineis({
   ehAdmin,
   ehParceiro,
   usuario,
+  revisoesPendentes = 0,
+  homologacoesPendentes = [],
 }: {
   aberto: boolean
   ehAdmin: boolean
   ehParceiro: boolean
   usuario: any
+  revisoesPendentes?: number
+  homologacoesPendentes?: any[]
 }) {
   const { pathname } = useLocation()
   const { data: parceiros = [] } = useParceiros(ehAdmin)
   const parceirosAtivos = parceiros.filter((p) => p.ativo)
+
+  // Deduplica parceiros por empresa para que múltiplos usuários da mesma empresa formem um único ambiente
+  const empresasParceirasUnicas = useMemo(() => {
+    const mapa = new Map<string, typeof parceiros[number]>()
+    for (const p of parceirosAtivos) {
+      if (!p.empresa || !p.empresa.trim()) continue
+      let chave = p.empresa.trim().toLowerCase()
+      if (chave === 'tnsi' || chave === 'tns') {
+        chave = 'tns'
+      }
+      // Mobiltec é a empresa principal/interna exibida no topo do menu Painel, não deve aparecer na lista de parceiros
+      if (chave === 'mobiltec') continue
+
+      if (!mapa.has(chave)) {
+        mapa.set(chave, {
+          ...p,
+          empresa: chave === 'tns' ? 'TNS' : p.empresa.trim(),
+        })
+      }
+    }
+    return Array.from(mapa.values())
+  }, [parceirosAtivos])
 
   const noPainel =
     pathname === '/' ||
@@ -417,8 +451,8 @@ function MenuPaineis({
         type="button"
         onClick={alternar}
         aria-expanded={aberto ? abertoVisivel : !!flutuante}
-        title={aberto ? undefined : 'Painéis'}
-        data-grupo-menu="Painéis"
+        title={aberto ? undefined : 'Painel'}
+        data-grupo-menu="Painel"
         className={`btn-menu-lateral relative flex items-center select-none outline-none focus:outline-none focus-visible:outline-none ${
           aberto
             ? 'w-full gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium leading-tight'
@@ -435,9 +469,31 @@ function MenuPaineis({
         }}
       >
         <Icone nome="painel" className="h-[18px] w-[18px] shrink-0" />
+        {!aberto && ((ehParceiro && revisoesPendentes > 0) || (ehAdmin && homologacoesPendentes.length > 0)) && (
+          <span
+            className="absolute top-1 right-1 h-2 w-2 rounded-full ring-2 shadow-xs"
+            style={{ background: '#F59E0B' }}
+          />
+        )}
         {aberto && (
           <>
-            <span className="flex-1 truncate text-left">Painéis</span>
+            <span className="flex-1 truncate text-left">Painel</span>
+            {ehParceiro && revisoesPendentes > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs"
+                style={{ background: '#F59E0B' }}
+              >
+                {revisoesPendentes}
+              </span>
+            )}
+            {ehAdmin && homologacoesPendentes.length > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs"
+                style={{ background: 'var(--gradient-brand-purple)' }}
+              >
+                {homologacoesPendentes.length}
+              </span>
+            )}
             <svg
               viewBox="0 0 16 16"
               className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 opacity-75"
@@ -482,8 +538,8 @@ function MenuPaineis({
                 <span className="truncate">Mobiltec</span>
               </NavLink>
 
-              {/* Se for PARCEIRO: mostra diretamente o nome da própria empresa */}
-              {ehParceiro && (
+              {/* Se for PARCEIRO: mostra diretamente o nome da própria empresa (se não for a Mobiltec) */}
+              {ehParceiro && usuario?.empresa && usuario.empresa.trim().toLowerCase() !== 'mobiltec' && (
                 <NavLink
                   to="/paineis/meu-painel"
                   className={({ isActive }) =>
@@ -494,7 +550,15 @@ function MenuPaineis({
                     }`
                   }
                 >
-                  <span className="truncate">{usuario?.empresa || 'Meu Painel'}</span>
+                  <span className="truncate">{usuario.empresa}</span>
+                  {revisoesPendentes > 0 && (
+                    <span
+                      className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0"
+                      style={{ background: '#F59E0B' }}
+                    >
+                      {revisoesPendentes}
+                    </span>
+                  )}
                 </NavLink>
               )}
 
@@ -511,10 +575,13 @@ function MenuPaineis({
                     }`}
                   >
                     <span className="truncate">Parceiros</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {parceirosAtivos.length > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-100 text-slate-600 font-semibold">
-                          {parceirosAtivos.length}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {homologacoesPendentes.length > 0 && (
+                        <span
+                          className="px-1.5 py-0.2 rounded-full text-[10px] font-bold text-white"
+                          style={{ background: 'var(--gradient-brand-purple)' }}
+                        >
+                          {homologacoesPendentes.length}
                         </span>
                       )}
                       <svg
@@ -540,27 +607,41 @@ function MenuPaineis({
                       className="mt-0.5 ml-2.5 space-y-0.5 border-l pl-2"
                       style={{ borderColor: 'var(--color-border)' }}
                     >
-                      {parceirosAtivos.length === 0 ? (
+                      {empresasParceirasUnicas.length === 0 ? (
                         <span className="text-[11px] text-slate-400 italic px-2 py-1 block">
                           Nenhum parceiro cadastrado
                         </span>
                       ) : (
-                        parceirosAtivos.map((p) => (
-                          <NavLink
-                            key={p.id}
-                            to={`/paineis/parceiro/${p.id}`}
-                            className={({ isActive }) =>
-                              `btn-menu-subitem flex items-center truncate rounded-md px-2 py-1 text-[12px] font-medium leading-tight outline-none focus:outline-none focus-visible:outline-none ${
-                                isActive
-                                  ? 'bg-[var(--color-muted)] text-[var(--color-primary)] font-semibold'
-                                  : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-                              }`
-                            }
-                            title={p.empresa}
-                          >
-                            <span className="truncate">{p.empresa}</span>
-                          </NavLink>
-                        ))
+                        empresasParceirasUnicas.map((p) => {
+                          const pendenciasParceiro = homologacoesPendentes.filter((h) => {
+                            const emp = (h.responsavel?.empresa || h.dispositivo?.empresa || '').trim().toLowerCase()
+                            return emp === p.empresa.trim().toLowerCase()
+                          }).length
+
+                          return (
+                            <NavLink
+                              key={p.empresa}
+                              to={`/paineis/parceiro/${p.id}`}
+                              className={({ isActive }) =>
+                                `btn-menu-subitem flex items-center justify-between truncate rounded-md px-2 py-1 text-[12px] font-medium leading-tight outline-none focus:outline-none focus-visible:outline-none ${
+                                  isActive
+                                    ? 'bg-[var(--color-muted)] text-[var(--color-primary)] font-semibold'
+                                    : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+                                }`
+                              }
+                              title={p.empresa}
+                            >
+                              <span className="truncate">{p.empresa}</span>
+                              {pendenciasParceiro > 0 && (
+                                <span
+                                  className="h-2 w-2 rounded-full shrink-0 shadow-xs ml-1"
+                                  style={{ background: 'var(--gradient-brand-purple)' }}
+                                  title={`${pendenciasParceiro} homologação(ões) aguardando validação`}
+                                />
+                              )}
+                            </NavLink>
+                          )
+                        })
                       )}
                     </div>
                   )}
@@ -586,7 +667,7 @@ function MenuPaineis({
           }}
         >
           <div className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b mb-1">
-            Painéis
+            Painel
           </div>
           <NavLink
             to="/"
@@ -603,19 +684,27 @@ function MenuPaineis({
             Mobiltec
           </NavLink>
 
-          {ehParceiro && (
+          {ehParceiro && usuario?.empresa && usuario.empresa.trim().toLowerCase() !== 'mobiltec' && (
             <NavLink
               to="/paineis/meu-painel"
               role="menuitem"
               onClick={() => setFlutuante(null)}
-              className="flex items-center px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[0.04] outline-none"
+              className="flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[0.04] outline-none"
               style={({ isActive }) => ({
                 background: isActive ? 'var(--color-muted)' : 'transparent',
                 color: isActive ? 'var(--color-primary)' : 'inherit',
                 fontWeight: isActive ? 600 : 400,
               })}
             >
-              {usuario?.empresa || 'Meu Painel'}
+              <span className="truncate">{usuario.empresa}</span>
+              {revisoesPendentes > 0 && (
+                <span
+                  className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0"
+                  style={{ background: '#F59E0B' }}
+                >
+                  {revisoesPendentes}
+                </span>
+              )}
             </NavLink>
           )}
 
@@ -624,14 +713,14 @@ function MenuPaineis({
               <div className="px-3 py-1 text-[10.5px] font-semibold text-slate-400 uppercase tracking-wider">
                 Parceiros
               </div>
-              {parceirosAtivos.length === 0 ? (
+              {empresasParceirasUnicas.length === 0 ? (
                 <span className="text-[11px] text-slate-400 italic px-3 py-1 block">
                   Nenhum parceiro
                 </span>
               ) : (
-                parceirosAtivos.map((p) => (
+                empresasParceirasUnicas.map((p) => (
                   <NavLink
-                    key={p.id}
+                    key={p.empresa}
                     to={`/paineis/parceiro/${p.id}`}
                     role="menuitem"
                     onClick={() => setFlutuante(null)}
@@ -674,14 +763,19 @@ export function Layout() {
   const { data: categorias } = useCategorias()
   const { data: todasHomologacoes = [] } = useListaHomologacoes()
   const { data: todosParceiros = [] } = useParceiros(ehAdmin)
+  const { data: notificacoesData } = useNotificacoes()
   const { pathname } = useLocation()
+
+  const revisoesPendentes = ehParceiro ? (notificacoesData?.pendentesConfirmacao ?? 0) : 0
 
   // O selo do menu conta o que espera ação da Mobiltec, e só isso (D436).
   // `EM_REVISAO` está com o parceiro: contá-lo aqui mantinha o número aceso
   // sobre uma fila de validação vazia.
-  const totalPendentes = todasHomologacoes.filter(
-    (h) => h.status === 'AGUARDANDO_ANALISE',
-  ).length
+  const homologacoesPendentes = useMemo(() => {
+    return todasHomologacoes.filter((h) => h.status === 'AGUARDANDO_ANALISE')
+  }, [todasHomologacoes])
+
+  const totalPendentes = ehAdmin ? homologacoesPendentes.length : 0
 
   const [aberto, setAberto] = useState(() => {
     try {
@@ -721,12 +815,12 @@ export function Layout() {
    * onde saem os itens acima dele, não mais um deles. Não é tela: abre as duas
    * opções que configuram a lista e os tipos de dispositivo.
    */
-  const registro = { para: '/registro', rotulo: 'Configurar dispositivo', icone: 'registro' as NomeIcone }
-  const opcoesRegistro: ItemMenuDados[] = [
-    { para: '/registro', rotulo: 'Registrar dispositivo', icone: 'registro', fim: true },
+  const homologacaoConfig = { para: '/registro', rotulo: 'Configurar Homologação', icone: 'registro' as NomeIcone }
+  const opcoesHomologacaoConfig: ItemMenuDados[] = [
+    { para: '/registro', rotulo: 'Registrar homologação', icone: 'registro', fim: true },
     // `fim: false`: editar um tipo é `/registro/tipos/:id`, e a opção continua
     // sendo esta. O item acima é `fim: true` para não engolir esta rota.
-    { para: '/registro/tipos', rotulo: 'Editar / remover dispositivo', icone: 'registro', fim: false },
+    { para: '/registro/tipos', rotulo: 'Editar / remover homologação', icone: 'registro', fim: false },
   ]
 
   const parceiros = { para: '/parceiros', rotulo: 'Parceiros', icone: 'parceiros' as NomeIcone }
@@ -742,24 +836,27 @@ export function Layout() {
   /**
    * Seção atual, para a trilha da barra superior.
    *
-   * Em menus que possuem mais de uma opção (como Configurar dispositivo e Parceiros),
+   * Em menus que possuem mais de uma opção (como Configurar Homologação e Parceiros),
    * a barra do topo mantém sempre o nome do grupo principal, enquanto a página
    * exibe no título principal o nome da tela/submenu.
    */
   const secao = (() => {
     if (pathname === '/' || pathname === '/paineis/mobiltec') {
-      return { rotulo: 'Painéis · Mobiltec', icone: 'painel' as NomeIcone }
+      return { rotulo: 'Painel · Mobiltec', icone: 'painel' as NomeIcone }
     }
     if (pathname === '/paineis/meu-painel') {
-      return { rotulo: `Painéis · ${usuario?.empresa || 'Meu Painel'}`, icone: 'painel' as NomeIcone }
+      return { rotulo: `Painel · ${usuario?.empresa || 'Meu Painel'}`, icone: 'painel' as NomeIcone }
     }
     if (pathname.startsWith('/paineis/parceiro/')) {
       const idOuEmpresa = pathname.replace('/paineis/parceiro/', '')
-      const p = todosParceiros.find((x) => x.id === idOuEmpresa || x.empresa === idOuEmpresa)
-      return { rotulo: `Painéis · ${p?.empresa || 'Parceiro'}`, icone: 'painel' as NomeIcone }
+      const p = todosParceiros.find((x) => x.id === idOuEmpresa || x.empresa.toLowerCase() === idOuEmpresa.toLowerCase())
+      return { rotulo: `Painel · ${p?.empresa || idOuEmpresa}`, icone: 'painel' as NomeIcone }
     }
-    if (opcoesRegistro.some((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))) {
-      return registro
+    if (pathname.startsWith('/configurar-dispositivos') || pathname.startsWith('/dispositivos/gerenciar')) {
+      return { rotulo: 'Configurar Dispositivos', icone: 'smartphone' as NomeIcone }
+    }
+    if (opcoesHomologacaoConfig.some((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))) {
+      return homologacaoConfig
     }
     if (opcoesParceiros.some((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))) {
       return parceiros
@@ -768,7 +865,7 @@ export function Layout() {
     if (cat) {
       return { rotulo: `Homologações · ${cat.rotulo}`, icone: cat.icone }
     }
-    return { rotulo: 'Painéis · Mobiltec', icone: 'painel' as NomeIcone }
+    return { rotulo: 'Painel · Mobiltec', icone: 'painel' as NomeIcone }
   })()
 
   /** Só as telas de planilha registram testes */
@@ -817,6 +914,8 @@ export function Layout() {
               ehAdmin={ehAdmin}
               ehParceiro={ehParceiro}
               usuario={usuario}
+              revisoesPendentes={revisoesPendentes}
+              homologacoesPendentes={homologacoesPendentes}
             />
 
             {/* Menu Homologações — os dispositivos registrados ficam aqui */}
@@ -832,7 +931,33 @@ export function Layout() {
                 existem; abaixo, quem cria e mantém a lista deles. */}
             {!ehParceiro && (
               <div className="!mt-2 pt-2 space-y-1" style={{ borderTop: '1px solid var(--color-border)' }}>
-                <GrupoMenu item={registro} filhos={opcoesRegistro} aberto={aberto} />
+                <GrupoMenu item={homologacaoConfig} filhos={opcoesHomologacaoConfig} aberto={aberto} />
+                {ehAdmin && (
+                  <NavLink
+                    to="/configurar-dispositivos"
+                    title={aberto ? undefined : 'Configurar dispositivos'}
+                    data-item-menu="Configurar dispositivos"
+                    className={({ isActive }) =>
+                      `btn-menu-lateral relative flex items-center select-none outline-none focus:outline-none focus-visible:outline-none ${
+                        aberto
+                          ? 'w-full gap-2.5 rounded-lg px-2.5 py-1.5 text-sm font-medium leading-tight'
+                          : 'mx-auto h-9 w-9 items-center justify-center rounded-lg'
+                      } ${
+                        isActive
+                          ? 'btn-menu-ativo text-white'
+                          : 'text-[var(--color-muted-foreground)] hover:bg-black/[0.04] dark:hover:bg-white/[0.04]'
+                      }`
+                    }
+                    style={({ isActive }) => ({
+                      background: isActive ? 'var(--gradient-brand-purple)' : undefined,
+                      boxShadow: isActive ? '0 2px 6px -1px rgba(126, 32, 101, 0.35)' : undefined,
+                      justifyContent: aberto ? 'flex-start' : 'center',
+                    })}
+                  >
+                    <Icone nome="smartphone" className="h-[18px] w-[18px] shrink-0" />
+                    {aberto && <span className="flex-1 truncate text-left">Configurar dispositivos</span>}
+                  </NavLink>
+                )}
                 {ehAdmin && (
                   <GrupoMenu
                     item={parceiros}
@@ -916,7 +1041,8 @@ export function Layout() {
                 </span>
               )}
 
-              <div className="ml-auto flex items-center gap-2 text-xs">
+              <div className="ml-auto flex items-center gap-3 text-xs">
+                <CentralNotificacoes />
                 <span className="font-medium" style={{ color: 'var(--color-foreground)' }}>
                   {usuario?.nome}
                 </span>
@@ -927,7 +1053,7 @@ export function Layout() {
                     color: ehParceiro ? 'var(--color-warning-fg)' : 'var(--color-info-fg)',
                   }}
                 >
-                  {ehParceiro ? (usuario?.empresa ? `Parceiro (${usuario.empresa})` : 'Parceiro') : 'Mobiltec'}
+                  {ehParceiro ? (usuario?.empresa?.replace(/^Parceiro\s*\((.*?)\)$/i, '$1') || usuario?.empresa || 'Parceiro') : 'Mobiltec'}
                 </span>
               </div>
             </div>

@@ -167,7 +167,7 @@ function justificarNao(chave: string, android: number | null, ids: IdsJustificat
   if (chave === 'PERFIS::Políticas de Senhas' && (android ?? 0) >= 9) {
     return { status: StatusResultado.NAO_SUPORTADO, justificativaId: ids.senhas }
   }
-  return { status: StatusResultado.NAO_SUPORTADO, justificativaTexto: NOTA_REVISAO, revisar: true }
+  return { status: StatusResultado.NAO_SUPORTADO, justificativaTexto: null, revisar: true }
 }
 
 function traduzir(
@@ -184,11 +184,8 @@ function traduzir(
   // "Requisito de Instalação" é uma linha descritiva, não um aprovado/reprovado:
   // ela responde *qual* é o requisito. Todo valor preenchido é uma resposta válida.
   if (chave === REQUISITO_INSTALACAO) {
-    if (baixo === 'sim') {
-      return { status: StatusResultado.OK, observacao: 'Exige requisito de instalação (planilha: "Sim").' }
-    }
-    if (baixo === 'não' || baixo === 'nao') {
-      return { status: StatusResultado.OK, observacao: 'Sem requisito adicional de instalação (planilha: "Não").' }
+    if (baixo === 'sim' || baixo === 'não' || baixo === 'nao') {
+      return { status: StatusResultado.OK }
     }
     return { status: StatusResultado.OK, observacao: valor }
   }
@@ -198,7 +195,6 @@ function traduzir(
   if (baixo === 'testar') {
     return {
       status: StatusResultado.NAO_TESTADO,
-      observacao: 'Marcado como "Testar" na planilha — teste pendente.',
     }
   }
 
@@ -206,26 +202,17 @@ function traduzir(
     return {
       status: StatusResultado.COM_RESSALVA,
       justificativaId: ids.appsBloqueados,
-      observacao: 'Planilha: "Desinstalação".',
     }
   }
 
   if (/^n[ãa]o\b/i.test(valor)) {
-    // "Não. Adroid 6" — a própria planilha já traz o motivo.
-    if (/a[dn]droid\s*6/i.test(valor)) {
-      return {
-        status: StatusResultado.NAO_SUPORTADO,
-        justificativaTexto: NOTA_ANDROID_6,
-        observacao: `Planilha: "${valor}".`,
-      }
-    }
+    // "Não. Adroid 6" — se não houver motivo mapeado com ID, apenas mantém NAO_SUPORTADO
     return justificarNao(chave, android, ids)
   }
 
-  // Valor que não se encaixa em nada: preserva o texto sem afirmar coisa alguma.
+  // Valor que não se encaixa em nada: preserva status sem texto automático
   return {
     status: StatusResultado.NAO_TESTADO,
-    observacao: `Valor não reconhecido na planilha: "${valor}".`,
     revisar: true,
   }
 }
@@ -306,7 +293,7 @@ async function main() {
       const bruto = m.respostas[chave]
       const t: Traducao =
         bruto === undefined
-          ? { status: StatusResultado.NAO_TESTADO, observacao: NOTA_FORA_DA_PLANILHA }
+          ? { status: StatusResultado.NAO_TESTADO, observacao: null }
           : traduzir(chave, bruto, android, ids)
       return { itemId: bi.itemId, chave, bruto: bruto ?? '', ...t }
     })

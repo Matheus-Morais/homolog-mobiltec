@@ -20,7 +20,8 @@ export type StatusHomologacao =
   | 'REPROVADO'
   | 'PUBLICADO'
 export type TipoGerenciamento = 'ANDROID_LEGADO' | 'ANDROID_ENTERPRISE'
-export type GrupoItem = 'TELEMETRIA' | 'COLETA' | 'COMANDOS' | 'PERFIS'
+export type GrupoItemPadrao = 'TELEMETRIA' | 'COLETA' | 'COMANDOS' | 'PERFIS'
+export type GrupoItem = GrupoItemPadrao | (string & {})
 export type PapelUsuario = 'ADMIN' | 'HOMOLOGADOR' | 'PARCEIRO' | 'LEITOR'
 export type FormatoCertificado = 'PDF' | 'PPTX'
 
@@ -120,11 +121,16 @@ export const META_STATUS: Record<StatusResultado, MetaStatus> = {
   },
 }
 
-export const ROTULO_GRUPO: Record<GrupoItem, string> = {
+export const ROTULO_GRUPO: Record<GrupoItemPadrao, string> = {
   TELEMETRIA: 'Telemetria e Monitoramento',
   COLETA: 'Coleta de Informações',
   COMANDOS: 'Comandos Remotos',
   PERFIS: 'Perfis e Políticas MDM',
+}
+
+export function obterRotuloGrupo(grupo: string, titulos?: Record<string, string>): string {
+  if (titulos && titulos[grupo]) return titulos[grupo]
+  return (ROTULO_GRUPO as Record<string, string>)[grupo] ?? grupo
 }
 
 /**
@@ -134,11 +140,16 @@ export const ROTULO_GRUPO: Record<GrupoItem, string> = {
  * rótulo completo na vertical é mais alto que a célula. O rail escolhe a
  * maior forma que couber; o nome inteiro fica sempre no `title`.
  */
-export const ROTULO_GRUPO_CURTO: Record<GrupoItem, string> = {
+export const ROTULO_GRUPO_CURTO: Record<GrupoItemPadrao, string> = {
   TELEMETRIA: 'Telemetria',
   COLETA: 'Coleta',
   COMANDOS: 'Comandos',
   PERFIS: 'Perfis',
+}
+
+export function obterRotuloGrupoCurto(grupo: string, titulos?: Record<string, string>): string {
+  if (titulos && titulos[grupo]) return titulos[grupo]
+  return (ROTULO_GRUPO_CURTO as Record<string, string>)[grupo] ?? grupo
 }
 
 /**
@@ -150,22 +161,33 @@ export const ROTULO_GRUPO_CURTO: Record<GrupoItem, string> = {
  * repete essa estrutura para que o documento e o sistema não descrevam a
  * mesma tabela com nomes diferentes.
  */
-export const COLUNAS_GRUPO: Record<GrupoItem, [string, string, string]> = {
+export const COLUNAS_GRUPO: Record<GrupoItemPadrao, [string, string, string]> = {
   TELEMETRIA: ['Item de Teste', 'Ação Realizada', 'Status'],
   COLETA: ['Coleta', 'Descrição da Coleta', 'Resultado'],
   COMANDOS: ['Comando', 'Descrição da Execução', 'Resultado'],
   PERFIS: ['Política', 'Restrição Aplicada', 'Status'],
 }
 
-export const SIGLA_GRUPO: Record<GrupoItem, string> = {
+export function obterColunasGrupo(grupo: string, titulos?: Record<string, string>): [string, string, string] {
+  if ((COLUNAS_GRUPO as Record<string, [string, string, string]>)[grupo]) {
+    return (COLUNAS_GRUPO as Record<string, [string, string, string]>)[grupo]
+  }
+  return [obterRotuloGrupo(grupo, titulos), 'Ação Realizada', 'Status']
+}
+
+export const SIGLA_GRUPO: Record<GrupoItemPadrao, string> = {
   TELEMETRIA: 'TEL',
   COLETA: 'COL',
   COMANDOS: 'CMD',
   PERFIS: 'MDM',
 }
 
+export function obterSiglaGrupo(grupo: string): string {
+  return (SIGLA_GRUPO as Record<string, string>)[grupo] ?? grupo.slice(0, 3).toUpperCase()
+}
+
 /** Ordem dos grupos no certificado (spec §8) */
-export const GRUPO_ORDEM: GrupoItem[] = ['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS']
+export const GRUPO_ORDEM: GrupoItemPadrao[] = ['TELEMETRIA', 'COLETA', 'COMANDOS', 'PERFIS']
 
 export const ROTULO_STATUS_HOMOLOGACAO: Record<StatusHomologacao, string> = {
   RASCUNHO: 'Rascunho',
@@ -191,6 +213,7 @@ export interface ItemObservacaoGeral {
   autorId?: string
   autorNome: string
   autorPapel?: string
+  autorEmail?: string
   criadoEm: string
   anexos: AnexoObservacao[]
 }
@@ -232,6 +255,7 @@ export interface PayloadCriarParceiro {
   email: string
   senha: string
   categoriasPermitidas: string[]
+  isAdmin?: boolean
 }
 
 export interface PayloadAtualizarParceiro {
@@ -241,6 +265,7 @@ export interface PayloadAtualizarParceiro {
   senha?: string
   categoriasPermitidas?: string[]
   ativo?: boolean
+  isAdmin?: boolean
 }
 
 export interface MetricasPainelParceiro {
@@ -279,6 +304,8 @@ export interface DispositivoPainelParceiro {
   dataInicio: string | null
   dataFim: string | null
   responsavelNome: string
+  notificacaoRevisao?: Notificacao | null
+  revisaoInfo?: RevisaoInfo | null
   resumo: {
     total: number
     ok: number
@@ -290,10 +317,37 @@ export interface DispositivoPainelParceiro {
   }
 }
 
+export interface Notificacao {
+  id: string
+  tipo: 'REVISAO' | 'APROVADO' | 'SUBMETIDO' | 'GERAL'
+  titulo: string
+  mensagem: string
+  homologacaoId?: string | null
+  dispositivoNome?: string | null
+  empresaDestino?: string | null
+  lida: boolean
+  confirmada: boolean
+  confirmadaEm?: string | null
+  confirmadaPor?: string | null
+  link?: string | null
+  criadoEm: string
+}
+
+export interface RevisaoInfo {
+  tecnicoNome: string
+  mensagem: string
+  criadoEm: string | null
+  confirmada: boolean
+  confirmadaPor?: string | null
+  confirmadaEm?: string | null
+  notificacaoId?: string | null
+}
+
 export interface PainelParceiroDados {
   parceiro: Parceiro
   metricas: MetricasPainelParceiro
   dispositivos: DispositivoPainelParceiro[]
+  notificacoes?: Notificacao[]
 }
 
 export interface Categoria {
@@ -309,6 +363,8 @@ export interface Categoria {
    * anteriores ao registro de tipos.
    */
   camposFicha?: ChaveFicha[]
+  gruposOrdem?: string[]
+  gruposTitulos?: Record<string, string>
   _count?: { dispositivos: number }
 }
 
@@ -419,6 +475,7 @@ export interface Resultado {
   observacao: string | null
   justificativaId: string | null
   justificativaTexto: string | null
+  autorEmail?: string | null
   atualizadoEm: string
   item: ItemTeste
   justificativa: Justificativa | null
@@ -520,6 +577,8 @@ export interface ResultadoMatriz {
   observacao: string | null
   justificativaId: string | null
   justificativaTexto: string | null
+  autorEmail?: string | null
+  atualizadoEm?: string
   justificativa: { id: string; titulo: string; texto: string } | null
 }
 

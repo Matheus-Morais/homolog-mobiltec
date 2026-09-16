@@ -23,12 +23,12 @@ const fotoUrlSchema = z
   )
 
 const criarDispositivoSchema = z.object({
-  categoriaId: z.string().uuid(),
-  fabricante: z.string().min(1).max(100),
-  modelo: z.string().min(1).max(100),
-  nomeComercial: z.string().min(1).max(200),
+  categoriaId: z.string(),
+  fabricante: z.string().default('Fabricante'),
+  modelo: z.string().default('Modelo'),
+  nomeComercial: z.string().default('Dispositivo'),
   fotoUrl: fotoUrlSchema.optional().nullable(),
-  linkFabricante: z.string().url().optional().nullable(),
+  linkFabricante: z.string().optional().nullable(),
 })
 
 const TIPOS_IMAGEM: Record<string, string> = {
@@ -81,19 +81,47 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
     onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR'])],
   }, async (request, reply) => {
     const body = criarDispositivoSchema.parse(request.body)
+    const fabricante = body.fabricante || 'Fabricante'
+    const modelo = body.modelo || 'Modelo'
+    const nomeComercial = body.nomeComercial || `${fabricante} ${modelo}`.trim() || 'Dispositivo'
 
     try {
       const dispositivo = await fastify.prisma.dispositivo.create({
-        data: body,
+        data: {
+          categoriaId: body.categoriaId,
+          fabricante,
+          modelo,
+          nomeComercial,
+          fotoUrl: body.fotoUrl ?? null,
+          linkFabricante: body.linkFabricante ?? null,
+        },
         include: { categoria: true },
       })
       return reply.status(201).send(dispositivo)
     } catch (e: any) {
+      fastify.log.error(e)
       if (e.code === 'P2002') {
         return reply.status(409).send({ erro: 'Já existe um dispositivo com esse fabricante e modelo.' })
       }
-      throw e
+      if (e.code === 'P2003') {
+        return reply.status(400).send({ erro: 'Categoria de dispositivo inválida ou inexistente.' })
+      }
+      return reply.status(400).send({
+        erro: e?.message || 'Não foi possível cadastrar o dispositivo.',
+      })
     }
+  })
+
+  // GET /dispositivos/fabricantes — lista de fabricantes distintos para filtros
+  fastify.get('/dispositivos/fabricantes', {
+    onRequest: [fastify.autenticar],
+  }, async () => {
+    const resultados = await fastify.prisma.dispositivo.findMany({
+      select: { fabricante: true },
+      distinct: ['fabricante'],
+      orderBy: { fabricante: 'asc' },
+    })
+    return resultados.map(r => r.fabricante)
   })
 
   // GET /dispositivos/:id
@@ -106,11 +134,12 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       include: {
         categoria: true,
         homologacoes: {
-          orderBy: { criadoEm: 'desc' },
           include: {
-            responsavel: { select: { nome: true } },
-            bateria: { select: { nome: true } },
+            bateria: { select: { id: true, nome: true } },
+            responsavel: { select: { id: true, nome: true, email: true } },
+            _count: { select: { resultados: true } },
           },
+          orderBy: { criadoEm: 'desc' },
         },
       },
     })
@@ -145,9 +174,13 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
+    const { categoriaId, ...dadosAtualizacao } = body
     const dispositivo = await fastify.prisma.dispositivo.update({
       where: { id },
-      data: body,
+      data: {
+        ...dadosAtualizacao,
+        ...(categoriaId ? { categoria: { connect: { id: categoriaId } } } : {}),
+      },
     })
     return dispositivo
   })

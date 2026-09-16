@@ -8,6 +8,7 @@ const parceiroInputSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   categoriasPermitidas: z.array(z.string()).default([]),
+  isAdmin: z.boolean().optional(),
 })
 
 const parceiroUpdateSchema = z.object({
@@ -17,6 +18,7 @@ const parceiroUpdateSchema = z.object({
   senha: z.string().min(6).optional(),
   categoriasPermitidas: z.array(z.string()).optional(),
   ativo: z.boolean().optional(),
+  isAdmin: z.boolean().optional(),
 })
 
 const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
@@ -30,7 +32,12 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const parceiros = await fastify.prisma.usuario.findMany({
-        where: { papel: 'PARCEIRO' },
+        where: {
+          OR: [
+            { papel: 'PARCEIRO' },
+            { empresa: { not: null } },
+          ],
+        },
         select: {
           id: true,
           nome: true,
@@ -71,13 +78,16 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       const senhaHash = await bcrypt.hash(body.senha, 10)
       const dominioCorporativo = body.email.split('@')[1]?.toLowerCase() ?? null
 
+      const ehMobiltec = body.empresa.trim().toLowerCase() === 'mobiltec'
+      const deveSerAdmin = ehMobiltec && Boolean(body.isAdmin)
+
       const parceiro = await fastify.prisma.usuario.create({
         data: {
           nome: body.nome.trim(),
           email: body.email.toLowerCase().trim(),
-          cargo: 'Parceiro Homologador',
+          cargo: deveSerAdmin ? 'Administrador' : 'Parceiro Homologador',
           senhaHash,
-          papel: 'PARCEIRO',
+          papel: deveSerAdmin ? 'ADMIN' : 'PARCEIRO',
           empresa: body.empresa.trim(),
           dominioCorporativo,
           categoriasPermitidas: body.categoriasPermitidas,
@@ -127,6 +137,20 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
       }
       if (body.ativo !== undefined) {
         dados.ativo = body.ativo
+      }
+      if (body.isAdmin !== undefined) {
+        const usuarioAtual = await fastify.prisma.usuario.findUnique({
+          where: { id },
+          select: { empresa: true },
+        })
+        const empresaAtual = (body.empresa ?? usuarioAtual?.empresa ?? '').trim().toLowerCase()
+        if (empresaAtual === 'mobiltec' && body.isAdmin) {
+          dados.papel = 'ADMIN'
+          dados.cargo = 'Administrador'
+        } else if (body.isAdmin === false) {
+          dados.papel = 'PARCEIRO'
+          dados.cargo = 'Parceiro Homologador'
+        }
       }
 
       try {
@@ -227,8 +251,8 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
 
       const parceiro = await fastify.prisma.usuario.findFirst({
         where: {
-          OR: [{ id }, { empresa: id }],
-          papel: 'PARCEIRO',
+          OR: [{ id }, { empresa: { equals: id, mode: 'insensitive' } }],
+          ativo: true,
         },
         select: {
           id: true,
@@ -247,13 +271,18 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(404).send({ erro: 'Parceiro não encontrado' })
       }
 
-      // Regra de segurança: parceiro só pode acessar o seu próprio painel
+      // Regra de segurança: parceiro só pode acessar o painel da sua própria empresa
       if (ehParceiro) {
         const usuarioLogado = await fastify.prisma.usuario.findUnique({
           where: { id: request.user.id },
           select: { id: true, empresa: true },
         })
-        if (parceiro.id !== request.user.id && parceiro.empresa !== usuarioLogado?.empresa) {
+        const mesmaEmpresa =
+          Boolean(parceiro.empresa) &&
+          Boolean(usuarioLogado?.empresa) &&
+          parceiro.empresa?.trim().toLowerCase() === usuarioLogado?.empresa?.trim().toLowerCase()
+
+        if (parceiro.id !== request.user.id && !mesmaEmpresa) {
           return reply.status(403).send({ erro: 'Acesso restrito ao painel exclusivo da sua empresa' })
         }
       }
@@ -265,34 +294,73 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
 
 /**
  * Monta os dados consolidados do painel de um parceiro:
- * métricas de homologação, progresso de testes e lista de dispositivos.
+ * métricas de homologação, progresso de testes e lista de dispositivos do seu ambiente.
  */
 async function montarDadosPainel(fastify: any, parceiro: any) {
-  const empresa = parceiro.empresa
+  const empresa = parceiro.empresa?.trim()
+
+  const ehTNS =
+    Boolean(empresa && (empresa.toLowerCase() === 'tns' || empresa.toLowerCase() === 'tnsi')) ||
+    Boolean(
+      parceiro.email &&
+        (parceiro.email.toLowerCase() === 'hgomes@tnsi.com' ||
+          parceiro.email.toLowerCase().endsWith('@tnsi.com')),
+    )
+
+  // Escopo estrito do parceiro:
+  // Dispositivos cadastrados pela empresa do parceiro, com fabricante igual à empresa,
+  // ou que possuam homologações realizadas pelo parceiro ou por usuários da sua empresa.
+  const filtroDispositivoDoParceiro: any[] = [
+    { homologacoes: { some: { responsavelId: parceiro.id } } },
+  ]
+
+  if (empresa) {
+    filtroDispositivoDoParceiro.push(
+      { empresa: { equals: empresa, mode: 'insensitive' } },
+      { fabricante: { equals: empresa, mode: 'insensitive' } },
+      { homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } },
+    )
+  }
+
+  // TNS ou parceiro de PoS visualiza os dispositivos da categoria PoS
+  if (ehTNS) {
+    filtroDispositivoDoParceiro.push({ categoria: { slug: 'pos' } })
+  }
+
+  const filtroHomologacaoDoParceiro: any[] = [
+    { responsavelId: parceiro.id },
+  ]
+  if (empresa) {
+    filtroHomologacaoDoParceiro.push({
+      responsavel: { empresa: { equals: empresa, mode: 'insensitive' } },
+    })
+  }
 
   const dispositivos = await fastify.prisma.dispositivo.findMany({
     where: {
       ativo: true,
-      OR: [
-        ...(empresa ? [{ empresa }] : []),
-        ...(empresa ? [{ fabricante: { equals: empresa, mode: 'insensitive' } }] : []),
-        { homologacoes: { some: { responsavelId: parceiro.id } } },
-        ...(empresa ? [{ homologacoes: { some: { responsavel: { empresa } } } }] : []),
-      ],
+      OR: filtroDispositivoDoParceiro,
     },
     include: {
       categoria: { select: { id: true, nome: true, slug: true, icone: true } },
       homologacoes: {
+        where: ehTNS
+          ? undefined
+          : {
+              OR: filtroHomologacaoDoParceiro,
+            },
         include: {
           resultados: { select: { status: true, justificativaId: true, justificativaTexto: true } },
-          responsavel: { select: { id: true, nome: true, email: true } },
+          responsavel: { select: { id: true, nome: true, email: true, empresa: true } },
           // O último apontamento da Mobiltec, para o card do painel dizer o
           // que precisa ser ajustado (D435)
           historicoStatus: {
             where: { statusNovo: 'EM_REVISAO' },
             orderBy: { criadoEm: 'desc' },
             take: 1,
-            select: { motivo: true, criadoEm: true, usuario: { select: { nome: true } } },
+            include: {
+              usuario: { select: { id: true, nome: true, email: true, cargo: true } },
+            },
           },
         },
         orderBy: { criadoEm: 'desc' },
@@ -313,8 +381,51 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     testesPendentes: 0,
   }
 
+  const notificacoes = empresa
+    ? await fastify.prisma.notificacao.findMany({
+        where: {
+          empresaDestino: { equals: empresa, mode: 'insensitive' },
+        },
+        orderBy: { criadoEm: 'desc' },
+        take: 30,
+      })
+    : []
+
   const listaDispositivos = dispositivos.map((d: any) => {
-    const atual = d.homologacoes[0]
+    // Busca homologação atribuída a este parceiro/empresa; se não houver, utiliza a mais recente
+    const homologacaoDoParceiro = d.homologacoes.find(
+      (h: any) =>
+        h.responsavelId === parceiro.id ||
+        (empresa && h.responsavel?.empresa?.toLowerCase() === empresa.toLowerCase()),
+    )
+    const atual = homologacaoDoParceiro ?? d.homologacoes[0] ?? null
+    const notificacaoRevisao = notificacoes.find(
+      (n: any) => n.homologacaoId === atual?.id && n.tipo === 'REVISAO',
+    )
+    const ultimoHistoricoRevisao = atual?.historicoStatus?.[0] ?? null
+    const tecnicoNome =
+      ultimoHistoricoRevisao?.usuario?.nome || 'Técnico Mobiltec'
+    const mensagemRevisao =
+      notificacaoRevisao?.mensagem ||
+      ultimoHistoricoRevisao?.motivo ||
+      atual?.observacoes ||
+      'A equipe técnica da Mobiltec solicitou ajustes nesta homologação.'
+    const dataRevisao =
+      ultimoHistoricoRevisao?.criadoEm || notificacaoRevisao?.criadoEm || null
+
+    const revisaoInfo =
+      atual?.status === 'EM_REVISAO'
+        ? {
+            tecnicoNome,
+            mensagem: mensagemRevisao,
+            criadoEm: dataRevisao,
+            confirmada: Boolean(notificacaoRevisao?.confirmada),
+            confirmadaPor: notificacaoRevisao?.confirmadaPor ?? null,
+            confirmadaEm: notificacaoRevisao?.confirmadaEm ?? null,
+            notificacaoId: notificacaoRevisao?.id ?? null,
+          }
+        : null
+
     const resumo = {
       total: atual?.resultados.length ?? 0,
       ok: 0,
@@ -350,6 +461,8 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
         }
       }
       resumo.avaliados = resumo.total - resumo.naoTestado
+    } else {
+      metricas.emHomologacao++
     }
 
     return {
@@ -370,7 +483,7 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
       gerenciamento: atual?.gerenciamento ?? 'ANDROID_ENTERPRISE',
       tipoAgente: atual?.tipoAgente ?? 'PROD',
       status: atual?.status ?? 'RASCUNHO',
-      homologado: atual?.homologado ?? false,
+      homologado: Boolean(atual && (atual.status === 'APROVADO' || atual.status === 'PUBLICADO')),
       observacoes: atual?.observacoes ?? null,
       revisaoPendente:
         atual?.status === 'EM_REVISAO' && atual.historicoStatus[0]
@@ -383,6 +496,8 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
       dataInicio: atual?.dataInicio ?? null,
       dataFim: atual?.dataFim ?? null,
       responsavelNome: atual?.responsavel?.nome ?? parceiro.nome,
+      notificacaoRevisao: notificacaoRevisao ?? null,
+      revisaoInfo,
       resumo,
     }
   })
@@ -401,6 +516,7 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     },
     metricas,
     dispositivos: listaDispositivos,
+    notificacoes,
   }
 }
 

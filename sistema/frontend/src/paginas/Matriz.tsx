@@ -18,6 +18,7 @@ import { ModalObservacao } from '@/componentes/matriz/ModalObservacao'
 import { ModalObservacoesHomologacao } from '@/componentes/matriz/ModalObservacoesHomologacao'
 import { MenuColuna, type AcaoColuna } from '@/componentes/matriz/MenuColuna'
 import { ModalReabrir } from '@/componentes/matriz/ModalReabrir'
+import { useRemoverHomologacao } from '@/hooks/useHomologacao'
 import { SeletorFiltro } from '@/componentes/matriz/SeletorFiltro'
 import { PainelJustificativa } from '@/componentes/matriz/PainelJustificativa'
 import { LoadingTela } from '@/componentes/LoadingTela'
@@ -27,15 +28,16 @@ import { AvisoRevisao } from '@/componentes/homologacao/AvisoRevisao'
 import {
   GRUPO_ORDEM,
   META_STATUS,
+  ROTULO_GRUPO,
   ehSomenteLeitura,
   exigeJustificativa,
   linhasDaFicha,
+  obterRotuloGrupo,
   versaoAndroidNumero,
 } from '@/lib/tipos'
 import type {
   BateriaTeste,
   ColunaMatriz,
-  GrupoItem,
   ItemTeste,
   StatusResultado,
 } from '@/lib/tipos'
@@ -45,7 +47,7 @@ import type {
 const LARGURA_ITEM = 184
 // Largura das colunas de modelo: comporta as três ações lado a lado no cabeçalho
 const LARGURA_COLUNA = 196
-const LARGURA_RAIL = 28
+const LARGURA_RAIL = 32
 
 type FiltroLinhas = 'todas' | 'faltam' | 'divergencias' | 'sem-justificativa'
 /** '' = todas as situações */
@@ -93,16 +95,7 @@ const ALTURA_ACAO = 'h-6'
  * Um tipo registrado pelo técnico pode não ter item nenhum num tópico — nesse
  * caso a seção some do menu em vez de abrir uma planilha vazia.
  */
-const SECOES = [
-  { chave: 'registro', rotulo: 'Registro' },
-  { chave: 'TELEMETRIA', rotulo: 'Monitoramento' },
-  { chave: 'COLETA', rotulo: 'Informações' },
-  { chave: 'COMANDOS', rotulo: 'Comandos' },
-  { chave: 'PERFIS', rotulo: 'Perfil' },
-  { chave: 'todos', rotulo: 'Todos' },
-] as const
-
-type Secao = (typeof SECOES)[number]['chave']
+type Secao = string
 
 const ROTULO_FILTRO_LINHAS: Record<FiltroLinhas, string> = {
   todas: 'Todos os itens',
@@ -155,6 +148,9 @@ export function Matriz() {
   const [observacoes, setObservacoes] = useState<ColunaMatriz | null>(null)
   /** Configuração: o formulário do cadastro, agora editando o que já existe */
   const [configurar, setConfigurar] = useState<ColunaMatriz | null>(null)
+  const [remover, setRemover] = useState<ColunaMatriz | null>(null)
+  const [erroRemover, setErroRemover] = useState<string | null>(null)
+  const removerHomologacao = useRemoverHomologacao()
 
   const { data: baterias } = useQuery({
     queryKey: ['baterias', data?.categoria.id],
@@ -192,12 +188,40 @@ export function Matriz() {
    */
   const linhasFicha = useMemo(() => linhasDaFicha(data?.categoria.camposFicha), [data])
 
-  /** Só as seções que têm linhas aqui — um tipo pode não usar todos os tópicos */
+  /** Só as seções que têm linhas aqui — na ordem da categoria ou padrão, com suporte a novas baterias */
   const secoesVisiveis = useMemo(() => {
     const comItens = new Set((data?.itens ?? []).map((i) => i.grupo))
-    return SECOES.filter(
-      (s) => s.chave === 'registro' || s.chave === 'todos' || comItens.has(s.chave as GrupoItem),
-    )
+    const ordemGrupos = (data?.categoria.gruposOrdem && data.categoria.gruposOrdem.length > 0)
+      ? data.categoria.gruposOrdem
+      : GRUPO_ORDEM
+
+    const lista: { chave: string; rotulo: string }[] = []
+    
+    // Se "REGISTRO" faz parte da ordem definida pelo usuário
+    const temRegistroNaOrdem = ordemGrupos.includes('REGISTRO')
+    if (!temRegistroNaOrdem) {
+      lista.push({ chave: 'registro', rotulo: 'Registro' })
+    }
+
+    for (const g of ordemGrupos) {
+      if (g === 'REGISTRO') {
+        lista.push({ chave: 'registro', rotulo: 'Registro' })
+      } else if (comItens.has(g)) {
+        const rotulo = data?.categoria.gruposTitulos?.[g] ?? obterRotuloGrupo(g)
+        lista.push({ chave: g, rotulo })
+      }
+    }
+
+    // Grupos com itens não previstos no array de ordem
+    for (const g of comItens) {
+      if (!ordemGrupos.includes(g) && g !== 'REGISTRO') {
+        const rotulo = data?.categoria.gruposTitulos?.[g] ?? obterRotuloGrupo(g)
+        lista.push({ chave: g, rotulo })
+      }
+    }
+
+    lista.push({ chave: 'todos', rotulo: 'Todos' })
+    return lista
   }, [data])
 
   /** Quantos modelos já passaram por reteste — rótulo do botão */
@@ -282,10 +306,10 @@ export function Matriz() {
     return contagem
   }, [colunasVisiveis])
 
-  // Itens agrupados, na ordem do certificado
+  // Itens agrupados, na ordem do certificado / categoria
   const grupos = useMemo(() => {
     if (!data) return []
-    const porGrupo = new Map<GrupoItem, ItemTeste[]>()
+    const porGrupo = new Map<string, ItemTeste[]>()
     for (const item of data.itens) {
       const lista = porGrupo.get(item.grupo) ?? []
       lista.push(item)
@@ -309,12 +333,26 @@ export function Matriz() {
       })
     }
 
-    return GRUPO_ORDEM.filter((g) => porGrupo.has(g))
-      .map((g) => ({ grupo: g, itens: (porGrupo.get(g) ?? []).filter(linhaPassa) }))
+    const ordemGrupos = (data.categoria.gruposOrdem && data.categoria.gruposOrdem.length > 0)
+      ? data.categoria.gruposOrdem.filter((g) => g !== 'REGISTRO')
+      : GRUPO_ORDEM
+
+    const todosGrupos = [
+      ...ordemGrupos,
+      ...Array.from(porGrupo.keys()).filter((g) => !ordemGrupos.includes(g)),
+    ]
+
+    return todosGrupos
+      .filter((g) => porGrupo.has(g))
+      .map((g) => ({
+        grupo: g,
+        titulo: data.categoria.gruposTitulos?.[g],
+        itens: (porGrupo.get(g) ?? []).filter(linhaPassa),
+      }))
       .filter((g) => g.itens.length > 0)
   }, [data, filtroLinhas, colunasVisiveis])
 
-  function aplicarStatus(
+  async function aplicarStatus(
     coluna: ColunaMatriz,
     item: ItemTeste,
     status: StatusResultado,
@@ -343,20 +381,19 @@ export function Matriz() {
           ? (atual?.justificativaTexto ?? null)
           : null
 
-    salvarCelula.mutate(
-      {
+    try {
+      await salvarCelula.mutateAsync({
         homologacaoId: coluna.homologacao.id,
         itemId: item.id,
         status,
         observacao: atual?.observacao ?? null,
         justificativaId: justId,
         justificativaTexto: justTexto,
-      },
-      {
-        onError: (err) =>
-          setAviso(err instanceof ErroApi ? err.message : 'Não foi possível salvar a célula.'),
-      },
-    )
+      })
+    } catch (err) {
+      setAviso(err instanceof ErroApi ? err.message : 'Não foi possível salvar a célula.')
+      throw err
+    }
   }
 
   if (isLoading) {
@@ -758,35 +795,62 @@ export function Matriz() {
                       </div>
 
                       <div className="absolute right-0 top-0">
-                      <MenuColuna
-                        modelo={c.homologacao.dispositivo.nomeComercial}
-                        acoes={[
-                          // Configuração disponível para parceiro durante o processo e para Mobiltec
-                          !ehLeitor && (!ehSomenteLeitura(c.homologacao.status, usuario?.papel) || !ehParceiro) && {
-                            rotulo: 'Configuração',
-                            aoClicar: () => setConfigurar(c),
-                          },
-                          (!ehParceiro || c.homologacao.status === 'APROVADO' || c.homologacao.status === 'PUBLICADO') && {
-                            rotulo: 'Certificado',
-                            aoClicar: () =>
-                              navegar(`/homologacoes/${c.homologacao.id}/certificado`),
-                          },
-                          // Reteste disponível para parceiro e Mobiltec, inclusive após enviar para validação
-                          !ehLeitor && { rotulo: 'Reteste', aoClicar: () => setReteste(c) },
-                          {
-                            rotulo: 'Observação',
-                            aoClicar: () => setObservacoes(c),
-                            marcado: !!c.homologacao.observacoes?.trim(),
-                          },
-                          ehSomenteLeitura(c.homologacao.status, usuario?.papel)
-                            ? (usuario?.papel === 'ADMIN' ? { rotulo: 'Reabrir', aoClicar: () => setReabrir(c), destaque: true } : null)
-                            : (!ehLeitor ? {
-                                rotulo: ehParceiro ? 'Enviar para Validação' : 'Finalizar',
-                                aoClicar: () => setFinalizar(c),
-                                destaque: true,
-                              } : null),
-                        ].filter(Boolean) as AcaoColuna[]}
-                      />
+                      {(() => {
+                        const ehFinalizada =
+                          c.homologacao.status === 'APROVADO' ||
+                          c.homologacao.status === 'PUBLICADO' ||
+                          c.homologacao.status === 'REPROVADO'
+                        const podeRemover =
+                          !ehLeitor &&
+                          (usuario?.papel === 'ADMIN' ||
+                            (!ehFinalizada &&
+                              (usuario?.papel === 'HOMOLOGADOR' ||
+                                (ehParceiro && c.homologacao.responsavelId === usuario?.id))))
+
+                        return (
+                          <MenuColuna
+                            modelo={c.homologacao.dispositivo.nomeComercial}
+                            acoes={[
+                              // Configuração disponível para parceiro durante o processo e para Mobiltec
+                              !ehLeitor && (!ehSomenteLeitura(c.homologacao.status, usuario?.papel) || !ehParceiro) && {
+                                rotulo: 'Configuração',
+                                aoClicar: () => setConfigurar(c),
+                              },
+                              (!ehParceiro || c.homologacao.status === 'APROVADO' || c.homologacao.status === 'PUBLICADO') && {
+                                rotulo: 'Certificado',
+                                aoClicar: () =>
+                                  navegar(`/homologacoes/${c.homologacao.id}/certificado`),
+                              },
+                              // Reteste disponível para parceiro e Mobiltec, inclusive após enviar para validação
+                              !ehLeitor && { rotulo: 'Reteste', aoClicar: () => setReteste(c) },
+                              {
+                                rotulo: 'Observação',
+                                aoClicar: () => setObservacoes(c),
+                                marcado: !!c.homologacao.observacoes?.trim(),
+                              },
+                              ehSomenteLeitura(c.homologacao.status, usuario?.papel)
+                                ? (usuario?.papel === 'ADMIN' ? { rotulo: 'Reabrir', aoClicar: () => setReabrir(c), destaque: true } : null)
+                                : (!ehLeitor ? {
+                                    rotulo: ehParceiro
+                                      ? c.homologacao.status === 'EM_REVISAO'
+                                        ? 'Reenviar para Validação'
+                                        : 'Enviar para Validação'
+                                      : 'Finalizar',
+                                    aoClicar: () => setFinalizar(c),
+                                    destaque: true,
+                                  } : null),
+                              podeRemover && {
+                                rotulo: 'Remover da planilha',
+                                aoClicar: () => {
+                                  setErroRemover(null)
+                                  setRemover(c)
+                                },
+                                destrutivo: true,
+                              },
+                            ].filter(Boolean) as AcaoColuna[]}
+                          />
+                        )
+                      })()}
                       </div>
                     </div>
 
@@ -858,61 +922,79 @@ export function Matriz() {
             {/* Corpo: um bloco por grupo, com o rail vertical da planilha */}
             {grupos
               .filter(({ grupo }) => secao === 'todos' || secao === grupo)
-              .map(({ grupo, itens }) => (
-              <tbody key={grupo} data-grupo={grupo}>
-                {itens.map((item, i) => (
-                  <tr key={item.id} data-item={item.nome}>
-                    {railVisivel && i === 0 && (
-                      <td
-                        rowSpan={itens.length}
-                        className="sticky left-0 z-10 border p-0"
-                        style={{
-                          background: GRADIENTE_RAIL_VERTICAL,
-                          borderColor: 'rgba(255,255,255,.14)',
-                          color: '#fff',
-                        }}
+              .map(({ grupo, titulo, itens }) => {
+                const nomeGrupo = (titulo || (ROTULO_GRUPO as Record<string, string>)[grupo] || grupo).trim()
+                // Altura mínima para renderizar o título completo na vertical sem corte (8px por caractere + margem)
+                const alturaNecessariaTitulo = Math.max(72, nomeGrupo.length * 8.2 + 24)
+                // Distribui essa altura entre os itens da bateria para que o layout se adapte naturalmente
+                const alturaLinha = Math.max(38, Math.ceil(alturaNecessariaTitulo / Math.max(1, itens.length)))
+
+                return (
+                  <tbody key={grupo} data-grupo={grupo}>
+                    {itens.map((item, i) => (
+                      <tr
+                        key={item.id}
+                        data-item={item.nome}
+                        style={{ height: `${alturaLinha}px` }}
                       >
-                        {/* `height: 100%` não resolve dentro de td com rowspan — mas a
-                            célula é sticky, logo é bloco de contenção: inset-0 preenche. */}
-                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-                          <RotuloGrupo grupo={grupo} />
-                        </div>
-                      </td>
-                    )}
+                        {railVisivel && i === 0 && (
+                          <td
+                            rowSpan={itens.length}
+                            className="sticky left-0 z-10 border p-0"
+                            style={{
+                              background: GRADIENTE_RAIL_VERTICAL,
+                              borderColor: 'rgba(255,255,255,.14)',
+                              color: '#fff',
+                            }}
+                          >
+                            {/* `height: 100%` não resolve dentro de td com rowspan — mas a
+                                célula é sticky, logo é bloco de contenção: inset-0 preenche. */}
+                            <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                              <RotuloGrupo grupo={grupo} titulo={titulo} />
+                            </div>
+                          </td>
+                        )}
 
-                    <th
-                      className="sticky z-10 border px-3 py-2 text-left font-medium"
-                      style={{ left: recuoItem, background: 'var(--color-card)' }}
-                      title={item.descricaoAcao}
-                    >
-                      <span className={item.ativo ? '' : 'line-through opacity-60'}>
-                        {item.nome}
-                      </span>
-                    </th>
+                        <th
+                          className="sticky z-10 border px-3 py-2 text-left font-medium align-middle"
+                          style={{
+                            left: recuoItem,
+                            background: 'var(--color-card)',
+                            height: `${alturaLinha}px`,
+                          }}
+                          title={item.descricaoAcao}
+                        >
+                          <span className={item.ativo ? '' : 'line-through opacity-60'}>
+                            {item.nome}
+                          </span>
+                        </th>
 
-                    {colunas.map((c) => (
-                      <td key={c.homologacao.id} className="border p-0">
-                        <CelulaStatus
-                          resultado={c.homologacao.resultadosPorItem[item.id]}
-                          somenteLeitura={ehSomenteLeitura(c.homologacao.status, usuario?.papel)}
-                          aoEscolher={(s) => aplicarStatus(c, item, s)}
-                          aoAbrirObservacao={() => setObservacao({ coluna: c, item })}
-                          aoAbrirJustificativa={() =>
-                            setPainel({
-                              coluna: c,
-                              item,
-                              // Justificar não muda o status: o painel reaplica
-                              // o que já está lá, agora com a explicação junto
-                              status: c.homologacao.resultadosPorItem[item.id]?.status ?? 'FALHA',
-                            })
-                          }
-                        />
-                      </td>
+                        {colunas.map((c) => (
+                          <td
+                            key={c.homologacao.id}
+                            className="border p-0 align-middle"
+                            style={{ height: `${alturaLinha}px` }}
+                          >
+                            <CelulaStatus
+                              resultado={c.homologacao.resultadosPorItem[item.id]}
+                              somenteLeitura={ehSomenteLeitura(c.homologacao.status, usuario?.papel)}
+                              aoEscolher={(s) => aplicarStatus(c, item, s)}
+                              aoAbrirObservacao={() => setObservacao({ coluna: c, item })}
+                              aoAbrirJustificativa={() =>
+                                setPainel({
+                                  coluna: c,
+                                  item,
+                                  status: c.homologacao.resultadosPorItem[item.id]?.status ?? 'FALHA',
+                                })
+                              }
+                            />
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            ))}
+                  </tbody>
+                )
+              })}
           </table>
         </div>
       )}
@@ -939,7 +1021,102 @@ export function Matriz() {
             setConfigurar(null)
             setReteste(col)
           }}
+          aoPedirRemover={
+            (!ehLeitor &&
+              (usuario?.papel === 'ADMIN' ||
+                (!(
+                  configurar.homologacao.status === 'APROVADO' ||
+                  configurar.homologacao.status === 'PUBLICADO' ||
+                  configurar.homologacao.status === 'REPROVADO'
+                ) &&
+                  (usuario?.papel === 'HOMOLOGADOR' ||
+                    (ehParceiro && configurar.homologacao.responsavelId === usuario?.id)))))
+              ? (col) => {
+                  setConfigurar(null)
+                  setErroRemover(null)
+                  setRemover(col)
+                }
+              : undefined
+          }
         />
+      )}
+
+      {remover && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15,15,18,.45)' }}
+          onClick={() => setRemover(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Remover homologação da planilha"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.key === 'Escape' && setRemover(null)}
+            className="w-full max-w-md rounded-xl border shadow-xl p-5 space-y-4"
+            style={{ background: 'var(--color-popover)', color: 'var(--color-foreground)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                style={{ background: 'var(--color-destructive-soft)', color: 'var(--color-destructive)' }}
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold">Remover da planilha</h3>
+                <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                  {remover.homologacao.dispositivo.nomeComercial} · agente {remover.homologacao.versaoAgente}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--color-foreground)' }}>
+              Tem certeza que deseja remover esta homologação da planilha? Todos os resultados de testes e anotações deste item serão excluídos.
+            </p>
+
+            {erroRemover && (
+              <div
+                role="alert"
+                className="px-3 py-2 rounded-md text-xs"
+                style={{ background: 'var(--color-destructive-soft)', color: 'var(--color-destructive-fg)' }}
+              >
+                {erroRemover}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <button
+                type="button"
+                onClick={() => setRemover(null)}
+                disabled={removerHomologacao.isPending}
+                className="px-3 py-1.5 rounded-md text-xs font-medium"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={removerHomologacao.isPending}
+                onClick={async () => {
+                  try {
+                    setErroRemover(null)
+                    await removerHomologacao.mutateAsync(remover.homologacao.id)
+                    setRemover(null)
+                  } catch (err) {
+                    setErroRemover(err instanceof ErroApi ? err.message : 'Não foi possível remover da planilha.')
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-md text-xs font-semibold text-white disabled:opacity-50 transition-opacity"
+                style={{ background: 'var(--color-destructive)' }}
+              >
+                {removerHomologacao.isPending ? 'Removendo…' : 'Remover da planilha'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {reteste && (
@@ -972,6 +1149,12 @@ export function Matriz() {
           modeloNome={observacao.coluna.homologacao.dispositivo.nomeComercial}
           textoAtual={
             observacao.coluna.homologacao.resultadosPorItem[observacao.item.id]?.observacao ?? ''
+          }
+          autorEmail={
+            observacao.coluna.homologacao.resultadosPorItem[observacao.item.id]?.autorEmail ?? null
+          }
+          atualizadoEm={
+            observacao.coluna.homologacao.resultadosPorItem[observacao.item.id]?.atualizadoEm ?? null
           }
           salvando={salvarCelula.isPending}
           aoFechar={() => setObservacao(null)}
@@ -1032,6 +1215,12 @@ export function Matriz() {
           justificativaTextoAtual={
             painel.coluna.homologacao.resultadosPorItem[painel.item.id]?.justificativaTexto ?? null
           }
+          autorEmailAtual={
+            painel.coluna.homologacao.resultadosPorItem[painel.item.id]?.autorEmail ?? null
+          }
+          atualizadoEmAtual={
+            painel.coluna.homologacao.resultadosPorItem[painel.item.id]?.atualizadoEm ?? null
+          }
           statusPretendido={painel.status}
           gerenciamento={painel.coluna.homologacao.gerenciamento}
           androidMin={versaoAndroidNumero(painel.coluna.homologacao.versaoSo)}
@@ -1039,9 +1228,8 @@ export function Matriz() {
             .map((r) => r.justificativaTexto)
             .filter((t): t is string => !!t)}
           aoCancelar={() => setPainel(null)}
-          aoConfirmar={(escolha) => {
-            aplicarStatus(painel.coluna, painel.item, painel.status, escolha)
-            setPainel(null)
+          aoConfirmar={async (escolha) => {
+            await aplicarStatus(painel.coluna, painel.item, painel.status, escolha)
           }}
         />
       )}

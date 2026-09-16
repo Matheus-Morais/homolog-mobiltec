@@ -43,42 +43,67 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR', 'PARCEIRO'])],
   }, async (request, reply) => {
     const schema = z.object({
-      dispositivoId: z.string().uuid(),
-      bateriaId: z.string().uuid(),
-      numeroSerie: z.string().min(1),
-      imei1: z.string().optional().nullable(),
-      imei2: z.string().optional().nullable(),
-      versaoSo: z.string().min(1),
-      gerenciamento: z.enum(['ANDROID_LEGADO', 'ANDROID_ENTERPRISE']),
-      tipoAgente: z.string().min(1),
-      versaoAgente: z.string().min(1),
-      versaoPos: z.string().optional().nullable(),
-      ferramenta: z.string().optional().nullable(),
-      metodoInscricao: z.string().min(1),
-      assinaturaAgente: z.boolean().default(false),
-      precisaAssinaturaDev: z.boolean().default(false),
-      dataInicio: z.string().transform(s => new Date(s)),
-      responsavelId: z.string().uuid().optional(),
-      gerenteId: z.string().uuid().optional().nullable(),
-      apoioId: z.string().uuid().optional().nullable(),
+      dispositivoId: z.string(),
+      bateriaId: z.string().optional().nullable(),
+      numeroSerie: z.string().optional().default('Sem informação').transform(s => s?.trim() || 'Sem informação'),
+      imei1: z.string().optional().nullable().transform(s => s?.trim() || null),
+      imei2: z.string().optional().nullable().transform(s => s?.trim() || null),
+      versaoSo: z.string().optional().default('Android').transform(s => s?.trim() || 'Android'),
+      gerenciamento: z.any().optional().transform(v => v === 'ANDROID_ENTERPRISE' ? 'ANDROID_ENTERPRISE' : 'ANDROID_LEGADO'),
+      tipoAgente: z.string().optional().default('Agente PoS').transform(s => s?.trim() || 'Agente PoS'),
+      versaoAgente: z.string().optional().default('Não informada').transform(s => s?.trim() || 'Não informada'),
+      versaoPos: z.string().optional().nullable().transform(s => s?.trim() || null),
+      ferramenta: z.string().optional().nullable().transform(s => s?.trim() || null),
+      metodoInscricao: z.string().optional().default('Não informado').transform(s => s?.trim() || 'Não informado'),
+      assinaturaAgente: z.any().optional().transform(v => Boolean(v)),
+      precisaAssinaturaDev: z.any().optional().transform(v => Boolean(v)),
+      dataInicio: z.any().optional().transform(s => {
+        if (!s) return new Date()
+        const d = new Date(s)
+        return isNaN(d.getTime()) ? new Date() : d
+      }),
+      responsavelId: z.string().optional(),
+      gerenteId: z.string().optional().nullable(),
+      apoioId: z.string().optional().nullable(),
       localEmissao: z.string().default('São Paulo'),
     })
 
     const body = schema.parse(request.body)
     const responsavelId = body.responsavelId ?? request.user.id
 
-    // Busca a bateria para obter os itens
-    const bateria = await fastify.prisma.bateriaTeste.findUnique({
-      where: { id: body.bateriaId },
-      include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+    // Busca o dispositivo para saber a categoria se precisar achar a bateria
+    const dispositivo = await fastify.prisma.dispositivo.findUnique({
+      where: { id: body.dispositivoId },
+      select: { id: true, categoriaId: true },
     })
-    if (!bateria) return reply.status(404).send({ erro: 'Bateria não encontrada' })
-    if (!bateria.ativo) return reply.status(400).send({ erro: 'Bateria inativa' })
+    if (!dispositivo) return reply.status(404).send({ erro: 'Dispositivo não encontrado' })
+
+    let bateria = null
+    if (body.bateriaId && typeof body.bateriaId === 'string' && body.bateriaId.trim()) {
+      bateria = await fastify.prisma.bateriaTeste.findUnique({
+        where: { id: body.bateriaId.trim() },
+        include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { categoriaId: dispositivo.categoriaId, ativo: true },
+        include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+      })
+    }
+    if (!bateria) {
+      bateria = await fastify.prisma.bateriaTeste.findFirst({
+        where: { ativo: true },
+        include: { itens: { include: { item: true }, orderBy: { ordem: 'asc' } } },
+      })
+    }
+    if (!bateria) return reply.status(404).send({ erro: 'Bateria de testes não encontrada' })
 
     // Cria homologação e todos os resultados NAO_TESTADO atomicamente
     const homologacao = await fastify.prisma.homologacao.create({
       data: {
         ...body,
+        bateriaId: bateria.id,
         responsavelId,
         status: StatusHomologacao.RASCUNHO,
         resultados: {
@@ -105,16 +130,22 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/homologacoes', {
     onRequest: [fastify.autenticar],
   }, async (request) => {
-    const { dispositivoId, status, responsavelId } = request.query as {
+    const { dispositivoId, status, responsavelId, finalizados } = request.query as {
       dispositivoId?: string
       status?: string
       responsavelId?: string
+      finalizados?: string
     }
+
+    const whereStatus = finalizados === 'true'
+      ? { in: [StatusHomologacao.APROVADO, StatusHomologacao.PUBLICADO, StatusHomologacao.REPROVADO] }
+      : (status ? (status as StatusHomologacao) : undefined)
 
     return fastify.prisma.homologacao.findMany({
       where: {
+        dispositivo: { ativo: true },
         ...(dispositivoId ? { dispositivoId } : {}),
-        ...(status ? { status: status as StatusHomologacao } : {}),
+        ...(whereStatus ? { status: whereStatus } : {}),
         ...(responsavelId ? { responsavelId } : {}),
       },
       include: {
@@ -343,7 +374,13 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     // Verificar se a homologação está em estado editável
     const homologacao = await fastify.prisma.homologacao.findUnique({
       where: { id },
-      select: { status: true, responsavelId: true, apoioId: true },
+      select: {
+        status: true,
+        responsavelId: true,
+        apoioId: true,
+        analiseDivergencias: true,
+        responsavel: { select: { empresa: true } },
+      },
     })
     if (!homologacao) return reply.status(404).send({ erro: 'Homologação não encontrada' })
     if (homologacao.status === StatusHomologacao.APROVADO || homologacao.status === StatusHomologacao.PUBLICADO) {
@@ -353,8 +390,17 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     // Regras RBAC para Parceiro:
     if (request.user.papel === 'PARCEIRO') {
       const ehExcecaoHgomes = request.user.email?.toLowerCase() === 'hgomes@tnsi.com'
-      // Ownership check: parceiro só opera em homologações atribuídas a ele, exceto exceção hgomes@tnsi.com
-      if (!ehExcecaoHgomes && homologacao.responsavelId !== request.user.id && homologacao.apoioId !== request.user.id) {
+      const usuarioLogado = await fastify.prisma.usuario.findUnique({
+        where: { id: request.user.id },
+        select: { empresa: true },
+      })
+      const mesmaEmpresa =
+        Boolean(usuarioLogado?.empresa) &&
+        Boolean(homologacao.responsavel?.empresa) &&
+        usuarioLogado?.empresa?.trim().toLowerCase() === homologacao.responsavel?.empresa?.trim().toLowerCase()
+
+      // Ownership check: parceiro só opera em homologações atribuídas a ele ou à sua empresa, exceto exceção hgomes@tnsi.com
+      if (!ehExcecaoHgomes && homologacao.responsavelId !== request.user.id && homologacao.apoioId !== request.user.id && !mesmaEmpresa) {
         return reply.status(403).send({ erro: 'Parceiros só podem editar resultados de homologações atribuídas a eles.' })
       }
       if (!ehExcecaoHgomes && !STATUS_EDITAVEIS_PARCEIRO.includes(homologacao.status)) {
@@ -383,6 +429,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         observacao: body.observacao,
         justificativaId: body.justificativaId,
         justificativaTexto: body.justificativaTexto,
+        autorEmail: request.user?.email ?? null,
       },
       create: {
         homologacaoId: id,
@@ -391,6 +438,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         observacao: body.observacao,
         justificativaId: body.justificativaId,
         justificativaTexto: body.justificativaTexto,
+        autorEmail: request.user?.email ?? null,
       },
       include: { item: true, justificativa: true },
     })
@@ -401,6 +449,51 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
         where: { id: body.justificativaId },
         data: { usoCount: { increment: 1 } },
       })
+    }
+
+    // Se a homologação tem análise manual de divergências e o item recebeu justificativa nova/alterada,
+    // sobrepõe imediatamente a funcionalidade correspondente no certificado sem exigir ação manual
+    if (homologacao.analiseDivergencias && typeof homologacao.analiseDivergencias === 'object') {
+      try {
+        const analise = homologacao.analiseDivergencias as {
+          blocos?: Array<{ id: string; titulo: string; subtitulo: string; texto: string }>
+          vistos?: string[]
+        }
+        if (Array.isArray(analise.blocos)) {
+          const textoJustificativa = body.justificativaTexto || (body.justificativaId ? resultado.justificativa?.texto : null)
+          const nomeItem = resultado.item?.nome
+          if (textoJustificativa && nomeItem) {
+            let blocoEncontrado = false
+            const blocosAtualizados = analise.blocos.map((b) => {
+              if (b.subtitulo?.includes(nomeItem) || b.id?.includes(itemId)) {
+                blocoEncontrado = true
+                return { ...b, texto: textoJustificativa }
+              }
+              return b
+            })
+            if (!blocoEncontrado) {
+              blocosAtualizados.push({
+                id: `item-${itemId}`,
+                titulo: resultado.item?.grupo ? `Grupo ${resultado.item.grupo}` : 'Análise Técnica',
+                subtitulo: nomeItem,
+                texto: textoJustificativa,
+              })
+            }
+            await fastify.prisma.homologacao.update({
+              where: { id },
+              data: {
+                analiseDivergencias: {
+                  ...analise,
+                  blocos: blocosAtualizados,
+                  vistos: [...new Set([...(analise.vistos ?? []), textoJustificativa])],
+                },
+              },
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar justificativa na análise do certificado:', err)
+      }
     }
 
     return resultado
@@ -425,6 +518,8 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
     const homologacao = await fastify.prisma.homologacao.findUnique({
       where: { id },
       include: {
+        dispositivo: true,
+        responsavel: { select: { id: true, nome: true, email: true, empresa: true } },
         resultados: {
           include: {
             item: true,
@@ -436,10 +531,19 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
 
     const ehParceiro = request.user.papel === 'PARCEIRO'
 
-    // Ownership check: parceiro só pode transicionar homologações atribuídas a ele
+    // Ownership check: parceiro só pode transicionar homologações atribuídas a ele ou à sua empresa
     if (ehParceiro) {
-      if (homologacao.responsavelId !== request.user.id && homologacao.apoioId !== request.user.id) {
-        return reply.status(403).send({ erro: 'Parceiros só podem submeter homologações atribuídas a eles.' })
+      const usuarioLogado = await fastify.prisma.usuario.findUnique({
+        where: { id: request.user.id },
+        select: { empresa: true },
+      })
+      const mesmaEmpresa =
+        Boolean(usuarioLogado?.empresa) &&
+        Boolean(homologacao.responsavel?.empresa) &&
+        usuarioLogado?.empresa?.trim().toLowerCase() === homologacao.responsavel?.empresa?.trim().toLowerCase()
+
+      if (homologacao.responsavelId !== request.user.id && homologacao.apoioId !== request.user.id && !mesmaEmpresa) {
+        return reply.status(403).send({ erro: 'Parceiros só podem submeter homologações atribuídas a eles ou à sua empresa.' })
       }
     }
 
@@ -503,11 +607,12 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
       if (assinaturaApoio && String(assinaturaApoio).trim()) {
         const u = await fastify.prisma.usuario.findUnique({
           where: { id: request.user.id },
-          select: { nome: true },
+          select: { nome: true, empresa: true },
         })
         const nomeEsperado = u?.nome?.trim() ?? ''
-        // Normaliza automaticamente para o formato oficial do parceiro: "Nome — Parceiro"
-        assinaturaApoioFinal = `${nomeEsperado} — Parceiro`
+        const empresaEsperada = u?.empresa?.trim() || 'Parceiro'
+        // Normaliza automaticamente para o formato oficial do parceiro: "Nome — Empresa" (ex: "Matheus — TNS")
+        assinaturaApoioFinal = `${nomeEsperado} — ${empresaEsperada}`
       } else {
         assinaturaApoioFinal = null
       }
@@ -541,6 +646,63 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
       }),
     ])
 
+    // Fluxo dinâmico de notificações entre Parceiro e Admin Mobiltec
+    const empresaParceiro = homologacao.responsavel?.empresa || homologacao.dispositivo?.empresa || null
+    const nomeDisp = homologacao.dispositivo?.nomeComercial || 'Dispositivo'
+
+    try {
+      if (novoStatus === StatusHomologacao.EM_REVISAO || novoStatus === StatusHomologacao.APROVADO || novoStatus === StatusHomologacao.REPROVADO) {
+        // Ao aprovar ou solicitar revisão, encerra qualquer notificação anterior de submissão para análise
+        await fastify.prisma.notificacao.updateMany({
+          where: { homologacaoId: id, tipo: 'SUBMETIDO' },
+          data: { lida: true },
+        })
+      }
+
+      if (novoStatus === StatusHomologacao.EM_REVISAO && empresaParceiro) {
+        await fastify.prisma.notificacao.create({
+          data: {
+            tipo: 'REVISAO',
+            titulo: `Revisão solicitada: ${nomeDisp}`,
+            mensagem: motivo?.trim() || 'A equipe técnica da Mobiltec solicitou ajustes nesta homologação.',
+            homologacaoId: id,
+            dispositivoNome: nomeDisp,
+            empresaDestino: empresaParceiro,
+            link: `/paineis/meu-painel`,
+            confirmada: false,
+          },
+        })
+      } else if (novoStatus === StatusHomologacao.APROVADO && empresaParceiro) {
+        await fastify.prisma.notificacao.create({
+          data: {
+            tipo: 'APROVADO',
+            titulo: `Certificado emitido e aprovado: ${nomeDisp}`,
+            mensagem: `A homologação do dispositivo ${nomeDisp} foi aprovada oficialmente. O certificado já está disponível para consulta e download.`,
+            homologacaoId: id,
+            dispositivoNome: nomeDisp,
+            empresaDestino: empresaParceiro,
+            link: `/homologacoes/${id}/certificado`,
+            confirmada: false,
+          },
+        })
+      } else if (novoStatus === StatusHomologacao.AGUARDANDO_ANALISE) {
+        await fastify.prisma.notificacao.create({
+          data: {
+            tipo: 'SUBMETIDO',
+            titulo: `Homologação enviada para análise: ${nomeDisp}`,
+            mensagem: `O parceiro ${empresaParceiro || 'Parceiro'} enviou o modelo ${nomeDisp} para conferência técnica e validação de certificado.`,
+            homologacaoId: id,
+            dispositivoNome: nomeDisp,
+            empresaDestino: null,
+            link: `/parceiros/validar-certificados`,
+            confirmada: false,
+          },
+        })
+      }
+    } catch (e) {
+      fastify.log.warn(`Erro ao gerar notificação de transição de status: ${e}`)
+    }
+
     // As pendências vão junto na resposta: quem fechou com item em aberto
     // fica sabendo o que ficou para trás, e o gerente de produto tem o que
     // conferir antes de assinar.
@@ -551,7 +713,7 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // ============================================================
-  // POST /homologacoes/:id/reabrir — Reabrir APROVADO → RASCUNHO
+  // POST /homologacoes/:id/reabrir — Reabrir finalizado → RASCUNHO
   // ============================================================
   fastify.post('/homologacoes/:id/reabrir', {
     onRequest: [fastify.exigirPapeis(['ADMIN'])],
@@ -561,29 +723,134 @@ const homologacaoRoutes: FastifyPluginAsync = async (fastify) => {
 
     const homologacao = await fastify.prisma.homologacao.findUnique({
       where: { id },
-      select: { status: true },
+      include: {
+        dispositivo: { include: { categoria: true } },
+        responsavel: { select: { empresa: true } },
+      },
     })
     if (!homologacao) return reply.status(404).send({ erro: 'Homologação não encontrada' })
-    if (homologacao.status !== StatusHomologacao.APROVADO) {
-      return reply.status(422).send({ erro: 'Só é possível reabrir homologações com status APROVADO.' })
+
+    const statusFinalizados: StatusHomologacao[] = [
+      StatusHomologacao.APROVADO,
+      StatusHomologacao.PUBLICADO,
+      StatusHomologacao.REPROVADO,
+    ]
+    if (!statusFinalizados.includes(homologacao.status)) {
+      return reply.status(422).send({
+        erro: 'Só é possível reabrir homologações finalizadas (Aprovado, Publicado ou Reprovado).',
+      })
     }
 
     // Executa tudo em transação
-    const [logEntry, atualizado] = await fastify.prisma.$transaction([
-      fastify.prisma.logReabertura.create({
+    const [logEntry] = await fastify.prisma.$transaction(async (tx) => {
+      const log = await tx.logReabertura.create({
         data: {
           homologacaoId: id,
           usuarioId: request.user.id,
           motivo,
         },
-      }),
-      fastify.prisma.homologacao.update({
+      })
+      await tx.homologacao.update({
         where: { id },
-        data: { status: StatusHomologacao.RASCUNHO, homologado: null },
-      }),
-    ])
+        data: {
+          status: StatusHomologacao.RASCUNHO,
+          homologado: null,
+          dataFim: null,
+        },
+      })
+      await tx.historicoStatus.create({
+        data: {
+          homologacaoId: id,
+          statusAnterior: homologacao.status,
+          statusNovo: StatusHomologacao.RASCUNHO,
+          usuarioId: request.user.id,
+          motivo,
+        },
+      })
+
+      // Se for de parceiro, emite notificação para refletir no painel dele
+      const empresaParceiro = homologacao.responsavel?.empresa || homologacao.dispositivo?.empresa || null
+      const nomeDisp = homologacao.dispositivo?.nomeComercial || 'Dispositivo'
+      if (empresaParceiro && empresaParceiro.toLowerCase() !== 'mobiltec') {
+        await tx.notificacao.create({
+          data: {
+            tipo: 'REVISAO',
+            titulo: `Homologação reaberta: ${nomeDisp}`,
+            mensagem: `A homologação do modelo ${nomeDisp} foi reaberta pelo administrador para ajustes. Motivo: ${motivo}`,
+            homologacaoId: id,
+            dispositivoNome: nomeDisp,
+            empresaDestino: empresaParceiro,
+            link: `/matriz/${homologacao.dispositivo?.categoria?.slug || 'pos'}`,
+            confirmada: false,
+          },
+        })
+      }
+      return [log]
+    })
 
     return { mensagem: 'Homologação reaberta para edição.', logId: logEntry.id }
+  })
+
+  // ============================================================
+  // DELETE /homologacoes/:id — Exclui homologação da planilha ou da base
+  // ============================================================
+  fastify.delete('/homologacoes/:id', {
+    onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR', 'PARCEIRO'])],
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+
+    const homologacao = await fastify.prisma.homologacao.findUnique({
+      where: { id },
+      include: {
+        dispositivo: true,
+        responsavel: { select: { id: true, empresa: true } },
+      },
+    })
+    if (!homologacao) return reply.status(404).send({ erro: 'Homologação não encontrada' })
+
+    const statusFinalizados: StatusHomologacao[] = [
+      StatusHomologacao.APROVADO,
+      StatusHomologacao.PUBLICADO,
+      StatusHomologacao.REPROVADO,
+    ]
+    const ehFinalizada = statusFinalizados.includes(homologacao.status)
+
+    // Regra 1: Homologações finalizadas só podem ser excluídas por ADMIN
+    if (ehFinalizada && request.user.papel !== 'ADMIN') {
+      return reply.status(403).send({
+        erro: 'Apenas administradores possuem permissão para excluir homologações finalizadas.',
+      })
+    }
+
+    // Regra 2: Para parceiro, apenas o responsável que cadastrou a homologação pode excluí-la da planilha
+    if (request.user.papel === 'PARCEIRO') {
+      if (homologacao.responsavelId !== request.user.id) {
+        return reply.status(403).send({
+          erro: 'Apenas o usuário responsável pelo registro pode remover este item da planilha.',
+        })
+      }
+    }
+
+    // Executa exclusão atômica de todos os relacionamentos
+    await fastify.prisma.$transaction(async (tx) => {
+      await tx.resultado.deleteMany({ where: { homologacaoId: id } })
+      await tx.certificadoEmitido.deleteMany({ where: { homologacaoId: id } })
+      await tx.logReabertura.deleteMany({ where: { homologacaoId: id } })
+      await tx.historicoStatus.deleteMany({ where: { homologacaoId: id } })
+      await tx.notificacao.deleteMany({ where: { homologacaoId: id } })
+      await tx.homologacao.delete({ where: { id } })
+
+      // Se o dispositivo não possuir nenhum outro teste/homologação cadastrado,
+      // exclui também o dispositivo para não deixar registros órfãos e liberar @@unique([fabricante, modelo])
+      const restantes = await tx.homologacao.count({
+        where: { dispositivoId: homologacao.dispositivoId },
+      })
+      if (restantes === 0) {
+        await tx.dispositivo.delete({ where: { id: homologacao.dispositivoId } })
+      }
+    })
+
+    return reply.status(200).send({ mensagem: 'Homologação removida com sucesso.' })
   })
 }
 
