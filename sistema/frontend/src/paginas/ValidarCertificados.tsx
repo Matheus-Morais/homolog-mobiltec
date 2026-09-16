@@ -189,7 +189,7 @@ export function ValidarCertificados() {
           </div>
         )}
 
-        {/* Cards de Métricas Rápidas (Compactos e Horizontais) */}
+        {/* Cards de Métricas Rápidas (Design Clean e Elegante) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div
             className="py-2.5 px-3.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs transition-all"
@@ -213,13 +213,15 @@ export function ValidarCertificados() {
               </span>
             </div>
             <span
-              className="text-base font-bold px-2 py-0.5 rounded-lg shrink-0"
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold select-none shrink-0"
               style={{
-                color: pendentes.length > 0 ? 'var(--color-primary)' : 'var(--color-foreground)',
+                color: pendentes.length > 0 ? 'var(--color-primary)' : 'var(--color-muted-foreground)',
                 background: pendentes.length > 0 ? 'rgba(126,32,101,0.08)' : 'var(--color-muted)',
+                border: pendentes.length > 0 ? '1px solid rgba(126,32,101,0.25)' : '1px solid var(--color-border)',
               }}
             >
-              {pendentes.length}
+              {pendentes.length > 0 && <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--color-primary)' }} />}
+              <span className="text-sm font-bold">{pendentes.length}</span>
             </span>
           </div>
 
@@ -230,7 +232,10 @@ export function ValidarCertificados() {
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: 'var(--color-status-ok-soft)', color: 'var(--color-status-ok)' }}
+                style={{
+                  background: 'var(--color-success-soft, #f0fdf4)',
+                  color: 'var(--color-success-fg, #166534)',
+                }}
               >
                 <Icone nome="certificado" className="h-3.5 w-3.5" />
               </div>
@@ -239,9 +244,15 @@ export function ValidarCertificados() {
               </span>
             </div>
             <span
-              className="text-base font-bold px-2 py-0.5 rounded-lg shrink-0 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300"
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold select-none shrink-0"
+              style={{
+                color: 'var(--color-success-fg, #166534)',
+                background: 'var(--color-success-soft, #f0fdf4)',
+                border: '1px solid rgba(22, 163, 74, 0.25)',
+              }}
             >
-              {aprovados.length}
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-sm font-bold">{aprovados.length}</span>
             </span>
           </div>
 
@@ -261,9 +272,14 @@ export function ValidarCertificados() {
               </span>
             </div>
             <span
-              className="text-base font-bold px-2 py-0.5 rounded-lg shrink-0 text-[var(--color-foreground)] bg-[var(--color-muted)]"
+              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold select-none shrink-0"
+              style={{
+                color: 'var(--color-foreground)',
+                background: 'rgba(0, 0, 0, 0.03)',
+                border: '1px solid var(--color-border)',
+              }}
             >
-              {empresasParceiras.length}
+              <span className="text-sm font-bold">{empresasParceiras.length}</span>
             </span>
           </div>
         </div>
@@ -372,7 +388,8 @@ export function ValidarCertificados() {
             {listaAtual.map((h) => {
               const nomeEmpresa = h.responsavel?.empresa || h.dispositivo.empresa || 'Parceiro'
               const nomeResponsavel = h.responsavel?.nome || 'Técnico'
-              const isPendente = h.status === 'AGUARDANDO_ANALISE' || h.status === 'EM_REVISAO'
+              const precisaValidar = h.status === 'AGUARDANDO_ANALISE'
+              const ehRevisao = h.status === 'EM_REVISAO'
               const isAprovado = h.status === 'APROVADO' || h.status === 'PUBLICADO'
               const dataEnvio = new Date(h.atualizadoEm || h.criadoEm).toLocaleDateString('pt-BR')
 
@@ -382,7 +399,7 @@ export function ValidarCertificados() {
                   className="p-3.5 sm:p-4 rounded-xl border transition-all hover:shadow-md"
                   style={{
                     background: 'var(--color-card)',
-                    borderColor: isPendente ? 'var(--color-primary)' : 'var(--color-border)',
+                    borderColor: precisaValidar ? 'var(--color-primary)' : 'var(--color-border)',
                   }}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -420,23 +437,39 @@ export function ValidarCertificados() {
 
                           {isAprovado ? (
                             <BadgeHomologado homologado={true} />
+                          ) : precisaValidar ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold select-none"
+                              style={{
+                                color: 'var(--color-primary)',
+                                background: 'rgba(126, 32, 101, 0.08)',
+                                border: '1px solid rgba(126, 32, 101, 0.25)',
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--color-primary)' }} />
+                              <span>Em Validação</span>
+                            </span>
+                          ) : ehRevisao ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold select-none"
+                              style={{
+                                color: '#b45309',
+                                background: '#fef3c7',
+                                border: '1px solid rgba(245, 158, 11, 0.25)',
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                              <span>Em Revisão</span>
+                            </span>
                           ) : (
                             <span
                               className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold"
                               style={{
-                                background: isPendente
-                                  ? 'var(--color-warning-soft)'
-                                  : 'var(--color-muted)',
-                                color: isPendente
-                                  ? 'var(--color-warning-fg)'
-                                  : 'var(--color-muted-foreground)',
+                                background: 'var(--color-muted)',
+                                color: 'var(--color-muted-foreground)',
                               }}
                             >
-                              {h.status === 'AGUARDANDO_ANALISE'
-                                ? 'Em Validação'
-                                : h.status === 'EM_REVISAO'
-                                ? 'Em Revisão'
-                                : h.status}
+                              {h.status}
                             </span>
                           )}
 
@@ -500,7 +533,7 @@ export function ValidarCertificados() {
                         </button>
 
                         {/* Botão de Validação / Aprovação */}
-                        {isPendente && (
+                        {(precisaValidar || ehRevisao) && (
                           <>
                             <button
                               type="button"

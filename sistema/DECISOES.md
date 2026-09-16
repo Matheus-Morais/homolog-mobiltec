@@ -1110,6 +1110,15 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D458 | Ocultação imediata do alerta no sino ao clicar, remoção do botão 'Marcar como lida' e eliminação da bolinha de validação no painel ao aprovar ou enviar para revisão até nova interação | Em `CentralNotificacoes.tsx`: ao clicar no sino, limpa o sinalizador visual instantaneamente (`alertaVistoLocal = true`) e dispara `marcarTodasLidas.mutate()`, eliminando o badge de alerta no primeiro milissegundo do clique do usuário (tanto admin quanto parceiro); remove o botão redundante 'Marcar lidas' do cabeçalho da central e preserva integralmente a ação de 'Confirmar recebimento' para notificações de revisão; em `useNotificacoes.ts`: implementa mutação otimista em `useMarcarTodasLidas` para zerar `naoLidas` imediatamente no cache TanStack Query; em `homologacoes.ts` (backend): ao transicionar uma homologação para `APROVADO`, `EM_REVISAO` ou `REPROVADO`, encerra e marca automaticamente como lida qualquer notificação anterior de `SUBMETIDO` associada; em `useHomologacao.ts`: expande o `onSuccess` de `useTransicaoStatus` para invalidar `homologacoes`, `notificacoes` e `painel-parceiro`; em `Layout.tsx`: restringe `homologacoesPendentes` estritamente a `h.status === 'AGUARDANDO_ANALISE'` (descartando `EM_REVISAO`, que fica sob custódia do parceiro), removendo a bolinha do admin no exato instante em que ele aprova ou envia para revisão, reaparecendo unicamente quando o parceiro voltar a interagir e reenviar a homologação; e em `ValidarCertificados.tsx`: ajusta as métricas e cria a aba 'Em Revisão' para separar o que aguarda validação do admin do que está sob ajuste do parceiro. |
 
+---
+
+## Etapa 90 — Redesign Clean dos Cards Métricos e Badges em Validar Certificados (D459)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D459 | Substituição do design de caixas cinzas nos contadores métricos e badges de status pelo padrão pílula clean com dot verde/roxo/âmbar | Em `ValidarCertificados.tsx`: substitui o bloco acinzentado do número no card métrico 'Aprovados & Emitidos' pelo badge clean pílula (`rounded-full`) com fundo verde ultraclaro (`#f0fdf4`), borda suave (`rgba(22, 163, 74, 0.25)`), indicador dot verde vibrante (`bg-emerald-500`) e tipografia nítida semibold em verde esmeralda (`#166534`), harmonizando identicamente com os cards de 'Aguardando Validação' (pílula roxa com dot) e 'Parceiros Cadastrados'; e na listagem de dispositivos, elimina as bordas e badges genéricos de pendência para itens em revisão, aplicando pills específicas com dot âmbar para `EM_REVISAO` e roxo para `AGUARDANDO_ANALISE`. |
+
+
 
 
 
