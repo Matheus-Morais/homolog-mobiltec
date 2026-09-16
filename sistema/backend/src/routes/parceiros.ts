@@ -299,6 +299,12 @@ const parceirosRoutes: FastifyPluginAsync = async (fastify) => {
 async function montarDadosPainel(fastify: any, parceiro: any) {
   const empresa = parceiro.empresa?.trim()
 
+  const ehTNS =
+    empresa?.toLowerCase() === 'tns' ||
+    empresa?.toLowerCase() === 'tnsi' ||
+    parceiro.email?.toLowerCase() === 'hgomes@tnsi.com' ||
+    (Array.isArray(parceiro.categoriasPermitidas) && parceiro.categoriasPermitidas.includes('pos'))
+
   // Escopo estrito do parceiro:
   // Dispositivos cadastrados pela empresa do parceiro, com fabricante igual à empresa,
   // ou que possuam homologações realizadas pelo parceiro ou por usuários da sua empresa.
@@ -312,6 +318,11 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
       { fabricante: { equals: empresa, mode: 'insensitive' } },
       { homologacoes: { some: { responsavel: { empresa: { equals: empresa, mode: 'insensitive' } } } } },
     )
+  }
+
+  // TNS ou parceiro de PoS visualiza os dispositivos da categoria PoS
+  if (ehTNS) {
+    filtroDispositivoDoParceiro.push({ categoria: { slug: 'pos' } })
   }
 
   const filtroHomologacaoDoParceiro: any[] = [
@@ -331,9 +342,11 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     include: {
       categoria: { select: { id: true, nome: true, slug: true, icone: true } },
       homologacoes: {
-        where: {
-          OR: filtroHomologacaoDoParceiro,
-        },
+        where: ehTNS
+          ? undefined
+          : {
+              OR: filtroHomologacaoDoParceiro,
+            },
         include: {
           resultados: { select: { status: true, justificativaId: true, justificativaTexto: true } },
           responsavel: { select: { id: true, nome: true, email: true, empresa: true } },
@@ -375,9 +388,13 @@ async function montarDadosPainel(fastify: any, parceiro: any) {
     : []
 
   const listaDispositivos = dispositivos.map((d: any) => {
-    // Como as homologações foram estritamente filtradas para este parceiro/empresa,
-    // a homologação mais recente do array é a oficial deste ambiente:
-    const atual = d.homologacoes[0] ?? null
+    // Busca homologação atribuída a este parceiro/empresa; se não houver, utiliza a mais recente
+    const homologacaoDoParceiro = d.homologacoes.find(
+      (h: any) =>
+        h.responsavelId === parceiro.id ||
+        (empresa && h.responsavel?.empresa?.toLowerCase() === empresa.toLowerCase()),
+    )
+    const atual = homologacaoDoParceiro ?? d.homologacoes[0] ?? null
     const notificacaoRevisao = notificacoes.find(
       (n: any) => n.homologacaoId === atual?.id && n.tipo === 'REVISAO',
     )

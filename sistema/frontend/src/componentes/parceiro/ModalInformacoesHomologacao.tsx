@@ -4,7 +4,8 @@ import { useHomologacao } from '@/hooks/useHomologacao'
 import { Icone } from '@/componentes/Icone'
 import { LoadingTela } from '@/componentes/LoadingTela'
 import { BadgeHomologado } from '@/componentes/comum/BadgeHomologado'
-import type { DispositivoPainelParceiro, StatusHomologacao, StatusResultado } from '@/lib/tipos'
+import type { DispositivoPainelParceiro, StatusHomologacao, StatusResultado, GrupoItem } from '@/lib/tipos'
+import { ROTULO_GRUPO, ROTULO_GRUPO_CURTO, COLUNAS_GRUPO, GRUPO_ORDEM } from '@/lib/tipos'
 
 interface ItemObservacaoProcessada {
   id: string
@@ -107,8 +108,27 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
     return lista
   }, [resultados, filtroStatus])
 
-  const itensFuncionalidade = itensExibidos.filter((r) => (r.item?.grupo ?? 'OUTROS') !== 'TELEMETRIA')
-  const itensTelemetria = itensExibidos.filter((r) => (r.item?.grupo ?? 'OUTROS') === 'TELEMETRIA')
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, any[]>()
+    for (const r of itensExibidos) {
+      const g = r.item?.grupo ?? 'OUTROS'
+      if (!mapa.has(g)) mapa.set(g, [])
+      mapa.get(g)!.push(r)
+    }
+    
+    const ordenado: [string, any[]][] = []
+    for (const g of GRUPO_ORDEM) {
+      if (mapa.has(g)) {
+        ordenado.push([g, mapa.get(g)!])
+        mapa.delete(g)
+      }
+    }
+    for (const [g, itens] of mapa.entries()) {
+      ordenado.push([g, itens])
+    }
+    
+    return ordenado
+  }, [itensExibidos])
 
   return (
     <div
@@ -302,107 +322,60 @@ export function ModalInformacoesHomologacao({ homologacaoId, dispositivo: d, aoF
               )}
             </div>
           ) : (
-            /* Layout 2 Colunas: Funcionalidade | Telemetria */
+            /* Layout Cards de Grupos */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              
-              {/* Coluna Funcionalidade */}
-              <div className="rounded-xl border overflow-hidden bg-white shadow-sm flex flex-col" style={{ borderColor: 'var(--color-border)' }}>
-                <div className="bg-slate-100 border-b px-3 py-2 font-bold text-xs text-slate-700 tracking-wide uppercase text-center">
-                  Bateria de Testes
+              {grupos.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-slate-400 italic">
+                  Nenhum item encontrado.
                 </div>
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead className="border-b bg-slate-50/50">
-                    <tr>
-                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase w-full">Item de Teste</th>
-                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase text-right whitespace-nowrap">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {itensFuncionalidade.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="py-8 text-center text-slate-400 italic">
-                          Nenhum item encontrado.
-                        </td>
-                      </tr>
-                    ) : (
-                      itensFuncionalidade.map((res: any) => (
-                        <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-3 align-top min-w-0">
-                            <span className="font-semibold text-slate-800 break-words block mb-1 leading-tight">
-                              {res.item?.nome ?? 'Item'}
-                            </span>
-                            
-                            {(res.justificativa || res.justificativaTexto) && (
-                              <div className="mt-1.5 p-1.5 rounded bg-amber-50 border border-amber-100 text-[10px] text-amber-900 leading-tight">
-                                <span className="font-bold">Justificativa: </span>
-                                {res.justificativa?.texto ?? res.justificativaTexto}
-                              </div>
-                            )}
-                            {res.observacao && (
-                              <div className="mt-1 text-[10px] text-slate-500 italic leading-tight border-l-2 border-slate-200 pl-1.5">
-                                Obs: {res.observacao}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 align-top text-right">
-                            <BadgeStatusItem status={res.status} />
-                          </td>
+              ) : (
+                grupos.map(([grupoKey, itensGrupo]) => (
+                  <div key={grupoKey} className="rounded-xl border overflow-hidden bg-white shadow-sm flex flex-col" style={{ borderColor: 'var(--color-border)' }}>
+                    <div 
+                      className="border-b px-3 py-2.5 font-bold text-xs tracking-wider uppercase text-center text-white" 
+                      style={{ background: 'var(--color-primary, #7e2065)', color: '#ffffff' }}
+                    >
+                      {grupoKey === 'OUTROS' ? 'Outros' : (ROTULO_GRUPO_CURTO[grupoKey as GrupoItem] ?? ROTULO_GRUPO[grupoKey as GrupoItem] ?? grupoKey)}
+                    </div>
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="border-b border-slate-300 bg-slate-200">
+                        <tr>
+                          <th className="py-2 px-3 font-bold text-slate-700 text-[11px] tracking-wider uppercase w-full">
+                            {grupoKey === 'OUTROS' ? 'Item de Teste' : (COLUNAS_GRUPO[grupoKey as GrupoItem]?.[0] ?? 'Item de Teste')}
+                          </th>
+                          <th className="py-2 px-3 font-bold text-slate-700 text-[11px] tracking-wider uppercase text-right whitespace-nowrap">Status</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Coluna Telemetria / Coleta */}
-              <div className="rounded-xl border overflow-hidden bg-white shadow-sm flex flex-col" style={{ borderColor: 'var(--color-border)' }}>
-                <div className="bg-slate-100 border-b px-3 py-2 font-bold text-xs text-slate-700 tracking-wide uppercase text-center">
-                  Telemetria / Coleta
-                </div>
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead className="border-b bg-slate-50/50">
-                    <tr>
-                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase w-full">Item de Teste</th>
-                      <th className="py-2 px-3 font-semibold text-slate-500 text-[11px] uppercase text-right whitespace-nowrap">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {itensTelemetria.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="py-8 text-center text-slate-400 italic">
-                          Nenhum item encontrado.
-                        </td>
-                      </tr>
-                    ) : (
-                      itensTelemetria.map((res: any) => (
-                        <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-2.5 px-3 align-top min-w-0">
-                            <span className="font-semibold text-slate-800 break-words block mb-1 leading-tight">
-                              {res.item?.nome ?? 'Item'}
-                            </span>
-                            
-                            {(res.justificativa || res.justificativaTexto) && (
-                              <div className="mt-1.5 p-1.5 rounded bg-amber-50 border border-amber-100 text-[10px] text-amber-900 leading-tight">
-                                <span className="font-bold">Justificativa: </span>
-                                {res.justificativa?.texto ?? res.justificativaTexto}
-                              </div>
-                            )}
-                            {res.observacao && (
-                              <div className="mt-1 text-[10px] text-slate-500 italic leading-tight border-l-2 border-slate-200 pl-1.5">
-                                Obs: {res.observacao}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 align-top text-right">
-                            <BadgeStatusItem status={res.status} />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {itensGrupo.map((res: any) => (
+                          <tr key={res.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2.5 px-3 align-top min-w-0">
+                              <span className="font-semibold text-slate-800 break-words block mb-1 leading-tight">
+                                {res.item?.nome ?? 'Item'}
+                              </span>
+                              
+                              {(res.justificativa || res.justificativaTexto) && (
+                                <div className="mt-1.5 p-1.5 rounded bg-amber-50 border border-amber-100 text-[10px] text-amber-900 leading-tight">
+                                  <span className="font-bold">Justificativa: </span>
+                                  {res.justificativa?.texto ?? res.justificativaTexto}
+                                </div>
+                              )}
+                              {res.observacao && (
+                                <div className="mt-1 text-[10px] text-slate-500 italic leading-tight border-l-2 border-slate-200 pl-1.5">
+                                  Obs: {res.observacao}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 align-top text-right whitespace-nowrap">
+                              <BadgeStatusItem status={res.status} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -474,15 +447,15 @@ function BadgeStatusItem({ status }: { status: StatusResultado }) {
     COM_RESSALVA: { rotulo: 'Com Ressalva', bg: '#fef3c7', fg: '#b45309' },
     NAO_SUPORTADO: { rotulo: 'Não Suportado', bg: '#fee2e2', fg: '#b91c1c' },
     NAO_APLICAVEL: { rotulo: 'N/A', bg: '#f1f5f9', fg: '#64748b' },
-    NAO_TESTADO: { rotulo: 'Não Testado', bg: '#f8fafc', fg: '#94a3b8' },
+    NAO_TESTADO: { rotulo: 'Não Testado', bg: '#f1f5f9', fg: '#64748b' },
   }
 
   const conf = configs[status] ?? configs.NAO_TESTADO
 
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shrink-0 select-none shadow-xs"
-      style={{ background: conf.bg, color: conf.fg, border: '1px solid rgba(0,0,0,0.05)' }}
+      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shrink-0 select-none shadow-xs whitespace-nowrap leading-none"
+      style={{ background: conf.bg, color: conf.fg, border: '1px solid rgba(0,0,0,0.06)' }}
     >
       {conf.rotulo}
     </span>

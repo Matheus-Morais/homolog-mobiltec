@@ -1062,6 +1062,14 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 |---|---|---|
 | D452 | Aviso estilizado de revisão com identificação do técnico emitente, eliminação de caixas escuras/verdes e alinhamento visual com o Design System | Em `parceiros.ts` (`montarDadosPainel`): inclui `historicoStatus` com o último registro de transição para `EM_REVISAO` e o usuário responsável, expondo o objeto `revisaoInfo` contendo o nome real do técnico da Mobiltec que solicitou a revisão (`tecnicoNome`), a mensagem exata (`mensagem`) e a data/hora do envio (`criadoEm`); em `tipos.ts`: declara a interface `RevisaoInfo` e a associa a `DispositivoPainelParceiro`; em `PainelParceiro.tsx`: elimina os blocos amarronzados e a pílula verde sobre fundo cinza escuro, substituindo-os por um card de aviso premium integrado ao Design System (cabeçalho com avatar roxo em gradiente da marca, nome do técnico e indicador temporal sutil, caixa de mensagem nítida sobre `var(--color-card)`, linha de ciência/confirmação discreta com dot esmeralda sutil, e botão de confirmação com gradiente roxo oficial); e remove o link redundante 'Ajustar itens na bateria' do corpo, unificando a ação contextual no botão de rodapé 'Ajustar testes na bateria →'. |
 
+---
+
+## Etapa 84 — Visibilidade dos Dispositivos PoS da TNS e Redesign dos Cards de Teste e Status em Linha Única (D453)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D453 | Inclusão de dispositivos da categoria PoS para o ambiente TNS e redesign da modal de testes com cards por grupo temático, cabeçalhos roxos e status em linha única | Em `parceiros.ts` (`montarDadosPainel`): restaura a associação da categoria PoS (`categoria: { slug: 'pos' }`) e o fallback de homologações para parceiros do ambiente TNS (`empresa: 'TNS'/'TNSI'` ou `email: 'hgomes@tnsi.com'`), garantindo que administradores visualizem os 31 dispositivos PoS no painel do parceiro TNS sem comprometer o isolamento estrito de parceiros mono-empresa (como 'Teste'); e em `ModalInformacoesHomologacao.tsx`: elimina o card estático "Bateria de Testes", agrupando dinamicamente os itens por categoria temática (Telemetria, Coleta, etc.) com cabeçalho em roxo oficial (`var(--color-primary)` com texto branco), cabeçalho de colunas com cinza mais escuro contrastante (`bg-slate-200 border-slate-300` com tipografia em negrito), e formatação compacta do badge de status com `whitespace-nowrap` e `leading-none`, impedindo que "Não Testado" quebre em múltiplas linhas. |
+
 
 
 
