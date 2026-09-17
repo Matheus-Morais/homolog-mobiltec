@@ -24,9 +24,15 @@ import {
 
 const INCLUDE_CERTIFICADO = {
   dispositivo: true,
-  responsavel: { select: { nome: true } },
+  responsavel: { select: { id: true, nome: true, empresa: true } },
   gerente: { select: { nome: true } },
   apoio: { select: { nome: true } },
+  historicoStatus: {
+    where: { statusNovo: 'APROVADO' },
+    orderBy: { criadoEm: 'desc' },
+    take: 1,
+    select: { usuario: { select: { nome: true } } },
+  },
   resultados: {
     include: {
       item: true,
@@ -34,6 +40,19 @@ const INCLUDE_CERTIFICADO = {
     },
   },
 } as const
+
+const GERENTE_VALIDACAO_MOBILTEC = 'Rafael Cordeiro'
+
+function projetarParaAmbiente(h: any, papel: string) {
+  if (papel === 'PARCEIRO') return h
+  return {
+    ...h,
+    assinaturaResponsavel: h.historicoStatus?.[0]?.usuario?.nome || h.responsavel?.nome || '',
+    assinaturaGerente: GERENTE_VALIDACAO_MOBILTEC,
+    assinaturaApoio: null,
+    apoio: null,
+  }
+}
 
 const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -65,6 +84,19 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
     const naBateria = new Set(daBateria.map((b) => b.itemId))
     h.resultados = h.resultados.filter((r) => naBateria.has(r.itemId))
     return h
+  }
+
+  async function parceiroPodeAcessar(h: any, usuarioId: string) {
+    if (h.responsavel?.id === usuarioId) return true
+    const usuario = await fastify.prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { empresa: true },
+    })
+    return Boolean(
+      usuario?.empresa &&
+        h.responsavel?.empresa &&
+        usuario.empresa.trim().toLowerCase() === h.responsavel.empresa.trim().toLowerCase(),
+    )
   }
 
   /** Renderiza o HTML em PDF A4 com o Playwright (§8.4) */
@@ -108,6 +140,9 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Parceiro só visualiza certificado se homologação estiver aprovada ou publicada
     if (request.user.papel === 'PARCEIRO') {
+      if (!(await parceiroPodeAcessar(h, request.user.id))) {
+        return reply.status(403).send({ erro: 'Este certificado não pertence ao ambiente do parceiro autenticado.' })
+      }
       if (h.status !== 'APROVADO' && h.status !== 'PUBLICADO') {
         return reply.status(403).send({ erro: 'O certificado só fica disponível para parceiros após aprovação oficial pela Mobiltec.' })
       }
@@ -118,7 +153,7 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
     return reply
       .type('text/html; charset=utf-8')
       .send(
-        gerarCertificadoHtml(h as unknown as HomologacaoCertificado, {
+        gerarCertificadoHtml(projetarParaAmbiente(h, request.user.papel) as unknown as HomologacaoCertificado, {
           editavel: podeEditar,
         }),
       )
@@ -262,6 +297,9 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Parceiro só faz download se a homologação estiver aprovada ou publicada
     if (request.user.papel === 'PARCEIRO') {
+      if (!(await parceiroPodeAcessar(h, request.user.id))) {
+        return reply.status(403).send({ erro: 'Este certificado não pertence ao ambiente do parceiro autenticado.' })
+      }
       if (h.status !== 'APROVADO' && h.status !== 'PUBLICADO') {
         return reply.status(403).send({ erro: 'O download do certificado só é permitido após aprovação formal pela Mobiltec.' })
       }
@@ -278,7 +316,10 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
       '_',
     )
 
-    if (emitido && emitido.arquivoUrl) {
+    // O arquivo arquivado pode ter sido emitido no ambiente do parceiro.
+    // Usuários Mobiltec precisam de uma renderização contextual nova para
+    // garantir que o Apoio adicional nunca vaze pelo PDF histórico.
+    if (request.user.papel === 'PARCEIRO' && emitido && emitido.arquivoUrl) {
       if (emitido.arquivoUrl.startsWith('http://') || emitido.arquivoUrl.startsWith('https://')) {
         try {
           const resp = await fetch(emitido.arquivoUrl)
@@ -310,7 +351,7 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    const html = gerarCertificadoHtml(h as unknown as HomologacaoCertificado)
+    const html = gerarCertificadoHtml(projetarParaAmbiente(h, request.user.papel) as unknown as HomologacaoCertificado)
 
     try {
       const pdf = await renderizarPdf(html)
@@ -366,7 +407,7 @@ const certificadoRoutes: FastifyPluginAsync = async (fastify) => {
         !r.justificativa?.texto?.trim(),
     ).length
     const pendentes = naoTestados + semJustificativa
-    const html = gerarCertificadoHtml(h as unknown as HomologacaoCertificado)
+    const html = gerarCertificadoHtml(projetarParaAmbiente(h, request.user.papel) as unknown as HomologacaoCertificado)
 
     let pdf: Buffer
     try {

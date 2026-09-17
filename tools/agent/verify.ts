@@ -33,6 +33,17 @@ export function runStep(step: Step): { success: boolean; output: string } {
     stdio: 'inherit',
     cwd: step.cwd ?? process.cwd(),
     shell: true,
+    env: {
+      ...process.env,
+      // O caminho global pode estar protegido por ACLs no Windows. Quando o
+      // cache temporário existir, os roteiros Playwright usam-no sem exigir
+      // configuração manual a cada execução.
+      ...(process.env.PLAYWRIGHT_BROWSERS_PATH
+        ? {}
+        : process.platform === 'win32'
+          ? { PLAYWRIGHT_BROWSERS_PATH: `${process.env.TEMP ?? process.cwd()}\\homolog-playwright-browsers` }
+          : {}),
+    },
   });
   const duration = ((Date.now() - start) / 1000).toFixed(1);
 

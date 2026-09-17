@@ -1171,5 +1171,11 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 | # | Decisão | Justificativa |
 |---|---|---|
 | D469 | A custódia de `EM_REVISAO` definida na D465 também abrange a foto do dispositivo | O parceiro atribuído à homologação pode substituir a foto em `RASCUNHO` ou `EM_REVISAO`; em `AGUARDANDO_ANALISE` e nos estados finais a ação continua bloqueada na interface e com HTTP 403 na API. A autorização deve considerar o vínculo do usuário com a homologação editável do dispositivo, e não apenas a existência de qualquer homologação histórica aprovada para o mesmo modelo |
+
+## Etapa 94 — Regra de certificado por ambiente (D471)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D471 | O certificado é uma projeção contextual somente de apresentação: no painel do parceiro preserva o Apoio adicional opcional; no painel público Mobiltec omite esse dado, usa o Admin que aprovou como Responsável técnico e fixa `Rafael Cordeiro` como Gerente de validação | O mesmo dispositivo pode ser consultado nos dois ambientes, mas o reconhecimento do apoio é privado do parceiro. A política deve ser resolvida no backend a partir do contexto autenticado e aplicada igualmente ao preview e ao PDF, sem alterar a homologação nem seu snapshot imutável |
 | D470 | Observação da funcionalidade e justificativa técnica são informações independentes na ficha compartilhada | O `ResultadoHomologacao` não pode escolher uma com `justificativa ?? observacao`: quando ambas existem, deve expor as duas com rótulos distintos e manter cada observação vinculada à linha da respectiva funcionalidade, inclusive no modal "Exibir informações" do Admin |
 
