@@ -430,6 +430,41 @@ function CardDispositivoParceiro({
             <FotoDispositivo url={d.fotoUrl} nome={d.nomeComercial} altura={76} semBorda />
           </div>
 
+          <div className="flex-1 min-w-0 space-y-1 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Android:</span>
+              <span className="font-semibold text-[var(--color-foreground)]">{d.versaoSo}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Agente:</span>
+              <span className="font-semibold text-[var(--color-foreground)]">{d.versaoAgente}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Gerenciamento:</span>
+              <span className="font-medium text-[var(--color-muted-foreground)] truncate max-w-[110px]">
+                {d.gerenciamento === 'ANDROID_ENTERPRISE' ? 'Enterprise' : 'Legado'}
+              </span>
+            </div>
+
+            {/* Barra de Progresso de Testes */}
+            <div className="pt-1.5">
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-[var(--color-muted-foreground)]">Testes executados:</span>
+                <span className="font-semibold text-[var(--color-foreground)]">{pctAvaliado}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${pctAvaliado}%`,
+                    background: d.homologado ? 'var(--color-primary)' : '#6366f1',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* O apontamento que trouxe o dispositivo de volta para a bancada (D435) */}
       {d.revisaoPendente && (

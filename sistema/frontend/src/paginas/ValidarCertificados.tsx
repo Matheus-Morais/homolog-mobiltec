@@ -327,17 +327,6 @@ export function ValidarCertificados() {
               Aguardando Validação ({pendentes.length})
             </button>
             <button
-              onClick={() => setAba('revisao')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                aba === 'revisao' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
-              }`}
-              style={{
-                background: aba === 'revisao' ? 'var(--gradient-brand-purple)' : 'transparent',
-              }}
-            >
-              Em Revisão ({emRevisao.length})
-            </button>
-            <button
               onClick={() => setAba('em-revisao')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 aba === 'em-revisao' ? 'shadow-sm text-white' : 'text-muted-foreground hover:text-foreground'
@@ -410,13 +399,8 @@ export function ValidarCertificados() {
             <h3 className="text-base font-semibold" style={{ color: 'var(--color-foreground)' }}>
               {aba === 'pendentes'
                 ? 'Nenhum certificado pendente de validação'
-<<<<<<< HEAD
                 : aba === 'em-revisao'
                 ? 'Nenhum dispositivo em revisão'
-=======
-                : aba === 'revisao'
-                ? 'Nenhuma homologação em revisão técnica no momento'
->>>>>>> upstream/main
                 : 'Nenhuma homologação encontrada'}
             </h3>
             <p className="text-xs sm:text-sm mt-1 max-w-md" style={{ color: 'var(--color-muted-foreground)' }}>
@@ -500,23 +484,35 @@ export function ValidarCertificados() {
                             <span
                               className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold select-none"
                               style={{
-                                background:
-                                  isPendente || isEmRevisao
-                                    ? 'var(--color-warning-soft)'
-                                    : 'var(--color-muted)',
-                                color: isPendente
-                                  ? 'var(--color-warning-fg)'
-                                  : isEmRevisao
-                                  ? 'var(--color-brand-orange)'
-                                  : 'var(--color-muted-foreground)',
+                                color: 'var(--color-primary)',
+                                background: 'rgba(126, 32, 101, 0.08)',
+                                border: '1px solid rgba(126, 32, 101, 0.25)',
                               }}
                             >
-                              {isPendente
-                                ? 'Em Validação'
-                                : isEmRevisao
-                                ? 'Com o parceiro'
-                                : h.status}
+                              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--color-primary)' }} />
+                              <span>Em Validação</span>
                             </span>
+                          ) : ehRevisao ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold select-none"
+                              style={{
+                                color: '#b45309',
+                                background: '#fef3c7',
+                                border: '1px solid rgba(245, 158, 11, 0.25)',
+                              }}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                              <span>Em Revisão</span>
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold select-none"
+                              style={{
+                                background: 'var(--color-muted)',
+                                color: 'var(--color-muted-foreground)',
+                              }}
+                            >
+                              {h.status}
                             </span>
                           )}
 
@@ -617,7 +613,6 @@ export function ValidarCertificados() {
                         )}
                       </div>
                     </div>
-                  </div>
 
                   {/* O apontamento que devolveu o dispositivo ao parceiro,
                       para o Admin lembrar o que pediu quando ele voltar */}
