@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "npx prisma generate --schema=sistema/backend/prisma/schema.prisma && npm --prefix sistema/frontend install --include=dev && npm run build --prefix sistema/frontend",
-    "agent": "tsx tools/agent/cli.ts"
+    "agent": "node tools/agent/bootstrap.cjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

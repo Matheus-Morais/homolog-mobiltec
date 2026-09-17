@@ -816,7 +816,7 @@ export function gerarCertificadoHtml(
     <div class="assinaturas">
       <div class="assinatura"><span class="valor">${esc(nomeResponsavel)}</span>${lapis('assinaturaResponsavel', '')}<br><span class="cargo">Responsável Técnico</span></div>
       <div class="assinatura"><span class="valor">${esc(nomeGerente)}</span>${lapis('assinaturaGerente', '')}<br><span class="cargo">Gerente de Validação</span></div>
-      <div class="assinatura"><span class="valor">${esc(nomeApoio)}</span>${lapis('assinaturaApoio', '')}<br><span class="cargo">Apoio Adicional</span></div>
+        ${nomeApoio ? `<div class="assinatura"><span class="valor">${esc(nomeApoio)}</span>${lapis('assinaturaApoio', '')}<br><span class="cargo">Apoio Adicional</span></div>` : ''}
     </div>
     <div class="emissao">${esc(h.localEmissao)}, ${esc(dataExtenso(h.dataFim ?? new Date()))}</div>
     <div class="confidencial">DOCUMENTO TÉCNICO CONFIDENCIAL – MOBILTEC</div>
