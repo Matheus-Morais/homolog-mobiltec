@@ -768,6 +768,9 @@ export function Layout() {
 
   const revisoesPendentes = ehParceiro ? (notificacoesData?.pendentesConfirmacao ?? 0) : 0
 
+  // O selo do menu conta o que espera ação da Mobiltec, e só isso (D436).
+  // `EM_REVISAO` está com o parceiro: contá-lo aqui mantinha o número aceso
+  // sobre uma fila de validação vazia.
   const homologacoesPendentes = useMemo(() => {
     return todasHomologacoes.filter((h) => h.status === 'AGUARDANDO_ANALISE')
   }, [todasHomologacoes])

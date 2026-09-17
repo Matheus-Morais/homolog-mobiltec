@@ -3,6 +3,7 @@ import { api } from '@/lib/api'
 import type {
   DashboardHomologacao,
   Fonte,
+  HistoricoStatus,
   Homologacao,
   Justificativa,
   StatusHomologacao,
@@ -271,6 +272,11 @@ export interface ItemListaHomologacao {
     justificativaId: string | null
     justificativaTexto: string | null
   }[]
+  /**
+   * Só o último envio para revisão, quando houve um. A lista traz no máximo
+   * um item — o histórico completo sai em `GET /homologacoes/:id` (D435).
+   */
+  historicoStatus?: HistoricoStatus[]
 }
 
 export function useListaHomologacoes(filtros?: { status?: string; responsavelId?: string }) {

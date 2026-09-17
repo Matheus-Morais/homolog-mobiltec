@@ -16,7 +16,8 @@ const BUCKET_ANEXOS = 'anexos'
 const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/+$/, '')
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-export const ehSupabaseStorageAtivo = Boolean(supabaseUrl && supabaseServiceKey)
+export const ehSupabaseStorageAtivo =
+  process.env.NODE_ENV !== 'test' && Boolean(supabaseUrl && supabaseServiceKey)
 
 function obterDiretorioUploads(subpasta: string): string {
   const base = process.env.UPLOAD_DIR ?? (process.env.VERCEL ? '/tmp/uploads' : './uploads')

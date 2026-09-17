@@ -1141,4 +1141,35 @@ encerra as sete rodadas anteriores: **assinatura do produto, não botão.**
 
 
 
+---
+
+## Etapa 91 — Baterias de Teste: Criação, Edição e Reordenação (D460–D462)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D460 | Baterias de teste múltiplas e independentes por tipo de dispositivo (branch feat) | O schema já suporta N baterias por categoria (relação 1:N `Categoria → BateriaTeste`), mas a UI e a lógica tratavam como 1:1. Agora o admin pode criar baterias adicionais dentro de um tipo existente, e na criação de homologação escolhe qual bateria usar. Atende ao pedido de "criar e configurar novas baterias de testes, além das que já existem" |
+| D461 | Reordenação de itens da bateria via endpoint PATCH em lote | Nova rota `PATCH /baterias/:id/ordem` aceita array `[{ itemId, ordem }]` e atualiza as posições em transação. A UI exibe campos numéricos de ordem editáveis — mapeamento direto do requisito "cada teste deverá possuir um número de ordem" e "o administrador poderá alterar esses números" |
+| D462 | Rota PATCH /baterias/:id para edição de bateria existente | Só existia `POST /baterias` (criação). Nova rota permite renomear, adicionar/remover itens e desativar bateria. Ao receber `itens`, faz reconciliação similar ao `PATCH /tipos-dispositivo` (D369): sincroniza homologações abertas que usam essa bateria |
+
+---
+
+## Etapa 92 — Fluxo de Revisão do Certificado (Admin ⇄ Parceiro) (D463–D469)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D463 | Ficha de informações extraída para `componentes/homologacao/FichaHomologacao.tsx` (`FichaUnidadeTestada` + `ResultadoHomologacao`), consumida pela página `/dispositivos/:id` e por `ModalInformacoesHomologacao` na tela de Validar Certificado | Pedido do usuário (Item 1): o botão "Exibir informações" da validação abre "o mesmo card" da vitrine. Em modal, e não navegando, para o Admin não perder a fila, a busca e a aba ao conferir cada dispositivo. São dois componentes e não um porque na página a unidade testada fica dentro do card com os botões do certificado e o resultado vem abaixo dele — duas cópias do mesmo documento divergiriam na primeira mudança |
+| D464 | Observações Gerais do parceiro passam a integrar a ficha (`BlocoObservacoesParceiro`); os botões "Matriz" e "Observações" saem da tela de Validar Certificado | Pedido do usuário (Item 1). A premissa do pedido — "esse card já apresenta as observações registradas pelo parceiro" — não era verdadeira: `DetalheDispositivo` mostrava só a justificativa item a item, nunca as Observações Gerais com anexos (D421). Remover o botão sem mover o conteúdo tiraria do Admin os logs e prints que sustentam a validação |
+| D465 | `EM_REVISAO` devolve a custódia ao parceiro: ele reedita ficha, resultados e observações, e reenvia com `EM_REVISAO → AGUARDANDO_ANALISE`. `AGUARDANDO_ANALISE` segue somente-leitura para ele | Pedido do usuário (Item 3): criar o ciclo Revisão → Ajustes → Nova avaliação sem recriar a homologação. Revisão **não** é reteste (Regra Inalienável 4): é o mesmo registro voltando para edição. Implementado em `TRANSICOES_PARCEIRO` e `STATUS_EDITAVEIS_PARCEIRO` (`lib/transicoes.ts`), espelhados por `ehSomenteLeitura` no frontend — se uma lista mudar, a outra muda junto, ou a tela libera o que a API recusa |
+| D466 | Motivo da revisão obrigatório (mínimo 10 caracteres) em `AGUARDANDO_ANALISE → EM_REVISAO`, e exposto ao parceiro na matriz, na ficha e no painel via `AvisoRevisao` | O motivo já era gravado em `HistoricoStatus.motivo` desde sempre e **nunca era lido em lugar nenhum**: o dispositivo voltava para a bancada sem dizer o que ajustar, e o ciclo do Item 3 não fecharia. A exigência vale só na devolução real — `RASCUNHO → EM_REVISAO` é escala interna do "Finalizar" da Mobiltec a caminho de `APROVADO` (`ModalFinalizar`), onde não há parceiro a quem instruir |
+| D467 | A aba "Pendentes" da tela de validação passa a conter apenas `AGUARDANDO_ANALISE`; `EM_REVISAO` ganha aba própria, sem botões de aprovação | Item 3 pede que o dispositivo "volte a aparecer" para o Admin ao ser reenviado — o que pressupõe que ele saia enquanto está com o parceiro. Antes as duas situações compartilhavam a fila: o contador de pendências mentia e "Aprovar & Emitir" aparecia sobre um dispositivo que a Mobiltec nem tinha em mãos |
+| D468 | Regra global `button:not(:disabled) { cursor: pointer }` em `index.css` | Pedido do usuário (Item 2). Causa raiz: o Tailwind 4 removeu `cursor: pointer` do preflight dos botões, então o cursor só aparecia onde alguém escreveu `cursor-pointer` na classe. O botão de revisão chegou a produção com a seta do sistema e a paleta `muted-foreground`, parecendo desabilitado. A regra devolve o comportamento anterior para toda a aplicação; `:disabled` vira `not-allowed` |
+
+---
+
+## Etapa 93 — Ajustes no fluxo de revisão de dispositivos (D469–D470)
+
+| # | Decisão | Justificativa |
+|---|---|---|
+| D469 | A custódia de `EM_REVISAO` definida na D465 também abrange a foto do dispositivo | O parceiro atribuído à homologação pode substituir a foto em `RASCUNHO` ou `EM_REVISAO`; em `AGUARDANDO_ANALISE` e nos estados finais a ação continua bloqueada na interface e com HTTP 403 na API. A autorização deve considerar o vínculo do usuário com a homologação editável do dispositivo, e não apenas a existência de qualquer homologação histórica aprovada para o mesmo modelo |
+| D470 | Observação da funcionalidade e justificativa técnica são informações independentes na ficha compartilhada | O `ResultadoHomologacao` não pode escolher uma com `justificativa ?? observacao`: quando ambas existem, deve expor as duas com rótulos distintos e manter cada observação vinculada à linha da respectiva funcionalidade, inclusive no modal "Exibir informações" do Admin |
 

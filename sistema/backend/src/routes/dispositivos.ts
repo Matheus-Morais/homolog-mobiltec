@@ -8,6 +8,7 @@
  */
 import { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { parceiroPodeAlterarFoto } from '../lib/autorizacao-foto.js'
 import { salvarFotoDispositivo } from '../lib/storage.js'
 
 /**
@@ -35,6 +36,12 @@ const TIPOS_IMAGEM: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/webp': '.webp',
 }
+
+const VINCULO_FOTO_SELECT = {
+  status: true,
+  responsavelId: true,
+  apoioId: true,
+} as const
 
 const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /dispositivos
@@ -149,19 +156,20 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
     const body = criarDispositivoSchema.partial().parse(request.body)
 
     if (request.user.papel === 'PARCEIRO' && 'fotoUrl' in body) {
-      const homologacaoBloqueada = await fastify.prisma.homologacao.findFirst({
-        where: {
-          dispositivoId: id,
-          OR: [
-            { homologado: true },
-            { status: { in: ['APROVADO', 'PUBLICADO', 'AGUARDANDO_ANALISE', 'EM_REVISAO'] } },
-          ],
-        },
+      const dispositivo = await fastify.prisma.dispositivo.findUnique({
+        where: { id },
+        select: { id: true },
+      })
+      if (!dispositivo) return reply.status(404).send({ erro: 'Dispositivo não encontrado' })
+
+      const homologacoes = await fastify.prisma.homologacao.findMany({
+        where: { dispositivoId: id },
+        select: VINCULO_FOTO_SELECT,
       })
 
-      if (homologacaoBloqueada) {
+      if (!parceiroPodeAlterarFoto(homologacoes, request.user.id)) {
         return reply.status(403).send({
-          erro: 'Parceiros não podem alterar a imagem de um dispositivo após a homologação ou validação.',
+          erro: 'Parceiros só podem alterar a foto de dispositivos com homologação atribuída em rascunho ou revisão.',
         })
       }
     }
@@ -189,24 +197,24 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
     if (!dispositivo) return reply.status(404).send({ erro: 'Dispositivo não encontrado' })
 
     if (request.user.papel === 'PARCEIRO') {
-      const homologacaoBloqueada = await fastify.prisma.homologacao.findFirst({
-        where: {
-          dispositivoId: id,
-          OR: [
-            { homologado: true },
-            { status: { in: ['APROVADO', 'PUBLICADO', 'AGUARDANDO_ANALISE', 'EM_REVISAO'] } },
-          ],
-        },
+      const homologacoes = await fastify.prisma.homologacao.findMany({
+        where: { dispositivoId: id },
+        select: VINCULO_FOTO_SELECT,
       })
 
-      if (homologacaoBloqueada) {
+      if (!parceiroPodeAlterarFoto(homologacoes, request.user.id)) {
         return reply.status(403).send({
-          erro: 'Parceiros não podem alterar a imagem de um dispositivo após a homologação ou validação.',
+          erro: 'Parceiros só podem alterar a foto de dispositivos com homologação atribuída em rascunho ou revisão.',
         })
       }
     }
 
-    const arquivo = await request.file()
+    let arquivo
+    try {
+      arquivo = await request.file({ limits: { fileSize: 8 * 1024 * 1024 } })
+    } catch {
+      return reply.status(413).send({ erro: 'Arquivo muito grande. O limite é 8 MB.' })
+    }
     if (!arquivo) return reply.status(400).send({ erro: 'Nenhum arquivo enviado.' })
 
     const extensao = TIPOS_IMAGEM[arquivo.mimetype]
@@ -221,6 +229,10 @@ const dispositivoRoutes: FastifyPluginAsync = async (fastify) => {
       conteudo = await arquivo.toBuffer()
     } catch {
       // O @fastify/multipart lança quando o arquivo estoura o limite configurado
+      return reply.status(413).send({ erro: 'Arquivo muito grande. O limite é 8 MB.' })
+    }
+
+    if (arquivo.file.truncated || conteudo.length > 8 * 1024 * 1024) {
       return reply.status(413).send({ erro: 'Arquivo muito grande. O limite é 8 MB.' })
     }
 

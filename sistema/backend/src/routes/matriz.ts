@@ -110,6 +110,19 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
           },
         },
         _count: { select: { certificados: true } },
+        // Só o último envio para revisão, e só o que a coluna precisa: o
+        // apontamento que o parceiro tem de atender (D435). `take: 1` mantém
+        // a planilha leve — o histórico completo sai em GET /homologacoes/:id.
+        historicoStatus: {
+          where: { statusNovo: StatusHomologacao.EM_REVISAO },
+          orderBy: { criadoEm: 'desc' },
+          take: 1,
+          select: {
+            motivo: true,
+            criadoEm: true,
+            usuario: { select: { nome: true } },
+          },
+        },
       },
       orderBy: { criadoEm: 'desc' },
     })
@@ -132,6 +145,18 @@ const matrizRoutes: FastifyPluginAsync = async (fastify) => {
             atual.resultados.map(r => [r.itemId, r]),
           ),
         },
+        // Fora do objeto `homologacao` de propósito: não é campo do registro,
+        // é o apontamento em aberto. Só existe enquanto o status for
+        // EM_REVISAO — depois que o parceiro reenvia, o aviso some da tela
+        // junto com o motivo que o gerou.
+        revisaoPendente:
+          atual.status === StatusHomologacao.EM_REVISAO && atual.historicoStatus[0]
+            ? {
+                motivo: atual.historicoStatus[0].motivo,
+                solicitadoEm: atual.historicoStatus[0].criadoEm,
+                solicitadoPor: atual.historicoStatus[0].usuario?.nome ?? null,
+              }
+            : null,
         homologacoesAnteriores: anteriores.map(h => ({
           id: h.id,
           versaoAgente: h.versaoAgente,

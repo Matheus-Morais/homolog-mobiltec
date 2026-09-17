@@ -3,6 +3,7 @@
  */
 import { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { StatusResultado } from '@prisma/client'
 
 const catalogoRoutes: FastifyPluginAsync = async (fastify) => {
   // ============================================================
@@ -123,6 +124,161 @@ const catalogoRoutes: FastifyPluginAsync = async (fastify) => {
       include: { itens: { include: { item: true } } },
     })
     return reply.status(201).send(bateria)
+  })
+
+  fastify.patch('/baterias/:id', { onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR'])] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const schema = z.object({
+      nome: z.string().min(1).optional(),
+      descricao: z.string().optional(),
+      ativo: z.boolean().optional(),
+      itens: z.array(z.object({
+        itemId: z.string().uuid(),
+        ordem: z.number().int().min(0),
+        obrigatorio: z.boolean().default(true),
+      })).optional(),
+    })
+    const body = schema.parse(request.body)
+    const { itens, ...dadosBateria } = body
+
+    return await fastify.prisma.$transaction(async (tx) => {
+      if (Object.keys(dadosBateria).length > 0) {
+        await tx.bateriaTeste.update({ where: { id }, data: dadosBateria })
+      }
+
+      if (itens) {
+        const atuais = await tx.bateriaItem.findMany({
+          where: { bateriaId: id },
+          select: { itemId: true },
+        })
+        const idsAtuais = atuais.map((i) => i.itemId)
+        const idsNovos = itens.map((i) => i.itemId)
+
+        const entrando = idsNovos.filter((i) => !idsAtuais.includes(i))
+        const saindo = idsAtuais.filter((i) => !idsNovos.includes(i))
+
+        if (saindo.length) {
+          await tx.bateriaItem.deleteMany({
+            where: { bateriaId: id, itemId: { in: saindo } },
+          })
+        }
+
+        for (const i of itens) {
+          if (entrando.includes(i.itemId)) {
+            await tx.bateriaItem.create({
+              data: { bateriaId: id, itemId: i.itemId, ordem: i.ordem, obrigatorio: i.obrigatorio },
+            })
+          } else {
+            await tx.bateriaItem.update({
+              where: { bateriaId_itemId: { bateriaId: id, itemId: i.itemId } },
+              data: { ordem: i.ordem, obrigatorio: i.obrigatorio },
+            })
+          }
+        }
+
+        const abertas = await tx.homologacao.findMany({
+          where: { bateriaId: id, status: { in: ['RASCUNHO', 'EM_REVISAO'] } },
+          select: { id: true },
+        })
+        const idsAbertas = abertas.map((h) => h.id)
+
+        if (idsAbertas.length) {
+          if (entrando.length) {
+            await tx.resultado.createMany({
+              data: idsAbertas.flatMap((homologacaoId) =>
+                entrando.map((itemId) => ({ homologacaoId, itemId, status: StatusResultado.NAO_TESTADO }))
+              ),
+              skipDuplicates: true,
+            })
+          }
+
+          if (saindo.length) {
+            const avaliados = await tx.resultado.findMany({
+              where: {
+                homologacaoId: { in: idsAbertas },
+                itemId: { in: saindo },
+                OR: [
+                  { status: { not: StatusResultado.NAO_TESTADO } },
+                  { NOT: { observacao: null } },
+                  { NOT: { justificativaId: null } },
+                  { NOT: { justificativaTexto: null } },
+                ],
+              },
+              select: { id: true },
+            })
+            const protegidos = new Set(avaliados.map((r) => r.id))
+
+            await tx.resultado.deleteMany({
+              where: {
+                homologacaoId: { in: idsAbertas },
+                itemId: { in: saindo },
+                id: { notIn: [...protegidos] },
+              },
+            })
+          }
+        }
+      }
+
+      return tx.bateriaTeste.findUnique({
+        where: { id },
+        include: {
+          categoria: true,
+          itens: {
+            include: { item: true },
+            orderBy: [{ item: { grupo: 'asc' } }, { ordem: 'asc' }],
+          },
+        },
+      })
+    })
+  })
+
+  fastify.patch('/baterias/:id/ordem', { onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR'])] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const schema = z.object({
+      itens: z.array(z.object({
+        itemId: z.string().uuid(),
+        ordem: z.number().int().min(0),
+      })).min(1),
+    })
+    const body = schema.parse(request.body)
+
+    const bateria = await fastify.prisma.bateriaTeste.findUnique({ where: { id } })
+    if (!bateria) return reply.status(404).send({ erro: 'Bateria não encontrada' })
+
+    await fastify.prisma.$transaction(
+      body.itens.map((i) =>
+        fastify.prisma.bateriaItem.update({
+          where: { bateriaId_itemId: { bateriaId: id, itemId: i.itemId } },
+          data: { ordem: i.ordem },
+        })
+      )
+    )
+    return { ok: true, atualizados: body.itens.length }
+  })
+
+  fastify.delete('/baterias/:id', { onRequest: [fastify.exigirPapeis(['ADMIN', 'HOMOLOGADOR'])] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    
+    const bateria = await fastify.prisma.bateriaTeste.findUnique({
+      where: { id },
+      include: { _count: { select: { homologacoes: true } } },
+    })
+    
+    if (!bateria) return reply.status(404).send({ erro: 'Bateria não encontrada' })
+    
+    if (bateria._count.homologacoes > 0) {
+      return reply.status(409).send({
+        erro: `Esta bateria possui ${bateria._count.homologacoes} homologação(ões) vinculada(s). Desative-a em vez de apagar.`,
+        homologacoes: bateria._count.homologacoes,
+      })
+    }
+
+    await fastify.prisma.$transaction([
+      fastify.prisma.bateriaItem.deleteMany({ where: { bateriaId: id } }),
+      fastify.prisma.bateriaTeste.delete({ where: { id } }),
+    ])
+
+    return reply.status(204).send()
   })
 
   // ============================================================

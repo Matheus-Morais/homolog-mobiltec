@@ -8,7 +8,7 @@ import type { StatusHomologacao } from '@prisma/client'
 
 /**
  * Mapa de transições de status permitidas para usuários Mobiltec (ADMIN/HOMOLOGADOR).
- * Parceiros possuem regra própria mais restritiva (apenas RASCUNHO → AGUARDANDO_ANALISE).
+ * Parceiros possuem regra própria mais restritiva — ver TRANSICOES_PARCEIRO.
  */
 export const TRANSICOES_PERMITIDAS: Partial<Record<StatusHomologacao, StatusHomologacao[]>> = {
   RASCUNHO: ['EM_REVISAO', 'AGUARDANDO_ANALISE'] as StatusHomologacao[],
@@ -17,6 +17,36 @@ export const TRANSICOES_PERMITIDAS: Partial<Record<StatusHomologacao, StatusHomo
   APROVADO: ['PUBLICADO', 'RASCUNHO'] as StatusHomologacao[],
   REPROVADO: ['RASCUNHO'] as StatusHomologacao[],
 }
+
+/**
+ * Transições permitidas ao PARCEIRO (D434).
+ *
+ * São os dois momentos em que a homologação está sob custódia dele e ele a
+ * devolve para a Mobiltec:
+ *
+ * - `RASCUNHO` — a primeira submissão, no fim da bateria de testes.
+ * - `EM_REVISAO` — a resubmissão, depois de atender aos apontamentos do Admin.
+ *
+ * `AGUARDANDO_ANALISE` fica de fora de propósito: enquanto está na fila do
+ * Admin, a homologação é somente-leitura para o parceiro. Quem a tira de lá é
+ * a Mobiltec, aprovando ou mandando para revisão.
+ */
+export const TRANSICOES_PARCEIRO: Partial<Record<StatusHomologacao, StatusHomologacao[]>> = {
+  RASCUNHO: ['AGUARDANDO_ANALISE'] as StatusHomologacao[],
+  EM_REVISAO: ['AGUARDANDO_ANALISE'] as StatusHomologacao[],
+}
+
+/**
+ * Status em que o parceiro pode escrever: ficha, resultados e observações.
+ *
+ * É a mesma lista de chaves de TRANSICOES_PARCEIRO, e não por acaso — o
+ * parceiro edita exatamente enquanto a homologação está com ele, e a devolve
+ * com a transição correspondente. `ehSomenteLeitura` no frontend
+ * (`lib/tipos.ts`) é o espelho desta regra.
+ */
+export const STATUS_EDITAVEIS_PARCEIRO = Object.keys(
+  TRANSICOES_PARCEIRO,
+) as StatusHomologacao[]
 
 /**
  * Valida se uma transição de status é permitida para o papel informado.
@@ -36,15 +66,14 @@ export function validarTransicao(
     }
   }
 
-  // Parceiro: pode submeter para Aguardando Análise a partir de RASCUNHO ou EM_REVISAO
+  // Parceiro: regra estrita — só devolve para análise, a partir de rascunho
+  // ou de revisão (D434)
   if (papel === 'PARCEIRO') {
-    if (
-      (statusAtual !== 'RASCUNHO' && statusAtual !== 'EM_REVISAO') ||
-      novoStatus !== 'AGUARDANDO_ANALISE'
-    ) {
+    const permitidas = TRANSICOES_PARCEIRO[statusAtual as StatusHomologacao] ?? []
+    if (!permitidas.includes(novoStatus as StatusHomologacao)) {
       return {
         permitida: false,
-        erro: 'Parceiros só possuem permissão para submeter homologações em rascunho ou em revisão para Aguardando Análise.',
+        erro: 'Parceiros só possuem permissão para enviar homologações em rascunho ou em revisão para Aguardando Análise.',
       }
     }
     return { permitida: true }
